@@ -1,0 +1,17 @@
+.glass-panel {
+  background: var(--surface-glass);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+}
+
+.glass-panel-strong {
+  background: var(--surface-glass-strong);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+}

@@ -1,0 +1,44 @@
+.layout-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.layout-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.layout-navigator {
+  display: flex;
+  flex-direction: column;
+  border-top: none;
+  border-bottom: none;
+  border-left: none;
+  border-radius: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.layout-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.layout-inspector {
+  display: flex;
+  flex-direction: column;
+  border-top: none;
+  border-bottom: none;
+  border-right: none;
+  border-radius: 0;
+  z-index: 10;
+  overflow: hidden;
+}

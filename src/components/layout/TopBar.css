@@ -1,0 +1,123 @@
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-radius: 0;
+  z-index: 20;
+}
+
+.top-bar-left, .top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.top-bar-right {
+  justify-content: flex-end;
+}
+
+.top-bar-center {
+  flex: 2;
+  display: flex;
+  justify-content: center;
+}
+
+.app-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-subtle);
+  margin: 0 8px;
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.icon-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.topbar-search {
+  flex: 1;
+  max-width: 600px;
+}
+
+.topbar-search input {
+  width: 100%;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.topbar-search input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.2);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  color: var(--danger);
+  background: var(--surface-hover);
+}
