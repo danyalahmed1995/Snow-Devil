@@ -1,5 +1,6 @@
 import { useLayoutStore } from '../../stores/layout-store';
 import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
+import { BrowserHydrator } from '../../browser/BrowserHydrator';
 import './Layout.css';
 import { TopBar } from './TopBar';
 import { Navigator } from '../navigator/Navigator';
@@ -37,6 +38,7 @@ export function Layout() {
           </aside>
         )}
       </div>
+      <BrowserHydrator />
     </div>
   );
 }

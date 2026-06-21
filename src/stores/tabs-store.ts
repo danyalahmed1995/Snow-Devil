@@ -144,12 +144,12 @@ function migrateLegacyTabs(raw: unknown): { tabs: WorkspaceTab[]; activeTabId: s
       if (activeTabId === 'system:dashboard') {
         activeTabId = 'native:home';
       }
-    } else if (old.kind === 'map') {
+    } else if (old.kind === 'map' || old.kind === 'flow') {
       migrated.push({
-        id: 'native:map',
+        id: 'native:flow',
         family: 'native',
-        kind: 'map',
-        title: old.title || 'Map',
+        kind: 'flow',
+        title: old.title && old.title !== 'Map' ? old.title : 'Flow',
         pinned: old.isPinned ?? false,
         closable: old.isClosable ?? true,
         createdAt: now,
@@ -438,7 +438,7 @@ export const useTabsStore = create<TabsState>()(
     }),
     {
       name: 'github-graph-browser-tabs',
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         if (version < 2) {
           const migrated = migrateLegacyTabs(persisted);
@@ -465,6 +465,21 @@ export const useTabsStore = create<TabsState>()(
                     }
                     return t;
                 });
+            }
+            return state;
+        }
+        if (version === 3) {
+            const state = persisted as any;
+            if (state.tabs) {
+                state.tabs = state.tabs.map((t: any) => {
+                    if (t.family === 'native' && t.kind === 'map') {
+                        return { ...t, id: 'native:flow', kind: 'flow', title: 'Flow' };
+                    }
+                    return t;
+                });
+            }
+            if (state.activeTabId === 'native:map') {
+                state.activeTabId = 'native:flow';
             }
             return state;
         }

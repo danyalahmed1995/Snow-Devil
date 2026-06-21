@@ -39,6 +39,7 @@ pub fn run() {
             commands::sync::start_sync,
             commands::db::get_graph_data,
             commands::db::get_recent_repositories,
+            commands::db::get_all_repositories,
             commands::repo::get_repo_overview,
             commands::repo::get_repo_tree,
             commands::repo::get_repo_file,
@@ -49,6 +50,9 @@ pub fn run() {
             commands::repo::get_viewer_repositories,
             commands::repo::get_viewer_pull_requests,
             commands::repo::get_viewer_issues,
+            commands::flow::get_account_home_summary,
+            commands::flow::get_source_page,
+            commands::flow::get_item_timeline,
             // Browser commands
             browser::commands::browser_create,
             browser::commands::browser_activate,
