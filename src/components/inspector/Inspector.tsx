@@ -4,6 +4,7 @@ import { useFlowStore } from '../../stores/flow-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { parseGitHubIssueOrPR, parseRelease } from '../../lib/flow-parser';
 import type { FlowItem } from '../../types/flow';
+import { formatEntityTitle, formatEventTitle, formatSubjectType, humanizeSimulatorValue } from '../../simulator/simulator-presentation';
 import './Inspector.css';
 
 function useResolvedFlowItem(selectedItemId?: string): FlowItem | undefined {
@@ -34,7 +35,7 @@ function useResolvedFlowItem(selectedItemId?: string): FlowItem | undefined {
     }
 
     const homeQueries = queryClient.getQueriesData<any>({ queryKey: ['homeSummary'] });
-    for (const [_, data] of homeQueries) {
+    for (const [, data] of homeQueries) {
       if (!data) continue;
       if (data.previews) {
         for (const stageId of Object.keys(data.previews)) {
@@ -58,10 +59,167 @@ export function Inspector() {
 
   let content: React.ReactNode;
 
-  if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'flow' || activeTab.kind === 'home')) {
-    if (!selectedItem) {
-      content = <p className="inspector-empty">Select a card to view details</p>;
-    } else {
+  const isSimulator = activeTab && isNativeTab(activeTab) && (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator');
+
+  if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'flow' || activeTab.kind === 'home' || isSimulator)) {
+    const isSimEntity = isSimulator && flowState.selectedSimulatorEntity;
+    const isSimEvent = isSimulator && flowState.selectedSimulatorEvent;
+
+    if (!selectedItem && !isSimEntity && !isSimEvent) {
+      content = <p className="inspector-empty">Select a card or event to view details</p>;
+    } else if (isSimEvent) {
+      const ev = flowState.selectedSimulatorEvent;
+      content = (
+        <div className="inspector-details">
+          <section className="inspector-section inspector-header-section">
+             <div className="inspector-entity-row">
+                <span className="inspector-entity-badge" style={{ backgroundColor: 'var(--bg-tertiary)' }}>Event</span>
+             </div>
+             <h4 className="inspector-title">{humanizeSimulatorValue(ev.eventType)}</h4>
+             <p className="inspector-repository">{formatEventTitle(ev)}</p>
+          </section>
+          <section className="inspector-section">
+             <h5 className="section-title">Event Details</h5>
+             <div className="metadata">
+               <div className="meta-row">
+                 <span className="meta-key">Type:</span>
+                 <span className="meta-val">{humanizeSimulatorValue(ev.eventType)}</span>
+               </div>
+               <div className="meta-row">
+                 <span className="meta-key">Timestamp:</span>
+                 <span className="meta-val">{new Date(ev.occurredAt).toLocaleString()}</span>
+               </div>
+               {ev.actor && (
+                  <div className="meta-row">
+                    <span className="meta-key">Actor:</span>
+                    <span className="meta-val" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {ev.actor.avatarUrl && <img src={ev.actor.avatarUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%' }} />}
+                      {ev.actor.login}
+                    </span>
+                  </div>
+               )}
+               <div className="meta-row">
+                 <span className="meta-key">Provenance:</span>
+                 <span className="meta-val">{ev.metadata?.nativeOrDerived === "derived" ? "Derived" : "Native"}</span>
+               </div>
+               <div className="meta-row">
+                 <span className="meta-key">Source API:</span>
+                 <span className="meta-val">{ev.source}</span>
+               </div>
+               {ev.inclusionReason && (
+                 <div className="meta-row">
+                   <span className="meta-key">Inclusion:</span>
+                   <span className="meta-val">{humanizeSimulatorValue(ev.inclusionReason)}</span>
+                 </div>
+               )}
+             </div>
+          </section>
+        </div>
+      );
+    } else if (isSimEntity) {
+       const ent = flowState.selectedSimulatorEntity;
+       const isPR = ent.subjectType === 'pull_request';
+       const isIssue = ent.subjectType === 'issue';
+       const isRelease = ent.subjectType === 'release';
+
+       content = (
+        <div className="inspector-details">
+          <section className="inspector-section inspector-header-section">
+            <div className="inspector-entity-row">
+              <span className="inspector-entity-badge" style={{ backgroundColor: isPR ? 'var(--success-color)' : isIssue ? 'var(--accent-primary)' : isRelease ? 'var(--warning-color)' : 'var(--bg-tertiary)' }}>
+                {formatSubjectType(ent.subjectType)}
+              </span>
+              <span className="inspector-stage-badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>
+                {humanizeSimulatorValue(ent.stage)}
+              </span>
+            </div>
+            <h4 className="inspector-title">{formatEntityTitle(ent)}</h4>
+            <p className="inspector-repository">
+              {ent.repositoryId} {ent.number ? `#${ent.number}` : ''}
+            </p>
+          </section>
+
+          <section className="inspector-section">
+            <h5 className="section-title">Simulation State</h5>
+            <div className="metadata">
+              {ent.author && (
+                <div className="meta-row">
+                  <span className="meta-key">Author:</span>
+                  <span className="meta-val" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {ent.author.avatarUrl && <img src={ent.author.avatarUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%' }} />}
+                    {ent.author.login}
+                  </span>
+                </div>
+              )}
+              <div className="meta-row">
+                <span className="meta-key">Status:</span>
+                <span className="meta-val">{humanizeSimulatorValue(ent.status)}</span>
+              </div>
+              <div className="meta-row">
+                <span className="meta-key">Created:</span>
+                <span className="meta-val">{new Date(ent.createdAt).toLocaleString()}</span>
+              </div>
+              {ent.updatedAt && (
+                <div className="meta-row">
+                  <span className="meta-key">Updated:</span>
+                  <span className="meta-val">{new Date(ent.updatedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {ent.mergedAt && (
+                <div className="meta-row">
+                  <span className="meta-key">Merged:</span>
+                  <span className="meta-val">{new Date(ent.mergedAt).toLocaleString()}</span>
+                </div>
+              )}
+              {ent.releasedAt && (
+                <div className="meta-row">
+                  <span className="meta-key">Released:</span>
+                  <span className="meta-val">{new Date(ent.releasedAt).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="meta-row">
+                <span className="meta-key">Check State:</span>
+                <span className="meta-val">{humanizeSimulatorValue(ent.checkState)}</span>
+              </div>
+              <div className="meta-row">
+                <span className="meta-key">Review State:</span>
+                <span className="meta-val">{humanizeSimulatorValue(ent.reviewState)}</span>
+              </div>
+              <div className="meta-row">
+                <span className="meta-key">Commits:</span>
+                <span className="meta-val">{ent.commitCount}</span>
+              </div>
+              <div className="meta-row">
+                <span className="meta-key">Comments:</span>
+                <span className="meta-val">{ent.commentCount}</span>
+              </div>
+            </div>
+          </section>
+
+          {ent.inclusionReason && (
+            <section className="inspector-section">
+              <h5 className="section-title">Why it's here</h5>
+              <div className="meta-row">
+                <span className="meta-val" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{humanizeSimulatorValue(ent.inclusionReason)}</span>
+              </div>
+            </section>
+          )}
+
+          {ent.labels && ent.labels.length > 0 && (
+            <section className="inspector-section">
+              <h5 className="section-title">Labels</h5>
+              <div className="labels-container">
+                {ent.labels.map((lbl: any) => (
+                    <span key={lbl.name} className="label-badge" style={{ backgroundColor: `#555`, color: '#fff' }} title={lbl.name}>
+                      {lbl.name}
+                    </span>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+       );
+    } else if (selectedItem) {
       const isPR = selectedItem.type === 'pull_request';
       const isIssue = selectedItem.type === 'issue';
       const isRelease = selectedItem.type === 'release';
@@ -240,7 +398,7 @@ export function Inspector() {
     content = (
       <div className="inspector-details">
         <p className="inspector-empty">
-          Inspector is inactive for {activeTab?.title || 'this view'}. Switch to Flow or Home to inspect items.
+          Inspector is inactive for {activeTab?.title || 'this view'}. Switch to Flow, Simulator, or Home to inspect items.
         </p>
       </div>
     );

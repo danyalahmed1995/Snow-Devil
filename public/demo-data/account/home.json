@@ -1,0 +1,14 @@
+{
+  "metrics": { "contributions": 1248, "currentStreak": 17, "longestStreak": 64, "needsAttention": 6, "waitingReview": 4, "failingChecks": 2, "recentlyMerged": 11, "notifications": 8 },
+  "recentActivity": [
+    { "id": "activity-1", "title": "Released Snow Devil v2.4.0", "type": "release", "occurredAt": "2026-02-14T18:00:00Z" },
+    { "id": "activity-2", "title": "Approved keyboard-first flow navigation", "type": "review", "occurredAt": "2026-02-13T13:20:00Z" },
+    { "id": "activity-3", "title": "Opened deployment rollback telemetry", "type": "issue", "occurredAt": "2026-02-12T09:00:00Z" }
+  ],
+  "notifications": [
+    { "id": "notification-1", "title": "Review requested on #184", "reason": "review_requested" },
+    { "id": "notification-2", "title": "Checks failed on #179", "reason": "ci_activity" },
+    { "id": "notification-3", "title": "Mentioned in deployment discussion", "reason": "mention" }
+  ],
+  "featuredRepositoryIds": ["repo-snow", "repo-ext", "repo-reversal"]
+}

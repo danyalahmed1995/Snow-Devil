@@ -10,16 +10,20 @@ import {
   Globe,
   Copy,
   ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
+import { useModeStore } from '../../stores/mode-store';
 import { BrowserToolbar } from '../../browser/BrowserToolbar';
 import { AddressBar } from '../../navigation/AddressBar';
+import { resetLocalAppData } from '../../services/reset-local-app-data';
 import './TopBar.css';
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
   const { isAuthenticated, checkAuthStatus, disconnect } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { mode, exitDemo, resetDemo } = useModeStore();
 
   const activeTabId = useTabsStore(s => s.activeTabId);
   const tabs = useTabsStore(s => s.tabs);
@@ -84,7 +88,14 @@ export function TopBar() {
           )}
 
           <div className="topbar-actions">
-            {isAuthenticated ? (
+            {import.meta.env.DEV && <button className="icon-button" onClick={() => resetLocalAppData().catch(console.error)} title="Reset Local App Data"><RotateCcw size={16} /></button>}
+            {mode === 'demo' ? (
+              <>
+                <span className="demo-mode-badge">Demo Mode</span>
+                <button className="auth-btn" onClick={resetDemo}>Reset Demo</button>
+                <button className="icon-button" onClick={exitDemo} title="Exit Demo"><LogOut size={16} /></button>
+              </>
+            ) : isAuthenticated ? (
               <button className="icon-button" onClick={disconnect} title="Disconnect">
                 <LogOut size={16} />
               </button>

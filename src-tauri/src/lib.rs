@@ -36,6 +36,7 @@ pub fn run() {
             commands::auth::poll_github_device_flow,
             commands::auth::disconnect_github_account,
             commands::auth::get_auth_status,
+            commands::reset::reset_local_app_data,
             commands::sync::start_sync,
             commands::db::get_graph_data,
             commands::db::get_recent_repositories,
@@ -50,9 +51,18 @@ pub fn run() {
             commands::repo::get_viewer_repositories,
             commands::repo::get_viewer_pull_requests,
             commands::repo::get_viewer_issues,
+            commands::repo::execute_graphql,
+            commands::repo::execute_rest,
             commands::flow::get_account_home_summary,
             commands::flow::get_source_page,
             commands::flow::get_item_timeline,
+            // Simulator commands
+            commands::simulator::save_simulator_entities,
+            commands::simulator::save_simulator_events,
+            commands::simulator::get_simulator_events,
+            commands::simulator::get_simulator_entities,
+            commands::simulator::get_simulator_sync_state,
+            commands::simulator::save_simulator_sync_state,
             // Browser commands
             browser::commands::browser_create,
             browser::commands::browser_activate,
@@ -71,4 +81,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

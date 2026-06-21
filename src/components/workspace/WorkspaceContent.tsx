@@ -10,11 +10,14 @@ import { Dashboard } from './Dashboard';
 import { FlowWorkbench } from './FlowWorkbench';
 import { BrowserViewport } from '../../browser/BrowserViewport';
 import { browserHideAll } from '../../browser/browser-commands';
+import { SimulatorWorkbench } from '../simulator/SimulatorWorkbench';
 import { useEffect } from 'react';
+import { useModeStore } from '../../stores/mode-store';
 
 export function WorkspaceContent() {
   const tabs = useTabsStore(s => s.tabs);
   const activeTabId = useTabsStore(s => s.activeTabId);
+  const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -39,6 +42,8 @@ export function WorkspaceContent() {
       <div className="workspace-content">
         {activeTab.kind === 'home' && <Dashboard />}
         {activeTab.kind === 'flow' && <FlowWorkbench />}
+        {activeTab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-simulator-${demoRevision}`} mode="account" />}
+        {activeTab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-simulator-${demoRevision}`} mode="repository" />}
         {activeTab.kind === 'settings' && (
           <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>
             Settings (coming soon)

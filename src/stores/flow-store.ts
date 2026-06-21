@@ -6,6 +6,8 @@ export interface TabFlowState {
   mode: 'live' | 'replay';
   selectedRepository?: { id: string; nameWithOwner: string };
   selectedItemId?: string;
+  selectedSimulatorEntity?: any;
+  selectedSimulatorEvent?: any;
   timeRange: '24h' | '7d' | '30d';
   rangeStart: number;
   rangeEnd: number;

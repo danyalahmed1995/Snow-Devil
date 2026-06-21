@@ -78,3 +78,17 @@ pub async fn get_viewer_issues() -> Result<Value, String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn execute_graphql(query: String, variables: Value) -> Result<Value, String> {
+    crate::github::repo_api::execute_graphql(&query, variables)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn execute_rest(endpoint: String) -> Result<Value, String> {
+    crate::github::repo_api::execute_rest(&endpoint)
+        .await
+        .map_err(|e| e.to_string())
+}

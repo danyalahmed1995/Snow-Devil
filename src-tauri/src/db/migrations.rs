@@ -140,6 +140,63 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
 
         tx.execute("INSERT INTO schema_version (version) VALUES (1)", [])?;
     }
+    if current_version < 2 {
+        // V2 Schema - Simulator
+        tx.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS simulator_entities (
+                id TEXT PRIMARY KEY,
+                repository_id TEXT NOT NULL,
+                subject_id TEXT NOT NULL,
+                subject_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                number INTEGER,
+                payload_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS simulator_events (
+                id TEXT PRIMARY KEY,
+                repository_id TEXT NOT NULL,
+                subject_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                actor_json TEXT,
+                metadata_json TEXT,
+                source TEXT NOT NULL,
+                completeness TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS simulator_sync_state (
+                id TEXT PRIMARY KEY,
+                scope TEXT NOT NULL,
+                cursor TEXT,
+                last_synced_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_simulator_events_repo ON simulator_events(repository_id);
+            CREATE INDEX IF NOT EXISTS idx_simulator_events_subject ON simulator_events(subject_id);
+            CREATE INDEX IF NOT EXISTS idx_simulator_events_timestamp ON simulator_events(timestamp);
+            ",
+        )?;
+
+        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (2)", [])?;
+    }
+    if current_version < 3 {
+        tx.execute_batch(
+            "
+            ALTER TABLE simulator_events ADD COLUMN repository_name TEXT;
+            ALTER TABLE simulator_events ADD COLUMN repository_owner TEXT;
+            ALTER TABLE simulator_events ADD COLUMN subject_type TEXT;
+            ALTER TABLE simulator_events ADD COLUMN subject_number INTEGER;
+            ALTER TABLE simulator_events ADD COLUMN subject_title TEXT;
+            ALTER TABLE simulator_events ADD COLUMN inclusion_reason TEXT;
+            ",
+        )?;
+
+        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (3)", [])?;
+    }
 
     tx.commit()?;
     Ok(())

@@ -372,3 +372,47 @@ pub async fn fetch_issue_details(
 
     Ok(json_res["data"]["repository"]["issue"].clone())
 }
+
+pub async fn execute_graphql(
+    query: &str,
+    variables: serde_json::Value,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let res = client
+        .post(GRAPHQL_URL)
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .json(&json!({
+            "query": query,
+            "variables": variables
+        }))
+        .send()
+        .await?;
+
+    let json_res: serde_json::Value = res.json().await?;
+    if let Some(errors) = json_res.get("errors") {
+        return Err(format!("GraphQL errors: {}", errors).into());
+    }
+
+    Ok(json_res)
+}
+
+pub async fn execute_rest(
+    endpoint: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let res = client
+        .get(&format!("{}{}", REST_URL, endpoint))
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await?;
+
+    let json_res: serde_json::Value = res.json().await?;
+    Ok(json_res)
+}

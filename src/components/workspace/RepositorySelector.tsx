@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useModeStore } from '../../stores/mode-store';
+import { DemoDataProvider } from '../../data/demo-provider';
 
 interface Repo {
   id: string;
@@ -9,19 +11,25 @@ interface Repo {
 interface RepositorySelectorProps {
   selectedRepo?: { id: string; nameWithOwner: string };
   onSelect: (repo: { id: string; nameWithOwner: string }) => void;
+  compact?: boolean;
 }
 
-export function RepositorySelector({ selectedRepo, onSelect }: RepositorySelectorProps) {
+export function RepositorySelector({ selectedRepo, onSelect, compact = false }: RepositorySelectorProps) {
+  const mode = useModeStore(state => state.mode);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    invoke<Repo[]>('get_all_repositories')
-      .then(setRepos)
+    if (mode === 'demo') {
+      DemoDataProvider.manifest().then(manifest => setRepos(manifest.repositories.map(repo => ({ id: repo.id, name: repo.nameWithOwner }))));
+      return;
+    }
+    invoke<any[]>('get_viewer_repositories')
+      .then(repos => setRepos((repos || []).map(r => ({ id: r.id, name: r.nameWithOwner }))))
       .catch(console.error);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -33,22 +41,17 @@ export function RepositorySelector({ selectedRepo, onSelect }: RepositorySelecto
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (selectedRepo && !isOpen) {
-      setQuery(selectedRepo.nameWithOwner);
-    }
-  }, [selectedRepo, isOpen]);
-
   const filteredRepos = repos.filter(r => 
     r.name.toLowerCase().includes(query.toLowerCase())
   ).slice(0, 50); // limit to 50
 
   return (
-    <div className="repository-selector" ref={containerRef} style={{ position: 'relative', width: '300px' }}>
+    <div className={`repository-selector${compact ? ' repository-selector--compact' : ''}`} ref={containerRef} style={{ position: 'relative', width: compact ? '260px' : '300px' }}>
       <input
         type="text"
         placeholder="Select a repository..."
         value={isOpen ? query : (selectedRepo?.nameWithOwner || query)}
+        title={selectedRepo?.nameWithOwner}
         onChange={(e) => {
           setQuery(e.target.value);
           if (!isOpen) setIsOpen(true);
@@ -59,11 +62,14 @@ export function RepositorySelector({ selectedRepo, onSelect }: RepositorySelecto
         }}
         style={{
           width: '100%',
-          padding: '8px 12px',
-          borderRadius: '6px',
-          border: '1px solid var(--border-color)',
-          background: 'var(--bg-primary)',
+          height: compact ? '30px' : undefined,
+          padding: compact ? '0 10px' : '8px 12px',
+          borderRadius: '5px',
+          border: '1px solid var(--border-subtle)',
+          background: compact ? '#0c131b' : 'var(--bg-primary)',
           color: 'var(--text-primary)',
+          fontSize: compact ? '11px' : undefined,
+          textOverflow: 'ellipsis',
         }}
       />
       {isOpen && (

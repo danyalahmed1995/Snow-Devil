@@ -107,4 +107,20 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     pinned: false,
     closable: true,
   },
+  {
+    label: 'Account Simulator',
+    tabId: 'native:account-simulator',
+    family: 'native',
+    nativeKind: 'accountSimulator',
+    pinned: false,
+    closable: true,
+  },
+  {
+    label: 'Repository Simulator',
+    tabId: 'native:repository-simulator',
+    family: 'native',
+    nativeKind: 'repositorySimulator',
+    pinned: false,
+    closable: true,
+  },
 ];

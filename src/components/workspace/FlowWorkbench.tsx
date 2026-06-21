@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlowPipeline, SourceControls } from './FlowPipeline';
 import { useInfiniteSource } from '../../hooks/useInfiniteSource';
 import { useReplayBuffer } from '../../hooks/useReplayBuffer';
 import { parseGitHubIssueOrPR, parseRelease } from '../../lib/flow-parser';
 import { buildBaselineState, advanceItemState } from '../../lib/flow-replay';
 import { useFlowStore } from '../../stores/flow-store';
+import { useModeStore } from '../../stores/mode-store';
+import { useDemoFlow } from '../../hooks/useDemoData';
 import { useTabsStore } from '../../stores/tabs-store';
 import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
@@ -59,6 +61,9 @@ function flattenSourcePages(
 }
 
 export function FlowWorkbench() {
+  const appMode = useModeStore(state => state.mode);
+  const { data: demoFlow, isLoading: demoLoading, error: demoError } = useDemoFlow();
+  const [demoFilter, setDemoFilter] = useState('all');
   const activeTabId = useTabsStore(s => s.activeTabId);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
   const setFlowState = useFlowStore(s => s.setTabState);
@@ -308,6 +313,11 @@ export function FlowWorkbench() {
   const timelineEventsLoaded = replayEvents.filter(e => !['CheckSuiteEvent', 'release_published'].includes(e.type)).length;
   const checkEventsLoaded = replayEvents.filter(e => e.type === 'CheckSuiteEvent').length;
   const publicationEventsLoaded = replayEvents.filter(e => e.type === 'release_published').length;
+
+  if (appMode === 'demo') {
+    const visibleNodes = (demoFlow?.nodes || []).filter(node => demoFilter === 'all' || node.type === demoFilter);
+    return <div className="flow-workbench demo-flow"><header className="flow-header"><div><span className="demo-mode-badge">Demo Mode</span><h2>Connected Activity Flow</h2></div><label>Filter <select aria-label="Demo flow filter" value={demoFilter} onChange={event => setDemoFilter(event.target.value)}><option value="all">All node types</option>{Array.from(new Set((demoFlow?.nodes || []).map(node => String(node.type)))).map(type => <option key={type} value={type}>{type.replace('_',' ')}</option>)}</select></label></header>{demoLoading ? <p>Loading demo graph...</p> : demoError ? <p role="alert">{String(demoError)}</p> : <><div className="demo-flow__canvas" aria-label="Demo activity graph">{visibleNodes.map((node, index) => <button key={node.id} className={`demo-flow__node demo-flow__node--${node.type}`} style={{ left: `${8 + (index % 6) * 15}%`, top: `${12 + Math.floor(index / 6) * 28}%` }} onClick={() => setFlowState(activeTabId, { selectedItemId: node.id })}><strong>{String(node.label)}</strong><small>{String(node.type).replace('_',' ')}</small></button>)}</div><footer>{visibleNodes.length} nodes · {demoFlow?.edges.filter(edge => visibleNodes.some(node => node.id === edge.sourceId) && visibleNodes.some(node => node.id === edge.targetId)).length} visible relationships · scroll to pan, browser controls to zoom</footer></>}</div>;
+  }
 
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>

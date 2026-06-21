@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "referenceDate": "2026-02-15T12:00:00Z",
+  "identity": { "login": "snowdevil-demo", "name": "Nova Frost", "avatarUrl": "/demo-data/account/avatar.svg", "bio": "Building calm tools for complicated software delivery.", "url": "demo://account/snowdevil-demo", "repositories": { "totalCount": 7 }, "organizations": { "totalCount": 2 }, "pullRequests": { "totalCount": 34 }, "issues": { "totalCount": 19 } },
+  "repositories": [
+    { "id": "repo-snow", "nameWithOwner": "nova-labs/snow-devil", "description": "A desktop activity browser with deterministic simulation and an intentionally long description for truncation coverage across compact repository cards.", "archived": false, "fork": false, "stars": 842, "language": "TypeScript" },
+    { "id": "repo-ext", "nameWithOwner": "nova-labs/ext", "description": null, "archived": false, "fork": true, "stars": 17, "language": "Rust" },
+    { "id": "repo-reversal", "nameWithOwner": "nova-labs/reversal-engine-2d-with-an-extraordinarily-long-name", "description": "Archived rendering experiments.", "archived": true, "fork": false, "stars": 126, "language": null }
+  ],
+  "coverage": ["home", "flow", "account-simulator", "repository-simulator", "issues", "pull-requests", "reviews", "checks", "releases", "deployments", "partial-enrichment", "deduplication", "overflow"],
+  "fixtures": { "home": "account/home.json", "flow": "flow/graph.json", "accountSimulator": "simulator/account-history.json", "defaultRepositorySimulator": "simulator/repositories/nova-labs--snow-devil.json" }
+}

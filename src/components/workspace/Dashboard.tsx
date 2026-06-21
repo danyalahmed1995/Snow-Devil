@@ -6,6 +6,10 @@ import { parseHomeSummaryResponse } from '../../lib/flow-parser';
 import { FlowCard } from './FlowCard';
 import type { FlowStage } from '../../types/flow';
 import { useFlowStore } from '../../stores/flow-store';
+import { useAuthStore } from '../../stores/auth-store';
+import { useModeStore } from '../../stores/mode-store';
+import { useDemoHome, useDemoManifest } from '../../hooks/useDemoData';
+import { AuthModal } from '../auth/AuthModal';
 
 interface RepoCard {
   id: string;
@@ -27,6 +31,12 @@ const STAGES: { id: FlowStage; label: string }[] = [
 ];
 
 export function Dashboard() {
+  const mode = useModeStore(state => state.mode);
+  const enterDemo = useModeStore(state => state.enterDemo);
+  const session = useAuthStore(state => state.session);
+  const [showAuth, setShowAuth] = useState(false);
+  const { data: demoHome } = useDemoHome();
+  const { data: demoManifest } = useDemoManifest();
   const [repos, setRepos] = useState<RepoCard[]>([]);
   const { openBrowserTab, openNativeTab, activeTabId } = useTabsStore();
   const setTabState = useFlowStore(s => s.setTabState);
@@ -46,6 +56,15 @@ export function Dashboard() {
       .catch(console.error);
   }, []);
 
+  if (mode === 'live' && session.status !== 'connected') {
+    return <div className="dashboard-view fresh-launch"><div className="fresh-launch__card"><span className="demo-mode-badge">Snow Devil</span><h1>See how work moves through GitHub.</h1><p>Connect an account for live data, or explore a deterministic offline workspace. No account is required for the demo.</p><div><button className="auth-btn" onClick={() => setShowAuth(true)}>Sign in with GitHub</button><button className="btn-secondary" onClick={enterDemo}>Explore Demo</button></div></div>{showAuth && <AuthModal onClose={() => setShowAuth(false)} />}</div>;
+  }
+
+  if (mode === 'demo') {
+    const open = (id: string, kind: 'flow' | 'accountSimulator' | 'repositorySimulator', title: string) => openNativeTab(id, kind, title, false, true);
+    return <div className="dashboard-view demo-home"><header className="demo-home__hero"><img src={demoManifest?.identity.avatarUrl} alt=""/><div><span className="demo-mode-badge">Demo Mode</span><h1>{demoManifest?.identity.name || 'Nova Frost'} <small>@{demoManifest?.identity.login || 'snowdevil-demo'}</small></h1><p>{demoManifest?.identity.bio}</p></div></header><section className="demo-home__metrics">{Object.entries(demoHome?.metrics || {}).slice(0, 7).map(([label, value]) => <MetricCard key={label} label={label.replace(/([A-Z])/g, ' $1')} value={value} color="var(--accent-primary, #58a6ff)" />)}</section><section><h2>Featured repositories</h2><div className="demo-home__repos">{demoManifest?.repositories.map(repo => <article key={repo.id}><strong>{repo.nameWithOwner}</strong><p>{repo.description || 'No description provided.'}</p><span>{repo.archived ? 'Archived' : repo.fork ? 'Fork' : 'Active'} · {repo.stars} stars · {repo.language || 'Language unavailable'}</span></article>)}</div></section><section><h2>Recent activity</h2>{demoHome?.recentActivity.map(item => <p key={item.id}><strong>{item.type}</strong> {item.title}</p>)}</section><section className="demo-home__actions"><button onClick={() => open('native:flow','flow','Flow')}>Open Flow</button><button onClick={() => open('native:account-simulator','accountSimulator','Account Simulator')}>Open Account Simulator</button><button onClick={() => open('native:repository-simulator','repositorySimulator','Repository Simulator')}>Open Repository Simulator</button></section></div>;
+  }
+
   const handleOpenRepo = (repoName: string) => {
     openBrowserTab(
       `github:repo:${repoName}`,
@@ -57,7 +76,7 @@ export function Dashboard() {
     );
   };
 
-  const handleOpenWorkbenchStage = (_stage: FlowStage) => {
+  const handleOpenWorkbenchStage = () => {
     setTabState('native:flow', { scope: 'account' }); // Optionally pre-select stage if supported later
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
@@ -101,7 +120,7 @@ export function Dashboard() {
 
                 return (
                   <div key={stage.id} className="home-flow-preview-lane">
-                    <div className="flow-stage-header" style={{ cursor: 'pointer' }} onClick={() => handleOpenWorkbenchStage(stage.id)}>
+                    <div className="flow-stage-header" style={{ cursor: 'pointer' }} onClick={handleOpenWorkbenchStage}>
                       <h4>{stage.label}</h4>
                       <span className="flow-stage-count" title={exactTotal !== undefined ? 'Exact total' : 'Partial total'}>
                         {countDisplay}
@@ -120,7 +139,7 @@ export function Dashboard() {
                       {stageItems.length >= 5 && (
                         <button 
                           className="more-button"
-                          onClick={() => handleOpenWorkbenchStage(stage.id)}
+                          onClick={handleOpenWorkbenchStage}
                           style={{
                             width: '100%', padding: '8px', background: 'transparent',
                             border: '1px dashed var(--border)', borderRadius: '6px',
