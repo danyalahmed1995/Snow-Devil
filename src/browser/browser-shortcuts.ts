@@ -100,10 +100,10 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     closable: true,
   },
   {
-    label: 'Map',
-    tabId: 'native:map',
+    label: 'Flow',
+    tabId: 'native:flow',
     family: 'native',
-    nativeKind: 'map',
+    nativeKind: 'flow',
     pinned: false,
     closable: true,
   },

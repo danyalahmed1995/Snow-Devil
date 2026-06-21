@@ -7,7 +7,7 @@
 
 import { useTabsStore, isNativeTab, isBrowserTab } from '../../stores/tabs-store';
 import { Dashboard } from './Dashboard';
-import { GraphCanvas } from './GraphCanvas';
+import { FlowWorkbench } from './FlowWorkbench';
 import { BrowserViewport } from '../../browser/BrowserViewport';
 import { browserHideAll } from '../../browser/browser-commands';
 import { useEffect } from 'react';
@@ -18,6 +18,13 @@ export function WorkspaceContent() {
 
   const activeTab = tabs.find(t => t.id === activeTabId);
 
+  // Sync with Tauri backend for native tabs
+  useEffect(() => {
+    if (activeTab && isNativeTab(activeTab)) {
+      browserHideAll().catch(console.error);
+    }
+  }, [activeTab]);
+
   if (!activeTab) {
     return (
       <div className="workspace-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -26,19 +33,12 @@ export function WorkspaceContent() {
     );
   }
 
-  // Sync with Tauri backend for native tabs
-  useEffect(() => {
-    if (activeTab && isNativeTab(activeTab)) {
-      browserHideAll().catch(console.error);
-    }
-  }, [activeTab?.id]);
-
   // Native tabs
   if (isNativeTab(activeTab)) {
     return (
       <div className="workspace-content">
         {activeTab.kind === 'home' && <Dashboard />}
-        {activeTab.kind === 'map' && <GraphCanvas />}
+        {activeTab.kind === 'flow' && <FlowWorkbench />}
         {activeTab.kind === 'settings' && (
           <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>
             Settings (coming soon)

@@ -115,3 +115,35 @@ pub async fn get_recent_repositories(app: AppHandle) -> Result<Vec<RepoCard>, St
 
     Ok(repos)
 }
+
+#[tauri::command]
+pub async fn get_all_repositories(app: AppHandle) -> Result<Vec<RepoCard>, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."));
+    let conn = init_db(app_dir).map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, title, subtitle, updated_at, url FROM nodes WHERE node_type = 'repository' ORDER BY updated_at DESC"
+    ).map_err(|e| e.to_string())?;
+
+    let iter = stmt
+        .query_map([], |row| {
+            Ok(RepoCard {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2).unwrap_or(None),
+                updated_at: row.get(3)?,
+                url: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut repos = Vec::new();
+    for repo in iter {
+        repos.push(repo.map_err(|e| e.to_string())?);
+    }
+
+    Ok(repos)
+}

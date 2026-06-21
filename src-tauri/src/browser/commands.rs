@@ -23,10 +23,7 @@ fn get_main_window(
         .ok_or_else(|| "Main window not found".to_string())
 }
 
-fn generate_webview_label(tab_id: &str) -> String {
-    let label = tab_id.replace(":", "-").replace("/", "-").replace("?", "-").replace("=", "-");
-    format!("browser-{}", label)
-}
+// We use security::sanitize_webview_label for labels
 
 fn current_time_ms() -> i64 {
     SystemTime::now()
@@ -91,7 +88,7 @@ pub async fn browser_create(
         return Err(format!("URL is not allowed in-app: {}", parsed_url.as_str()));
     }
 
-    let label = generate_webview_label(&request.tab_id);
+    let label = security::sanitize_webview_label(&request.tab_id);
 
     if app.get_webview(&label).is_some() {
         return Ok(());

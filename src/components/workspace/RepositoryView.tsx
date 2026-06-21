@@ -75,21 +75,27 @@ export function RepositoryView({ nodeId }: { nodeId: string }) {
           <span>★ {repo.stargazerCount}</span>
           <span>Forks: {repo.forkCount}</span>
           <span>Updated: {new Date(repo.updatedAt).toLocaleDateString()}</span>
-          <button 
-            onClick={() => {
-              const { openNativeTab } = useTabsStore.getState();
-              openNativeTab(
-                `map-${repo.nameWithOwner}`,
-                'map',
-                `${repo.nameWithOwner} Map`,
-                false,
-                true
-              );
-            }}
-            style={{ marginLeft: 'auto', padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '12px' }}
-          >
-            View Graph Map
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+            <button 
+              onClick={() => {
+                const { openNativeTab } = useTabsStore.getState();
+                // We need useFlowStore.getState().setTabState
+                import('../../stores/flow-store').then(({ useFlowStore }) => {
+                  useFlowStore.getState().setTabState('native:flow', {
+                    scope: 'repository',
+                    selectedRepository: { id: repo.id, nameWithOwner: repo.nameWithOwner }
+                  });
+                  openNativeTab('native:flow', 'flow', 'Flow', false, true);
+                });
+              }}
+              style={{ padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '12px' }}
+            >
+              Open in Flow
+            </button>
+            <a href={repo.url} target="_blank" rel="noreferrer" style={{ padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '12px' }}>
+              View on GitHub
+            </a>
+          </div>
         </div>
 
         {/* Inner Tabs */}
