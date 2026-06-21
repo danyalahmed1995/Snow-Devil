@@ -4,11 +4,12 @@ import { useTabsStore } from '../../stores/tabs-store';
 import { useHomeSummary } from '../../hooks/useHomeSummary';
 import { parseHomeSummaryResponse } from '../../lib/flow-parser';
 import { FlowCard } from './FlowCard';
-import type { FlowStage } from '../../types/flow';
+import type { FlowStage, FlowItem } from '../../types/flow';
 import { useFlowStore } from '../../stores/flow-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { useModeStore } from '../../stores/mode-store';
-import { useDemoHome, useDemoManifest } from '../../hooks/useDemoData';
+import { useDemoHome, useDemoManifest, useDemoPipeline } from '../../hooks/useDemoData';
+import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
 import { AuthModal } from '../auth/AuthModal';
 
 interface RepoCard {
@@ -35,37 +36,100 @@ export function Dashboard() {
   const enterDemo = useModeStore(state => state.enterDemo);
   const session = useAuthStore(state => state.session);
   const [showAuth, setShowAuth] = useState(false);
+  
   const { data: demoHome } = useDemoHome();
   const { data: demoManifest } = useDemoManifest();
+  const { data: demoPipeline } = useDemoPipeline();
+  
   const [repos, setRepos] = useState<RepoCard[]>([]);
   const { openBrowserTab, openNativeTab, activeTabId } = useTabsStore();
   const setTabState = useFlowStore(s => s.setTabState);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
 
-  const { data: rawSummaryData, isLoading } = useHomeSummary();
+  // Live data — only enabled in live mode
+  const { data: rawSummaryData, isLoading: liveLoading } = useHomeSummary({ enabled: mode === 'live' });
 
-  const summary = useMemo(() => {
+  const liveSummary = useMemo(() => {
+    if (mode === 'demo') return null;
     return parseHomeSummaryResponse(rawSummaryData);
-  }, [rawSummaryData]);
+  }, [rawSummaryData, mode]);
 
+  // Build a HomeSummary-compatible object from the demo fixtures
+  const demoSummary = useMemo(() => {
+    if (mode !== 'demo' || !demoHome) return null;
+    const m = demoHome.metrics;
+
+    const previews: Record<string, FlowItem[]> = {};
+    if (demoPipeline) {
+      demoPipeline.items.forEach(item => {
+        const flowItem = demoPipelineItemToFlowItem(item);
+        if (!previews[flowItem.stage]) {
+          previews[flowItem.stage] = [];
+        }
+        previews[flowItem.stage].push(flowItem);
+      });
+    }
+
+    return {
+      metrics: {
+        needsAttention: m.needsAttention ?? 0,
+        waitingReview: m.waitingReview ?? 0,
+        failingChecks: m.failingChecks ?? 0,
+        recentlyMerged: m.recentlyMerged ?? 0,
+      },
+      exactTotals: { merged: m.recentlyMerged ?? 0 },
+      previews,
+    };
+  }, [demoHome, demoPipeline, mode]);
+
+  const summary = (mode === 'demo' ? demoSummary : liveSummary) ?? {
+    metrics: { needsAttention: 0, waitingReview: 0, failingChecks: 0, recentlyMerged: 0 },
+    exactTotals: { merged: 0 },
+    previews: {},
+  };
+
+  const isLoading = mode === 'demo' ? false : liveLoading;
+
+  // Live repos fetch — skipped in demo mode
   useEffect(() => {
+    if (mode === 'demo') return;
     invoke<RepoCard[]>('get_recent_repositories')
       .then((data) => {
-        setRepos(data.slice(0, 5)); // Limit to 5
+        setRepos(data.slice(0, 5));
       })
       .catch(console.error);
-  }, []);
+  }, [mode]);
+
+  // Demo repos — synthesised from the manifest
+  const demoRepos: RepoCard[] = useMemo(() => {
+    if (mode !== 'demo' || !demoManifest) return [];
+    return demoManifest.repositories.map(r => ({
+      id: r.id,
+      name: r.nameWithOwner,
+      description: r.description ?? null,
+      updated_at: '',
+      url: `demo://repo/${r.nameWithOwner}`,
+    }));
+  }, [demoManifest, mode]);
+
+  const displayRepos = mode === 'demo' ? demoRepos : repos;
 
   if (mode === 'live' && session.status !== 'connected') {
     return <div className="dashboard-view fresh-launch"><div className="fresh-launch__card"><span className="demo-mode-badge">Snow Devil</span><h1>See how work moves through GitHub.</h1><p>Connect an account for live data, or explore a deterministic offline workspace. No account is required for the demo.</p><div><button className="auth-btn" onClick={() => setShowAuth(true)}>Sign in with GitHub</button><button className="btn-secondary" onClick={enterDemo}>Explore Demo</button></div></div>{showAuth && <AuthModal onClose={() => setShowAuth(false)} />}</div>;
   }
 
-  if (mode === 'demo') {
-    const open = (id: string, kind: 'flow' | 'accountSimulator' | 'repositorySimulator', title: string) => openNativeTab(id, kind, title, false, true);
-    return <div className="dashboard-view demo-home"><header className="demo-home__hero"><img src={demoManifest?.identity.avatarUrl} alt=""/><div><span className="demo-mode-badge">Demo Mode</span><h1>{demoManifest?.identity.name || 'Nova Frost'} <small>@{demoManifest?.identity.login || 'snowdevil-demo'}</small></h1><p>{demoManifest?.identity.bio}</p></div></header><section className="demo-home__metrics">{Object.entries(demoHome?.metrics || {}).slice(0, 7).map(([label, value]) => <MetricCard key={label} label={label.replace(/([A-Z])/g, ' $1')} value={value} color="var(--accent-primary, #58a6ff)" />)}</section><section><h2>Featured repositories</h2><div className="demo-home__repos">{demoManifest?.repositories.map(repo => <article key={repo.id}><strong>{repo.nameWithOwner}</strong><p>{repo.description || 'No description provided.'}</p><span>{repo.archived ? 'Archived' : repo.fork ? 'Fork' : 'Active'} · {repo.stars} stars · {repo.language || 'Language unavailable'}</span></article>)}</div></section><section><h2>Recent activity</h2>{demoHome?.recentActivity.map(item => <p key={item.id}><strong>{item.type}</strong> {item.title}</p>)}</section><section className="demo-home__actions"><button onClick={() => open('native:flow','flow','Flow')}>Open Flow</button><button onClick={() => open('native:account-simulator','accountSimulator','Account Simulator')}>Open Account Simulator</button><button onClick={() => open('native:repository-simulator','repositorySimulator','Repository Simulator')}>Open Repository Simulator</button></section></div>;
-  }
-
   const handleOpenRepo = (repoName: string) => {
+    if (mode === 'demo') {
+      // In demo mode open the repo simulator pre-scoped to that repo
+      const repoMeta = demoManifest?.repositories.find(r => r.nameWithOwner === repoName);
+      if (repoMeta) {
+        useFlowStore.getState().setTabState('native:repository-simulator', {
+          selectedRepository: { id: repoMeta.id, nameWithOwner: repoMeta.nameWithOwner }
+        });
+      }
+      openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository Simulator', false, true);
+      return;
+    }
     openBrowserTab(
       `github:repo:${repoName}`,
       'repository',
@@ -77,23 +141,98 @@ export function Dashboard() {
   };
 
   const handleOpenWorkbenchStage = () => {
-    setTabState('native:flow', { scope: 'account' }); // Optionally pre-select stage if supported later
+    setTabState('native:flow', { scope: 'account' });
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
 
   return (
     <div className="dashboard-view" style={{ padding: '32px', overflowY: 'auto', overflowX: 'hidden', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text-primary)' }}>Account Flow</h1>
-        <button 
-          onClick={() => openNativeTab('native:flow', 'flow', 'Flow', false, true)}
-          style={{ padding: '8px 16px', background: 'var(--accent-primary, #58a6ff)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-        >
-          Open Flow Workbench
-        </button>
-      </div>
 
-      {/* Attention Metrics Strip */}
+      {/* Demo Mode: profile hero + quick-links, replacing the authenticated user header */}
+      {mode === 'demo' && (
+        <>
+          <div className="demo-home__hero">
+            <img
+              src={demoManifest?.identity.avatarUrl || ''}
+              alt={demoManifest?.identity.name || 'Demo user'}
+              style={{ width: 72, height: 72, borderRadius: 18, objectFit: 'cover', border: '1px solid var(--border-color)' }}
+            />
+            <div>
+              <span className="demo-mode-badge" style={{ background: 'var(--warning-color)', color: '#000', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px' }}>Demo Mode</span>
+              <h1 style={{ fontSize: '28px', margin: '6px 0 0', color: 'var(--text-primary)' }}>
+                {demoManifest?.identity.name || 'Nova Frost'}{' '}
+                <small style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 400 }}>
+                  @{demoManifest?.identity.login || 'snowdevil-demo'}
+                </small>
+              </h1>
+              {demoManifest?.identity.bio && (
+                <p style={{ color: 'var(--text-secondary)', marginTop: '4px', fontSize: '14px' }}>
+                  {demoManifest.identity.bio}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Demo quick-link actions */}
+          <section className="demo-home__actions" style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() => openNativeTab('native:flow', 'flow', 'Flow', false, true)}
+              style={{ padding: '10px 16px', background: 'var(--accent-primary, #58a6ff)', color: '#fff', borderRadius: '6px', fontWeight: 600, border: 'none', cursor: 'pointer' }}
+            >
+              Open Flow
+            </button>
+            <button
+              onClick={() => openNativeTab('native:account-simulator', 'accountSimulator', 'Account Simulator', false, true)}
+              style={{ padding: '10px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500 }}
+            >
+              Account Simulator
+            </button>
+            <button
+              onClick={() => openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository Simulator', false, true)}
+              style={{ padding: '10px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 500 }}
+            >
+              Repository Simulator
+            </button>
+          </section>
+
+          {/* Recent activity feed */}
+          {(demoHome?.recentActivity.length ?? 0) > 0 && (
+            <section>
+              <h2 style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                Recent Activity
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {demoHome!.recentActivity.map(item => (
+                  <div
+                    key={item.id}
+                    style={{ padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', fontSize: '13px' }}
+                  >
+                    <span style={{ color: 'var(--accent-primary, #58a6ff)', fontWeight: 600, marginRight: '8px', textTransform: 'capitalize' }}>
+                      {item.type}
+                    </span>
+                    {item.title}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {/* Live mode heading */}
+      {mode !== 'demo' && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: '24px', margin: 0, color: 'var(--text-primary)' }}>Account Flow</h1>
+          <button
+            onClick={() => openNativeTab('native:flow', 'flow', 'Flow', false, true)}
+            style={{ padding: '8px 16px', background: 'var(--accent-primary, #58a6ff)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+          >
+            Open Flow Workbench
+          </button>
+        </div>
+      )}
+
+      {/* Attention Metrics Strip — shared by both modes */}
       <section style={{ display: 'flex', gap: '16px' }}>
         <MetricCard label="Needs Attention" value={summary.metrics.needsAttention} color="var(--danger-color, #da3633)" />
         <MetricCard label="Waiting Reviews" value={summary.metrics.waitingReview} color="var(--warning-color, #d29922)" />
@@ -101,10 +240,10 @@ export function Dashboard() {
         <MetricCard label="Recently Merged" value={summary.metrics.recentlyMerged} color="var(--success-color, #238636)" />
       </section>
 
-      {/* Flow Visualizer Preview */}
+      {/* Flow Visualizer Preview — shared by both modes */}
       <section style={{ flex: 1, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-          Active Pipeline
+        <h2 style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+          {mode === 'demo' ? 'Activity Pipeline Preview' : 'Active Pipeline'}
         </h2>
         <div style={{ flex: 1, overflowX: 'auto' }}>
           {isLoading ? (
@@ -113,8 +252,6 @@ export function Dashboard() {
             <div className="home-flow-preview">
               {STAGES.map((stage) => {
                 const stageItems = summary.previews[stage.id] || [];
-                // if empty, we might still want to show the column, but for compact preview, 
-                // maybe we show it if there's any active item or just keep them all for consistent layout.
                 const exactTotal = stage.id === 'merged' ? summary.exactTotals.merged : undefined;
                 const countDisplay = exactTotal !== undefined ? exactTotal : (stageItems.length >= 5 ? '5+' : stageItems.length);
 
@@ -137,12 +274,12 @@ export function Dashboard() {
                         />
                       ))}
                       {stageItems.length >= 5 && (
-                        <button 
+                        <button
                           className="more-button"
                           onClick={handleOpenWorkbenchStage}
                           style={{
                             width: '100%', padding: '8px', background: 'transparent',
-                            border: '1px dashed var(--border)', borderRadius: '6px',
+                            border: '1px dashed var(--border-color)', borderRadius: '6px',
                             color: 'var(--text-secondary)', cursor: 'pointer', marginTop: '8px'
                           }}
                         >
@@ -158,31 +295,37 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* Recent Repos */}
+      {/* Repositories section — shared by both modes */}
       <section>
-        <h2 style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-          Recently Active Repositories
+        <h2 style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+          {mode === 'demo' ? 'Featured Repositories' : 'Recently Active Repositories'}
         </h2>
-        {repos.length === 0 ? (
+        {displayRepos.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>No recent repositories.</p>
         ) : (
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {repos.map((repo) => (
-              <div 
-                key={repo.id} 
+            {displayRepos.map((repo) => (
+              <div
+                key={repo.id}
                 onClick={() => handleOpenRepo(repo.name)}
-                style={{ 
-                  padding: '12px 16px', 
-                  border: '1px solid var(--border)', 
-                  borderRadius: '6px', 
+                style={{
+                  padding: '12px 16px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
                   background: 'var(--bg-secondary)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: 500,
-                  color: 'var(--accent-primary, #58a6ff)'
+                  color: 'var(--accent-primary, #58a6ff)',
+                  maxWidth: '240px',
                 }}
               >
-                {repo.name}
+                <div>{repo.name}</div>
+                {repo.description && (
+                  <div style={{ color: 'var(--text-secondary)', fontWeight: 400, marginTop: '4px', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {repo.description}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -194,11 +337,11 @@ export function Dashboard() {
 
 function MetricCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div style={{ 
-      flex: 1, 
-      padding: '20px', 
-      border: '1px solid var(--border)', 
-      borderRadius: '8px', 
+    <div style={{
+      flex: 1,
+      padding: '20px',
+      border: '1px solid var(--border-color)',
+      borderRadius: '8px',
       background: 'var(--bg-secondary)',
       display: 'flex',
       flexDirection: 'column',

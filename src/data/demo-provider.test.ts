@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import accountEvents from '../../public/demo-data/simulator/account-history.json';
 import manifest from '../../public/demo-data/manifest.json';
+import homePipeline from '../../public/demo-data/account/home-pipeline.json';
+import homeData from '../../public/demo-data/account/home.json';
 import { DemoDataProvider } from './demo-provider';
 import { reconstructState } from '../simulator/simulator-reducer';
 import { useFlowStore } from '../stores/flow-store';
@@ -54,5 +56,46 @@ describe('offline demo fixtures', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ schemaVersion: 99 }) }));
     await expect(DemoDataProvider.manifest()).rejects.toThrow('Malformed demo fixture: manifest.json');
     vi.unstubAllGlobals();
+  });
+
+  describe('Home Pipeline Fixture', () => {
+    it('validates without type casts through DemoDataProvider.pipeline()', async () => {
+      // Mock fetch just for this test so we don't depend on public folder path resolution in vitest
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async (path) => {
+        if (path === '/demo-data/account/home-pipeline.json') return { ok: true, json: async () => homePipeline };
+        return { ok: true, json: async () => ({}) };
+      }));
+      
+      const pipeline = await DemoDataProvider.pipeline();
+      expect(pipeline.items.length).toBeGreaterThan(0);
+      
+      const stages = new Set(pipeline.items.map(i => i.stage));
+      ['issues', 'coding', 'pull_requests', 'review', 'checks', 'ready', 'merged', 'released'].forEach(s => {
+        expect(stages.has(s as any), `Stage missing: ${s}`).toBe(true);
+      });
+      
+      vi.unstubAllGlobals();
+    });
+
+    it('has metric/item consistency between home.json and home-pipeline.json', () => {
+      // Metric consistency check
+      const items = homePipeline.items;
+      const metrics = homeData.metrics;
+
+      const failingChecksCount = items.filter(i => i.stage === 'checks' && i.status === 'failing').length;
+      const waitingReviewCount = items.filter(i => i.stage === 'review' && i.status !== 'changes_requested').length;
+      const recentlyMergedCount = items.filter(i => i.stage === 'merged').length;
+
+      // needsAttention isn't necessarily a straight sum of the others (e.g. might include changes_requested),
+      // but we can verify the fixture is deterministic.
+      expect(metrics.failingChecks).toBeGreaterThanOrEqual(failingChecksCount);
+      // Not an exact strict match since demo item sets might be truncated, but we want to ensure
+      // they don't wildly conflict (like 0 in metric but items exist).
+      if (failingChecksCount > 0) expect(metrics.failingChecks).toBeGreaterThan(0);
+      if (recentlyMergedCount > 0) expect(metrics.recentlyMerged).toBeGreaterThan(0);
+      
+      // Verify no raw string casting required for basic FlowItem compliance
+      expect(items.every(i => i.id && i.type && i.stage && i.status && i.createdAt)).toBe(true);
+    });
   });
 });

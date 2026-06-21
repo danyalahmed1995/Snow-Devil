@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 
-export function useHomeSummary() {
+export function useHomeSummary({ enabled = true } = {}) {
   return useQuery({
     queryKey: ['homeSummary'],
     queryFn: async () => {
@@ -10,5 +10,6 @@ export function useHomeSummary() {
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,
+    enabled,
   });
 }
