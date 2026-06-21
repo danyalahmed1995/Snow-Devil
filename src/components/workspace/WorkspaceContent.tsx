@@ -13,6 +13,11 @@ import { browserHideAll } from '../../browser/browser-commands';
 import { SimulatorWorkbench } from '../simulator/SimulatorWorkbench';
 import { useEffect } from 'react';
 import { useModeStore } from '../../stores/mode-store';
+import { CIHealthPage } from '../analytics/CIHealthPage';
+import { InventoryPage } from '../analytics/InventoryPage';
+import { FlowAnalyticsPage } from '../analytics/FlowAnalyticsPage';
+import { PersonalFocusPage } from '../analytics/PersonalFocusPage';
+import { AnalyticsSettingsPage } from '../analytics/AnalyticsSettingsPage';
 
 export function WorkspaceContent() {
   const tabs = useTabsStore(s => s.tabs);
@@ -42,13 +47,13 @@ export function WorkspaceContent() {
       <div className="workspace-content">
         {activeTab.kind === 'home' && <Dashboard />}
         {activeTab.kind === 'flow' && <FlowWorkbench />}
+        {activeTab.kind === 'ciHealth' && <CIHealthPage />}
+        {activeTab.kind === 'inventory' && <InventoryPage />}
+        {activeTab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
+        {activeTab.kind === 'personalFocus' && <PersonalFocusPage />}
         {activeTab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-simulator-${demoRevision}`} mode="account" />}
         {activeTab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-simulator-${demoRevision}`} mode="repository" />}
-        {activeTab.kind === 'settings' && (
-          <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>
-            Settings (coming soon)
-          </div>
-        )}
+        {activeTab.kind === 'settings' && <AnalyticsSettingsPage />}
       </div>
     );
   }

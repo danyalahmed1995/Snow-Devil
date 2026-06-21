@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import type { AnalyticsInspectable } from '../analytics/types';
+import type { SimulatorEntityState, SimulatorEvent } from '../simulator/simulator-types';
+import type { FlowItem } from '../types/flow';
 
 
 export interface TabFlowState {
@@ -6,8 +9,10 @@ export interface TabFlowState {
   mode: 'live' | 'replay';
   selectedRepository?: { id: string; nameWithOwner: string };
   selectedItemId?: string;
-  selectedSimulatorEntity?: any;
-  selectedSimulatorEvent?: any;
+  selectedFlowItem?: FlowItem;
+  selectedSimulatorEntity?: SimulatorEntityState;
+  selectedSimulatorEvent?: SimulatorEvent;
+  selectedAnalyticsEntity?: AnalyticsInspectable;
   timeRange: '24h' | '7d' | '30d';
   rangeStart: number;
   rangeEnd: number;

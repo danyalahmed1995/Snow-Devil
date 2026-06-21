@@ -1,43 +1,11 @@
 import type { ConnectedAccount } from '../stores/auth-store';
 import type { SimulatorEvent } from '../simulator/simulator-types';
-import type { FlowItem, FlowItemType, FlowStage, FlowStatus, ActorSummary, LabelSummary, ChecksSummary, ReviewSummary } from '../types/flow';
+import type { FlowItem } from '../types/flow';
 
 export interface DemoRepository { id: string; nameWithOwner: string; description?: string | null; archived: boolean; fork: boolean; stars: number; language?: string | null }
 export interface DemoManifest { schemaVersion: number; referenceDate: string; identity: ConnectedAccount; repositories: DemoRepository[]; coverage: string[]; fixtures: Record<string, string> }
 export interface DemoHome { metrics: Record<string, number>; recentActivity: Array<{ id: string; title: string; type: string; occurredAt: string }>; notifications: Array<{ id: string; title: string; reason: string }>; featuredRepositoryIds: string[] }
-export interface DemoFlow { nodes: Array<Record<string, unknown> & { id: string }>; edges: Array<Record<string, unknown> & { id: string; sourceId: string; targetId: string }>; filters: string[] }
-
-/**
- * A pipeline item as stored in home-pipeline.json.
- * Every field matches its FlowItem counterpart exactly so the adapter
- * can forward the parsed value with no casts.
- */
-export interface DemoPipelineItem {
-  id: string;
-  type: FlowItemType;
-  repositoryId: string;
-  repositoryName: string;
-  owner: string;
-  number?: number;
-  title: string;
-  stage: FlowStage;
-  status: FlowStatus;
-  url?: string;
-  author?: ActorSummary;
-  labels?: LabelSummary[];
-  createdAt: string;
-  updatedAt: string;
-  mergedAt?: string;
-  closedAt?: string;
-  isDraft?: boolean;
-  isBot?: boolean;
-  checksSummary?: ChecksSummary;
-  reviewSummary?: ReviewSummary;
-  publishedAt?: string;
-  tagName?: string;
-  isPrerelease?: boolean;
-  inclusionReason?: string;
-}
+export type DemoPipelineItem = FlowItem;
 
 export interface DemoPipeline { schemaVersion: number; referenceDate: string; items: DemoPipelineItem[] }
 
@@ -69,10 +37,15 @@ function isDemoPipelineItem(v: unknown): v is DemoPipelineItem {
   if (typeof v.repositoryName !== 'string') return false;
   if (typeof v.owner !== 'string') return false;
   if (typeof v.title !== 'string') return false;
+  if (!v.title.trim()) return false;
   if (!VALID_STAGES.has(v.stage as string)) return false;
   if (!VALID_STATUSES.has(v.status as string)) return false;
   if (typeof v.createdAt !== 'string') return false;
   if (typeof v.updatedAt !== 'string') return false;
+  if (v.author !== undefined && (!object(v.author) || typeof v.author.login !== 'string')) return false;
+  if (v.labels !== undefined && (!Array.isArray(v.labels) || !v.labels.every(label => object(label) && typeof label.name === 'string' && typeof label.color === 'string'))) return false;
+  if (v.checksSummary !== undefined && (!object(v.checksSummary) || typeof v.checksSummary.state !== 'string' || typeof v.checksSummary.totalCount !== 'number' || typeof v.checksSummary.successCount !== 'number' || typeof v.checksSummary.failureCount !== 'number')) return false;
+  if (v.reviewSummary !== undefined && (!object(v.reviewSummary) || typeof v.reviewSummary.state !== 'string' || !Array.isArray(v.reviewSummary.requestedReviewers) || !Array.isArray(v.reviewSummary.reviews))) return false;
   return true;
 }
 
@@ -83,17 +56,54 @@ const isPipeline = (v: unknown): v is DemoPipeline =>
   Array.isArray(v.items) &&
   v.items.every(isDemoPipelineItem);
 
-/** Returns each pipeline item as a full FlowItem (same shape, zero casts needed). */
+function accountOverflowEvents(): SimulatorEvent[] {
+  return Array.from({ length: 14 }, (_, index) => {
+    const number = 501 + index;
+    const subjectId = `pr-overflow-${number}`;
+    const shared = {
+      source: 'demo-overflow',
+      repositoryId: 'nova-labs/snow-devil',
+      repositoryName: 'snow-devil',
+      repositoryOwner: 'nova-labs',
+      subjectId,
+      subjectType: 'pull_request' as const,
+      subjectNumber: number,
+      subjectTitle: `Merged delivery increment ${number}`,
+      actor: { login: 'snowdevil-demo' },
+      inclusionReason: 'merged_contribution' as const,
+      sourceCompleteness: 'complete' as const,
+    };
+    const openedAt = new Date(Date.UTC(2026, 0, 30, 12, index)).toISOString();
+    const mergedAt = new Date(Date.UTC(2026, 1, 1, 12, index)).toISOString();
+    return [
+      { ...shared, id: `${subjectId}:opened`, occurredAt: openedAt, eventType: 'opened' as const, metadata: { nativeOrDerived: 'native' } },
+      { ...shared, id: `${subjectId}:merged`, occurredAt: mergedAt, eventType: 'merged' as const, metadata: { nativeOrDerived: 'native', commits: 2 + index % 3 } },
+    ];
+  }).flat();
+}
+
+/** Returns an isolated production FlowItem without sharing mutable fixture state. */
 export function demoPipelineItemToFlowItem(item: DemoPipelineItem): FlowItem {
-  return item as unknown as FlowItem; // Safe: DemoPipelineItem is structurally identical to the FlowItem subset we use
+  return {
+    ...item,
+    author: item.author ? { ...item.author } : undefined,
+    reviewers: item.reviewers?.map(reviewer => ({ ...reviewer })),
+    labels: item.labels?.map(label => ({ ...label })),
+    checksSummary: item.checksSummary ? { ...item.checksSummary } : undefined,
+    reviewSummary: item.reviewSummary ? {
+      ...item.reviewSummary,
+      requestedReviewers: [...item.reviewSummary.requestedReviewers],
+      reviews: item.reviewSummary.reviews.map(review => ({ ...review })),
+    } : undefined,
+    linkedIssueIds: item.linkedIssueIds ? [...item.linkedIssueIds] : undefined,
+  };
 }
 
 export const DemoDataProvider = {
   manifest: () => fixture('manifest.json', manifest),
   home: () => fixture<DemoHome>('account/home.json', (v): v is DemoHome => object(v) && object(v.metrics) && Array.isArray(v.recentActivity) && Array.isArray(v.notifications) && Array.isArray(v.featuredRepositoryIds)),
   pipeline: () => fixture<DemoPipeline>('account/home-pipeline.json', isPipeline),
-  flow: () => fixture<DemoFlow>('flow/graph.json', (v): v is DemoFlow => object(v) && Array.isArray(v.nodes) && Array.isArray(v.edges) && Array.isArray(v.filters)),
-  accountEvents: () => fixture('simulator/account-history.json', events),
+  accountEvents: async () => [...await fixture('simulator/account-history.json', events), ...accountOverflowEvents()].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
   repositoryEvents: async (repositoryId: string) => (await fixture(`simulator/repositories/${repositoryId.replace('/', '--')}.json`, events)).filter(event => event.repositoryId === repositoryId),
   clear: () => cache.clear(),
 };

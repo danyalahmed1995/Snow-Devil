@@ -10,13 +10,11 @@ import { useFlowStore } from "../../stores/flow-store";
 import { useTabsStore } from "../../stores/tabs-store";
 import { RepositorySelector } from "../workspace/RepositorySelector";
 import "./SimulatorWorkbench.css";
-import { humanizeSimulatorValue } from "../../simulator/simulator-presentation";
-
-import { SimulatorCard } from "./ui/SimulatorCard";
 import { SimulatorTimeline } from "./ui/SimulatorTimeline";
 import { SimulatorEventStream } from "./ui/SimulatorEventStream";
 import { SimulatorEntityList } from "./ui/SimulatorEntityList";
 import { SimulatorMetrics } from "./ui/SimulatorMetrics";
+import { SimulatorStageColumn } from "./ui/SimulatorStageColumn";
 
 const STAGES = [
   "issues",
@@ -50,6 +48,7 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
   const selectedRepo = selectedRepoState || defaultDemoRepo;
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
+  const [expansion, setExpansion] = useState<{ context: string; stages: Set<string> }>({ context: '', stages: new Set() });
 
   const repoOwner = selectedRepo ? selectedRepo.nameWithOwner.split("/")[0] : "";
   const repoName = selectedRepo ? selectedRepo.nameWithOwner.split("/")[1] : "";
@@ -64,7 +63,9 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
   const { events, loadState, since, until, setSince, setUntil, refresh } = activeSim;
 
   const playback = useSimulatorPlayback(events, since, until);
-  const stateArray = useMemo(() => Array.from(playback.currentState.values()), [playback.currentState]);
+  const stateArray = useMemo(() => Array.from(playback.currentState.values()).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id)), [playback.currentState]);
+  const expansionContext = `${mode}:${selectedRepo?.id ?? 'account'}:${since}:${until}`;
+  const expandedStages = expansion.context === expansionContext ? expansion.stages : new Set<string>();
 
   useEffect(() => {
     if (selectedEventId) {
@@ -163,29 +164,12 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
         <div className="simulator-board">
           {STAGES.map(stage => {
             const entitiesInStage = stateArray.filter(e => e.stage === stage);
-            return (
-              <section key={stage} className={`simulator-stage simulator-stage--${stage}`}>
-                <h3 className="simulator-stage__header">
-                  {humanizeSimulatorValue(stage)}
-                  <span>{entitiesInStage.length}</span>
-                </h3>
-                <div className="simulator-stage__cards">
-                  {entitiesInStage.slice(0, 4).map(entity => (
-                    <SimulatorCard 
-                       key={entity.id} 
-                       entity={entity} 
-                       isSelected={selectedEntityId === entity.id}
-                       onClick={() => { setSelectedEntityId(entity.id); setSelectedEventId(undefined); }}
-                    />
-                  ))}
-                  {entitiesInStage.length > 4 && (
-                    <div className="simulator-stage__more">
-                      + {entitiesInStage.length - 4} more
-                    </div>
-                  )}
-                </div>
-              </section>
-            );
+            const isExpanded = expandedStages.has(stage);
+            return <SimulatorStageColumn key={stage} stage={stage} entities={entitiesInStage} expanded={isExpanded} selectedEntityId={selectedEntityId} onSelect={entity => { setSelectedEntityId(entity.id); setSelectedEventId(undefined); }} onExpand={() => setExpansion(current => {
+              const stages = current.context === expansionContext ? new Set(current.stages) : new Set<string>();
+              stages.add(stage);
+              return { context: expansionContext, stages };
+            })} />;
           })}
         </div>
 

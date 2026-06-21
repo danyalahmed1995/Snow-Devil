@@ -13,7 +13,16 @@ import type { BrowserTabKind } from './browser-url';
 // ---------------------------------------------------------------------------
 
 /** Sub-kinds for native (non-webview) tabs. */
-export type NativeTabKind = "home" | "flow" | "settings" | "accountSimulator" | "repositorySimulator";
+export type NativeTabKind =
+  | "home"
+  | "flow"
+  | "ciHealth"
+  | "inventory"
+  | "flowAnalytics"
+  | "personalFocus"
+  | "settings"
+  | "accountSimulator"
+  | "repositorySimulator";
 
 /** A tab backed by a built-in React view. */
 export type NativeTab = {

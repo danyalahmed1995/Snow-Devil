@@ -25,6 +25,7 @@ export function reconstructState(
         subjectType: event.subjectType,
         title: event.subjectTitle,
         number: event.subjectNumber,
+        url: typeof event.metadata.url === 'string' ? event.metadata.url : undefined,
         stage: event.subjectType === "issue" ? "issues" : event.subjectType === "release" ? "released" : "coding",
         status: "open",
         assignees: [],
@@ -53,6 +54,7 @@ export function reconstructState(
     const eventIsStronger = COMPLETENESS_RANK[event.sourceCompleteness] > COMPLETENESS_RANK[ent.sourceCompleteness ?? "unknown"];
     if (!ent.title?.trim() || (event.subjectTitle?.trim() && eventIsStronger)) ent.title = event.subjectTitle;
     if (ent.number == null && event.subjectNumber != null) ent.number = event.subjectNumber;
+    if (!ent.url && typeof event.metadata.url === 'string') ent.url = event.metadata.url;
     if (eventIsStronger) {
       ent.subjectType = event.subjectType;
       ent.repositoryId = event.repositoryId;

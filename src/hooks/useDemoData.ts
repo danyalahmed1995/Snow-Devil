@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { DemoDataProvider, type DemoFlow, type DemoHome, type DemoManifest, type DemoPipeline } from '../data/demo-provider';
+import { DemoDataProvider, type DemoHome, type DemoManifest, type DemoPipeline } from '../data/demo-provider';
 
 function useFixture<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T>();
@@ -12,4 +12,3 @@ function useFixture<T>(load: () => Promise<T>) {
 export const useDemoManifest = () => useFixture<DemoManifest>(DemoDataProvider.manifest);
 export const useDemoHome = () => useFixture<DemoHome>(DemoDataProvider.home);
 export const useDemoPipeline = () => useFixture<DemoPipeline>(DemoDataProvider.pipeline);
-export const useDemoFlow = () => useFixture<DemoFlow>(DemoDataProvider.flow);

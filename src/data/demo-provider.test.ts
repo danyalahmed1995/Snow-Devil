@@ -41,6 +41,17 @@ describe('offline demo fixtures', () => {
     expect(accountEvents.filter(event => event.sourceCompleteness === 'partial').length).toBeGreaterThan(0);
   });
 
+  it('reproduces the account overflow fixture without duplicate records', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => accountEvents }));
+    const first = await DemoDataProvider.accountEvents();
+    DemoDataProvider.clear();
+    const second = await DemoDataProvider.accountEvents();
+    expect(first.filter(event => event.eventType === 'merged')).toHaveLength(15);
+    expect(new Set(first.map(event => event.id)).size).toBe(first.length);
+    expect(second).toEqual(first);
+    vi.unstubAllGlobals();
+  });
+
   it('clears incompatible inspector selections on mode switching and reset', () => {
     useFlowStore.getState().setTabState('native:flow', { selectedItemId: 'live-record' });
     useModeStore.getState().enterDemo();
@@ -92,10 +103,20 @@ describe('offline demo fixtures', () => {
       // Not an exact strict match since demo item sets might be truncated, but we want to ensure
       // they don't wildly conflict (like 0 in metric but items exist).
       if (failingChecksCount > 0) expect(metrics.failingChecks).toBeGreaterThan(0);
+      if (waitingReviewCount > 0) expect(metrics.waitingReview).toBeGreaterThan(0);
       if (recentlyMergedCount > 0) expect(metrics.recentlyMerged).toBeGreaterThan(0);
       
       // Verify no raw string casting required for basic FlowItem compliance
       expect(items.every(i => i.id && i.type && i.stage && i.status && i.createdAt)).toBe(true);
+      expect(items.every(i => i.title.trim().length > 0 && i.repositoryName.trim().length > 0)).toBe(true);
+      expect(new Set(items.map(i => i.id)).size).toBe(items.length);
+      expect(items.filter(i => i.stage === 'issues').length).toBeGreaterThan(5);
+      expect(items.some(i => i.reviewSummary?.state === 'REVIEW_REQUIRED')).toBe(true);
+      expect(items.some(i => i.reviewSummary?.state === 'CHANGES_REQUESTED')).toBe(true);
+      expect(items.some(i => i.reviewSummary?.state === 'APPROVED')).toBe(true);
+      expect(items.some(i => i.checksSummary?.state === 'PENDING')).toBe(true);
+      expect(items.some(i => i.checksSummary?.state === 'FAILURE')).toBe(true);
+      expect(items.some(i => i.checksSummary?.state === 'SUCCESS')).toBe(true);
     });
   });
 });

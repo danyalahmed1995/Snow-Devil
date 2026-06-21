@@ -46,7 +46,7 @@ test.describe('Navigation and Tab Handling', () => {
     console.log('CONTENT:', content.substring(0, 500));
     
     // Click Account
-    await page.click('text=Account');
+    await page.locator('.navigator').getByText('Account', { exact: true }).click();
     await expect(page.locator('.workspace-tab--active .workspace-tab__title')).toHaveText('Account', { timeout: 10000 });
     
     // Tab should be added
@@ -54,14 +54,14 @@ test.describe('Navigation and Tab Handling', () => {
     expect(tabs).toBeGreaterThanOrEqual(2);
     
     // Click Account again
-    await page.click('text=Account');
+    await page.locator('.navigator').getByText('Account', { exact: true }).click();
     let tabsAfter = await page.locator('.workspace-tab').count();
     expect(tabsAfter).toBe(tabs); // No duplicate
   });
 
   test('Repeated tab selection does not remove tabs', async ({ page }) => {
-    await page.click('text=Account');
-    await page.click('text=Repositories');
+    await page.locator('.navigator').getByText('Account', { exact: true }).click();
+    await page.locator('.navigator').getByText('Repositories', { exact: true }).click();
     
     let tabs = await page.locator('.workspace-tab').count();
     expect(tabs).toBeGreaterThanOrEqual(3);

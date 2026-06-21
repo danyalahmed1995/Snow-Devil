@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { FlowPipeline, SourceControls } from './FlowPipeline';
 import { useInfiniteSource } from '../../hooks/useInfiniteSource';
 import { useReplayBuffer } from '../../hooks/useReplayBuffer';
@@ -6,7 +6,8 @@ import { parseGitHubIssueOrPR, parseRelease } from '../../lib/flow-parser';
 import { buildBaselineState, advanceItemState } from '../../lib/flow-replay';
 import { useFlowStore } from '../../stores/flow-store';
 import { useModeStore } from '../../stores/mode-store';
-import { useDemoFlow } from '../../hooks/useDemoData';
+import { useDemoPipeline } from '../../hooks/useDemoData';
+import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
 import { useTabsStore } from '../../stores/tabs-store';
 import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
@@ -62,8 +63,7 @@ function flattenSourcePages(
 
 export function FlowWorkbench() {
   const appMode = useModeStore(state => state.mode);
-  const { data: demoFlow, isLoading: demoLoading, error: demoError } = useDemoFlow();
-  const [demoFilter, setDemoFilter] = useState('all');
+  const { data: demoPipeline, isLoading: demoLoading, error: demoError } = useDemoPipeline();
   const activeTabId = useTabsStore(s => s.activeTabId);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
   const setFlowState = useFlowStore(s => s.setTabState);
@@ -84,20 +84,21 @@ export function FlowWorkbench() {
   const repoName = selectedRepository?.nameWithOwner.split('/')[1] || '';
   const isRepo = scope === 'repository' && !!selectedRepository;
   const isAccount = scope === 'account';
+  const liveEnabled = appMode === 'live';
 
   // Repository Sources
-  const repoOpenPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'open_prs', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: isRepo });
-  const repoOpenIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'open_issues', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: isRepo });
-  const repoMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: isRepo });
-  const repoReleases = useInfiniteSource({ scope, mode, timeRange, sourceType: 'releases', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: isRepo });
+  const repoOpenPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'open_prs', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: liveEnabled && isRepo });
+  const repoOpenIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'open_issues', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: liveEnabled && isRepo });
+  const repoMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: liveEnabled && isRepo });
+  const repoReleases = useInfiniteSource({ scope, mode, timeRange, sourceType: 'releases', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: liveEnabled && isRepo });
 
   // Account Sources
-  const accAuthoredPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'authored_prs', pageSize: 50, enabled: isAccount });
-  const accReviewReqPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'review_requested_prs', pageSize: 50, enabled: isAccount });
-  const accReviewedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'reviewed_prs', pageSize: 50, enabled: isAccount });
-  const accAuthoredIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'authored_issues', pageSize: 50, enabled: isAccount });
-  const accAssignedIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'assigned_issues', pageSize: 50, enabled: isAccount });
-  const accMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', pageSize: 50, enabled: isAccount });
+  const accAuthoredPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'authored_prs', pageSize: 50, enabled: liveEnabled && isAccount });
+  const accReviewReqPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'review_requested_prs', pageSize: 50, enabled: liveEnabled && isAccount });
+  const accReviewedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'reviewed_prs', pageSize: 50, enabled: liveEnabled && isAccount });
+  const accAuthoredIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'authored_issues', pageSize: 50, enabled: liveEnabled && isAccount });
+  const accAssignedIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'assigned_issues', pageSize: 50, enabled: liveEnabled && isAccount });
+  const accMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', pageSize: 50, enabled: liveEnabled && isAccount });
 
   // Flatten and Map
   const repoOpts = isRepo ? { assertRepoId: selectedRepository?.id, repoNameWithOwner: selectedRepository?.nameWithOwner } : undefined;
@@ -115,6 +116,12 @@ export function FlowWorkbench() {
   const { items: rawAccMergedPrs, exactTotal: accMergedPrsTotal } = useMemo(() => flattenSourcePages(accMergedPrs.data, 'pull_request'), [accMergedPrs.data]);
 
   const baseItems = useMemo(() => {
+    if (appMode === 'demo') {
+      const fixtureItems = (demoPipeline?.items || []).map(demoPipelineItemToFlowItem);
+      return isRepo && selectedRepository
+        ? fixtureItems.filter(item => item.repositoryId === selectedRepository.id)
+        : fixtureItems;
+    }
     const all = isRepo 
       ? [...rawRepoOpenPrs, ...rawRepoOpenIssues, ...rawRepoMergedPrs, ...rawRepoReleases]
       : [...rawAccAuthoredPrs, ...rawAccReviewReqPrs, ...rawAccReviewedPrs, ...rawAccAuthoredIssues, ...rawAccAssignedIssues, ...rawAccMergedPrs];
@@ -143,12 +150,22 @@ export function FlowWorkbench() {
     for (const item of all) map.set(item.id, item);
     return Array.from(map.values());
   }, [
-    isRepo, isAccount,
+    appMode, demoPipeline, selectedRepository, isRepo, isAccount,
     rawRepoOpenPrs, rawRepoOpenIssues, rawRepoMergedPrs, rawRepoReleases,
     rawAccAuthoredPrs, rawAccReviewReqPrs, rawAccReviewedPrs, rawAccAuthoredIssues, rawAccAssignedIssues, rawAccMergedPrs
   ]);
 
   const sourceControls: SourceControls = useMemo(() => {
+    if (appMode === 'demo') {
+      const count = (type: FlowItem['type'], stage?: FlowItem['stage']) => baseItems.filter(item => item.type === type && (!stage || item.stage === stage)).length;
+      const fixed = (exactTotal?: number) => ({ fetchNextPage: () => {}, hasNextPage: false, isFetching: false, exactTotal });
+      return {
+        openPrs: fixed(),
+        openIssues: fixed(),
+        mergedPrs: fixed(count('pull_request', 'merged')),
+        releases: fixed(count('release')),
+      };
+    }
     if (isRepo) {
       return {
         openPrs: { fetchNextPage: () => repoOpenPrs.fetchNextPage(), hasNextPage: !!repoOpenPrs.hasNextPage, isFetching: repoOpenPrs.isFetchingNextPage, exactTotal: repoOpenPrsTotal },
@@ -187,7 +204,7 @@ export function FlowWorkbench() {
       };
     }
   }, [
-    isRepo,
+    appMode, baseItems, isRepo,
     repoOpenPrs, repoOpenIssues, repoMergedPrs, repoReleases,
     repoOpenPrsTotal, repoOpenIssuesTotal, repoMergedPrsTotal, repoReleasesTotal,
     accAuthoredPrs, accReviewReqPrs, accReviewedPrs, accAuthoredIssues, accAssignedIssues, accMergedPrs,
@@ -200,7 +217,7 @@ export function FlowWorkbench() {
     repositoryOwner: selectedRepository ? repoOwner : undefined,
     repositoryName: selectedRepository ? repoName : undefined,
     timeRange,
-    enabled: mode === 'replay' && scope === 'repository' && !!selectedRepository
+    enabled: appMode === 'live' && mode === 'replay' && scope === 'repository' && !!selectedRepository
   });
 
   // Pre-calculate baselines when baseItems or replayEvents change
@@ -211,11 +228,12 @@ export function FlowWorkbench() {
 
   // Calculate items for current mode
   const items = useMemo(() => {
+    if (appMode === 'demo') return baseItems;
     if (mode === 'live' || scope !== 'repository') return baseItems;
     
     // In Replay Mode, advance from baseline up to cursorTime
     return baselineItems.map(item => advanceItemState(item, replayEvents, rangeStart, cursorTime));
-  }, [baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime]);
+  }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime]);
 
   // Compare final state to detect missed events
   const isMismatchPartial = useMemo(() => {
@@ -234,13 +252,15 @@ export function FlowWorkbench() {
 
   // Clear selected item when scope or dataset changes
   useEffect(() => {
-    setFlowState(activeTabId, { selectedItemId: undefined });
+    setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
   }, [scope, selectedRepository?.id, mode, activeTabId, setFlowState]);
 
   // Update range bounds when timeRange changes
   useEffect(() => {
     if (mode !== 'replay') return;
-    const now = Date.now();
+    const now = appMode === 'demo' && demoPipeline?.referenceDate
+      ? new Date(demoPipeline.referenceDate).getTime()
+      : Date.now();
     const offset = timeRange === '24h' ? 24 * 60 * 60 * 1000 : 
                    timeRange === '7d' ? 7 * 24 * 60 * 60 * 1000 : 
                    30 * 24 * 60 * 60 * 1000;
@@ -252,7 +272,7 @@ export function FlowWorkbench() {
       cursorTime: Math.max(newStart, Math.min(now, flowState.cursorTime)),
       isPlaying: false
     });
-  }, [timeRange, mode, activeTabId, setFlowState]);
+  }, [timeRange, mode, appMode, demoPipeline?.referenceDate, activeTabId, setFlowState]);
 
   // Playback Loop
   const requestRef = useRef<number | undefined>(undefined);
@@ -298,11 +318,11 @@ export function FlowWorkbench() {
     };
   }, [isPlaying, playbackSpeed, activeTabId, setFlowState]);
 
-  const isLoading = isRepo
+  const liveLoading = isRepo
     ? repoOpenPrs.isLoading || repoOpenIssues.isLoading || repoMergedPrs.isLoading || repoReleases.isLoading
     : accAuthoredPrs.isLoading || accReviewReqPrs.isLoading || accReviewedPrs.isLoading || accAuthoredIssues.isLoading || accAssignedIssues.isLoading || accMergedPrs.isLoading;
 
-  const error = isRepo
+  const liveError = isRepo
     ? repoOpenPrs.error || repoOpenIssues.error || repoMergedPrs.error || repoReleases.error
     : accAuthoredPrs.error || accReviewReqPrs.error || accReviewedPrs.error || accAuthoredIssues.error || accAssignedIssues.error || accMergedPrs.error;
 
@@ -314,10 +334,8 @@ export function FlowWorkbench() {
   const checkEventsLoaded = replayEvents.filter(e => e.type === 'CheckSuiteEvent').length;
   const publicationEventsLoaded = replayEvents.filter(e => e.type === 'release_published').length;
 
-  if (appMode === 'demo') {
-    const visibleNodes = (demoFlow?.nodes || []).filter(node => demoFilter === 'all' || node.type === demoFilter);
-    return <div className="flow-workbench demo-flow"><header className="flow-header"><div><span className="demo-mode-badge">Demo Mode</span><h2>Connected Activity Flow</h2></div><label>Filter <select aria-label="Demo flow filter" value={demoFilter} onChange={event => setDemoFilter(event.target.value)}><option value="all">All node types</option>{Array.from(new Set((demoFlow?.nodes || []).map(node => String(node.type)))).map(type => <option key={type} value={type}>{type.replace('_',' ')}</option>)}</select></label></header>{demoLoading ? <p>Loading demo graph...</p> : demoError ? <p role="alert">{String(demoError)}</p> : <><div className="demo-flow__canvas" aria-label="Demo activity graph">{visibleNodes.map((node, index) => <button key={node.id} className={`demo-flow__node demo-flow__node--${node.type}`} style={{ left: `${8 + (index % 6) * 15}%`, top: `${12 + Math.floor(index / 6) * 28}%` }} onClick={() => setFlowState(activeTabId, { selectedItemId: node.id })}><strong>{String(node.label)}</strong><small>{String(node.type).replace('_',' ')}</small></button>)}</div><footer>{visibleNodes.length} nodes · {demoFlow?.edges.filter(edge => visibleNodes.some(node => node.id === edge.sourceId) && visibleNodes.some(node => node.id === edge.targetId)).length} visible relationships · scroll to pan, browser controls to zoom</footer></>}</div>;
-  }
+  const isLoading = appMode === 'demo' ? demoLoading : liveLoading;
+  const error = appMode === 'demo' ? demoError : liveError;
 
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
@@ -431,7 +449,7 @@ export function FlowWorkbench() {
                 resetKey={`${scope}-${selectedRepository?.id || 'none'}-${mode}-${timeRange}-${activeTabId}`}
                 items={items}
                 selectedItemId={selectedItemId}
-                onSelectItem={(item) => setFlowState(activeTabId, { selectedItemId: item.id })}
+                onSelectItem={(item) => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}
                 sourceControls={sourceControls}
               />
             )}

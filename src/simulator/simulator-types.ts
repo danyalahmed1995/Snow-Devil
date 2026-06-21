@@ -130,6 +130,7 @@ export interface SimulatorEntityState {
   subjectType: SimulatorSubjectType;
   title: string;
   number?: number;
+  url?: string;
 
   stage: SimulatorStage;
   status: string;
