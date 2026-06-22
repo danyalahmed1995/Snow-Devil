@@ -11,6 +11,9 @@ import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
 import { useTabsStore } from '../../stores/tabs-store';
 import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
+import { filterWorkflowItems, normalizeWorkflowItem, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
+import { resolveEntityTabTarget } from '../../lib/entity-target';
+import './FlowWorkbench.css';
 
 function flattenSourcePages(
   data: any, 
@@ -65,6 +68,8 @@ export function FlowWorkbench() {
   const appMode = useModeStore(state => state.mode);
   const { data: demoPipeline, isLoading: demoLoading, error: demoError } = useDemoPipeline();
   const activeTabId = useTabsStore(s => s.activeTabId);
+  const openBrowserTab = useTabsStore(s => s.openBrowserTab);
+  const openNativeTab = useTabsStore(s => s.openNativeTab);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
   const setFlowState = useFlowStore(s => s.setTabState);
 
@@ -79,6 +84,11 @@ export function FlowWorkbench() {
   const cursorTime = flowState.cursorTime;
   const isPlaying = flowState.isPlaying;
   const playbackSpeed = flowState.playbackSpeed;
+  const search = flowState.search;
+  const activeOnly = flowState.activeOnly;
+  const hideEmptyStages = flowState.hideEmptyStages;
+  const filterStage = flowState.filterStage;
+  const statusFilter = flowState.statusFilter;
 
   const repoOwner = selectedRepository?.nameWithOwner.split('/')[0] || '';
   const repoName = selectedRepository?.nameWithOwner.split('/')[1] || '';
@@ -101,7 +111,10 @@ export function FlowWorkbench() {
   const accMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', pageSize: 50, enabled: liveEnabled && isAccount });
 
   // Flatten and Map
-  const repoOpts = isRepo ? { assertRepoId: selectedRepository?.id, repoNameWithOwner: selectedRepository?.nameWithOwner } : undefined;
+  const repoOpts = useMemo(() => isRepo ? {
+    assertRepoId: selectedRepository?.id,
+    repoNameWithOwner: selectedRepository?.nameWithOwner,
+  } : undefined, [isRepo, selectedRepository?.id, selectedRepository?.nameWithOwner]);
   
   const { items: rawRepoOpenPrs, exactTotal: repoOpenPrsTotal } = useMemo(() => flattenSourcePages(repoOpenPrs.data, 'pull_request', repoOpts), [repoOpenPrs.data, repoOpts]);
   const { items: rawRepoOpenIssues, exactTotal: repoOpenIssuesTotal } = useMemo(() => flattenSourcePages(repoOpenIssues.data, 'issue', repoOpts), [repoOpenIssues.data, repoOpts]);
@@ -227,13 +240,14 @@ export function FlowWorkbench() {
   }, [baseItems, mode, scope, replayEvents, rangeStart]);
 
   // Calculate items for current mode
-  const items = useMemo(() => {
-    if (appMode === 'demo') return baseItems;
-    if (mode === 'live' || scope !== 'repository') return baseItems;
-    
-    // In Replay Mode, advance from baseline up to cursorTime
-    return baselineItems.map(item => advanceItemState(item, replayEvents, rangeStart, cursorTime));
-  }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime]);
+  const classifiedItems = useMemo(() => {
+    const currentItems = appMode === 'demo' || mode === 'live' || scope !== 'repository'
+      ? baseItems
+      : baselineItems.map(item => advanceItemState(item, replayEvents, rangeStart, cursorTime));
+    return currentItems.map(item => normalizeWorkflowItem(item, appMode, appMode === 'demo' ? demoPipeline?.referenceDate : undefined));
+  }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime, demoPipeline?.referenceDate]);
+
+  const items = useMemo(() => scope === 'repository' && !selectedRepository ? [] : filterWorkflowItems(classifiedItems, { search, activeOnly, stage: filterStage, statusFilter, repositoryId: isRepo ? selectedRepository?.id : undefined }), [classifiedItems, search, activeOnly, filterStage, statusFilter, scope, isRepo, selectedRepository]);
 
   // Compare final state to detect missed events
   const isMismatchPartial = useMemo(() => {
@@ -255,6 +269,16 @@ export function FlowWorkbench() {
     setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
   }, [scope, selectedRepository?.id, mode, activeTabId, setFlowState]);
 
+  useEffect(() => {
+    const clearTransientFilters = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (!search && !filterStage && statusFilter === 'all') return;
+      setFlowState(activeTabId, { search: '', filterStage: undefined, statusFilter: 'all' });
+    };
+    window.addEventListener('keydown', clearTransientFilters);
+    return () => window.removeEventListener('keydown', clearTransientFilters);
+  }, [activeTabId, filterStage, search, setFlowState, statusFilter]);
+
   // Update range bounds when timeRange changes
   useEffect(() => {
     if (mode !== 'replay') return;
@@ -265,11 +289,12 @@ export function FlowWorkbench() {
                    timeRange === '7d' ? 7 * 24 * 60 * 60 * 1000 : 
                    30 * 24 * 60 * 60 * 1000;
     const newStart = now - offset;
+    const currentCursor = useFlowStore.getState().getTabState(activeTabId).cursorTime;
     
     setFlowState(activeTabId, {
       rangeStart: newStart,
       rangeEnd: now,
-      cursorTime: Math.max(newStart, Math.min(now, flowState.cursorTime)),
+      cursorTime: Math.max(newStart, Math.min(now, currentCursor)),
       isPlaying: false
     });
   }, [timeRange, mode, appMode, demoPipeline?.referenceDate, activeTabId, setFlowState]);
@@ -340,12 +365,10 @@ export function FlowWorkbench() {
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       <div className="flow-header" style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-        <div className="scope-selector">
-          <select value={scope} onChange={(e) => setFlowState(activeTabId, { scope: e.target.value as 'account' | 'repository' })}>
+        <label className="flow-field">Scope<select aria-label="Flow scope" value={scope} onChange={(e) => setFlowState(activeTabId, { scope: e.target.value as 'account' | 'repository', filterStage: undefined })}>
             <option value="account">Account Flow</option>
             <option value="repository">Repository Flow</option>
-          </select>
-        </div>
+          </select></label>
 
         {scope === 'repository' && (
           <RepositorySelector 
@@ -353,6 +376,12 @@ export function FlowWorkbench() {
             onSelect={(repo) => setFlowState(activeTabId, { selectedRepository: repo })}
           />
         )}
+        <label className="flow-field">Range<select aria-label="Flow time range" value={timeRange} onChange={(e) => setFlowState(activeTabId, { timeRange: e.target.value as typeof timeRange })}><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option></select></label>
+        <label className="flow-toggle"><input aria-label="Active items only" type="checkbox" checked={activeOnly} onChange={event => setFlowState(activeTabId, { activeOnly: event.target.checked })} /> Active only</label>
+        <label className="flow-toggle"><input aria-label="Hide empty stages" type="checkbox" checked={hideEmptyStages} onChange={event => setFlowState(activeTabId, { hideEmptyStages: event.target.checked })} /> Hide empty</label>
+        <label className="flow-field flow-search">Search<input aria-label="Search Flow" value={search} onChange={event => setFlowState(activeTabId, { search: event.target.value })} placeholder="Title, repo, author, label..." /></label>
+        <label className="flow-field">Stage<select aria-label="Flow stage filter" value={filterStage ?? ''} onChange={event => setFlowState(activeTabId, { filterStage: (event.target.value || undefined) as FlowItem['stage'] | undefined })}><option value="">All stages</option>{WORKFLOW_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label>
+        <label className="flow-field">Filter<select aria-label="Flow status filter" value={statusFilter} onChange={event => setFlowState(activeTabId, { statusFilter: event.target.value as typeof statusFilter })}><option value="all">All states</option><option value="attention">Needs attention</option><option value="waiting_review">Waiting review</option><option value="failing">Failing checks</option><option value="merged">Recently merged</option></select></label>
         
         <div className="mode-selector" style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
           <button 
@@ -408,7 +437,7 @@ export function FlowWorkbench() {
                 <span><strong>Range:</strong> {new Date(rangeStart).toLocaleString()} - {new Date(rangeEnd).toLocaleString()}</span>
                 {replayStatus === 'loading' && <span style={{ color: 'var(--text-muted)' }}>Loading history...</span>}
                 {isReplayRefreshing && <span style={{ color: 'var(--text-muted)' }}>Refreshing...</span>}
-                {displayPartial && <span style={{ color: 'var(--warning-color)', fontWeight: 'bold' }} title={replayCompleteness.reasons.join(', ')}>⚠️ Partial History</span>}
+                {displayPartial && <span style={{ color: 'var(--warning-color)', fontWeight: 'bold' }} title={replayCompleteness.reasons.join(', ')}>Partial History</span>}
                 {replayError && <span style={{ color: 'var(--danger-color)' }}>{replayError.message}</span>}
               </div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', color: 'var(--text-secondary)' }}>
@@ -446,15 +475,18 @@ export function FlowWorkbench() {
             ) : (
               <FlowPipeline
                 key={`${scope}-${selectedRepository?.id || 'none'}-${mode}`}
-                resetKey={`${scope}-${selectedRepository?.id || 'none'}-${mode}-${timeRange}-${activeTabId}`}
+                resetKey={`${appMode}-${scope}-${selectedRepository?.id || 'none'}-${mode}-${timeRange}-${activeTabId}`}
                 items={items}
                 selectedItemId={selectedItemId}
                 onSelectItem={(item) => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}
+                onOpenItem={(item) => { const target = resolveEntityTabTarget(item, appMode); if (target) openBrowserTab(target.id, target.kind, target.title, target.url, false, true); }}
                 sourceControls={sourceControls}
+                hideEmptyStages={hideEmptyStages}
               />
             )}
           </div>
         )}
+        {!isLoading && !error && items.length > 0 && <section className="flow-detail-panels" aria-label="Flow operational context"><div className="flow-event-preview"><header><strong>Event Stream</strong><span>Latest cached activity</span></header>{[...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 3).map(item => <button key={item.id} onClick={() => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}><time>{new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>{item.title}</span><small>{item.stage}</small></button>)}</div><div><div className="flow-supporting"><div><span>Visible</span><strong>{items.length}</strong></div><div><span>Attention</span><strong>{items.filter(item => item.status === 'failing' || item.status === 'changes_requested').length}</strong></div><div><span>Reviews</span><strong>{items.filter(item => item.stage === 'review').length}</strong></div><div><span>Merged</span><strong>{items.filter(item => item.stage === 'merged').length}</strong></div><div><span>Coverage</span><strong>{items.some(item => item.completeness !== 'complete') ? 'Partial' : 'Complete'}</strong></div></div>{isRepo && selectedRepository && <div className="flow-deep-links"><span>{selectedRepository.nameWithOwner}</span><button onClick={() => { setFlowState('native:repository-simulator', { selectedRepository }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository Simulator', false, true); }}>Repository Simulator</button><button onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Health', false, true)}>CI Health</button></div>}</div></section>}
       </div>
     </div>
   );

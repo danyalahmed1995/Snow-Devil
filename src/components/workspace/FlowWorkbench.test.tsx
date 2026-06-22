@@ -55,7 +55,7 @@ describe('FlowWorkbench', () => {
 
   it('renders repository selector and empty state when repository scope is selected without a repo', () => {
     render(<FlowWorkbench />);
-    const select = screen.getByRole('combobox');
+    const select = screen.getByLabelText('Flow scope');
     fireEvent.change(select, { target: { value: 'repository' } });
     
     expect(screen.getByText('Select a Repository')).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe('FlowWorkbench', () => {
 
   it('does not dispatch repository flow request until repository is selected', () => {
     render(<FlowWorkbench />);
-    const select = screen.getByRole('combobox');
+    const select = screen.getByLabelText('Flow scope');
     fireEvent.change(select, { target: { value: 'repository' } });
     
     // We mocked useRepositoryFlow to check `enabled`. 
@@ -75,12 +75,27 @@ describe('FlowWorkbench', () => {
   it('clears stale selection when scope changes', async () => {
     useFlowStore.getState().setTabState('test-tab', { scope: 'account', selectedItemId: 'stale-item' });
     render(<FlowWorkbench />);
-    const select = screen.getByRole('combobox');
+    const select = screen.getByLabelText('Flow scope');
     fireEvent.change(select, { target: { value: 'repository' } });
     
     await waitFor(() => {
       expect(useFlowStore.getState().getTabState('test-tab').selectedItemId).toBeUndefined();
     });
+  });
+
+  it('clears transient search and stage filters with Escape', () => {
+    useFlowStore.getState().setTabState('test-tab', {
+      search: 'review',
+      filterStage: 'review',
+      statusFilter: 'waiting_review',
+    });
+    render(<FlowWorkbench />);
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    const state = useFlowStore.getState().getTabState('test-tab');
+    expect(state.search).toBe('');
+    expect(state.filterStage).toBeUndefined();
+    expect(state.statusFilter).toBe('all');
   });
 
   it('shows replay controls only in replay mode with selected repo', () => {
@@ -127,10 +142,10 @@ describe('FlowWorkbench', () => {
       selectedRepository: { id: 'repo-ext', nameWithOwner: 'nova-labs/ext' },
     });
     render(<FlowWorkbench />);
-    await waitFor(() => expect(screen.getByText('Cache invalidation after repository scope switching')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText('Cache invalidation after repository scope switching').length).toBeGreaterThan(0));
     expect(screen.queryByText('Deployment rollback telemetry is missing for failed canary releases')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account' } });
-    await waitFor(() => expect(screen.getByText('Deployment rollback telemetry is missing for failed canary releases')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Flow scope'), { target: { value: 'account' } });
+    await waitFor(() => expect(screen.getAllByText('Deployment rollback telemetry is missing for failed canary releases').length).toBeGreaterThan(0));
   });
 });

@@ -2,7 +2,7 @@ use crate::auth::secure_store::get_token;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 
@@ -39,6 +39,8 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
             author { ...ActorFields }
             repository { id name nameWithOwner owner { login } }
             labels(first: 5) { nodes { name color } }
+            assignees(first: 10) { nodes { login avatarUrl } }
+            comments { totalCount }
         }
 
         fragment PullRequestFields on PullRequest {
@@ -55,10 +57,14 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
             author { ...ActorFields }
             repository { id name nameWithOwner owner { login } }
             labels(first: 5) { nodes { name color } }
+            baseRefName
+            headRefName
+            assignees(first: 10) { nodes { login avatarUrl } }
+            comments { totalCount }
             reviewDecision
             reviews(last: 10) { nodes { author { login } state } }
             reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } } } }
-            commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+            commits(last: 1) { totalCount nodes { commit { statusCheckRollup { state } } } }
         }
 
         query {
@@ -149,10 +155,13 @@ pub async fn fetch_source_page(
                 author { ...ActorFields }
                 repository { id name nameWithOwner owner { login } }
                 labels(first: 5) { nodes { name color } }
+                baseRefName headRefName
+                assignees(first: 10) { nodes { login avatarUrl } }
+                comments { totalCount }
                 reviewDecision
                 reviews(last: 10) { nodes { author { login } state } }
                 reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } } } }
-                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+                commits(last: 1) { totalCount nodes { commit { statusCheckRollup { state } } } }
             }
             query($owner: String!, $name: String!, $first: Int!, $cursor: String) {
                 repository(owner: $owner, name: $name) {
@@ -171,10 +180,13 @@ pub async fn fetch_source_page(
                 author { ...ActorFields }
                 repository { id name nameWithOwner owner { login } }
                 labels(first: 5) { nodes { name color } }
+                baseRefName headRefName
+                assignees(first: 10) { nodes { login avatarUrl } }
+                comments { totalCount }
                 reviewDecision
                 reviews(last: 10) { nodes { author { login } state } }
                 reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } } } }
-                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+                commits(last: 1) { totalCount nodes { commit { statusCheckRollup { state } } } }
             }
             query($owner: String!, $name: String!, $first: Int!, $cursor: String) {
                 repository(owner: $owner, name: $name) {
@@ -193,6 +205,8 @@ pub async fn fetch_source_page(
                 author { ...ActorFields }
                 repository { id name nameWithOwner owner { login } }
                 labels(first: 5) { nodes { name color } }
+                assignees(first: 10) { nodes { login avatarUrl } }
+                comments { totalCount }
             }
             query($owner: String!, $name: String!, $first: Int!, $cursor: String) {
                 repository(owner: $owner, name: $name) {
@@ -251,6 +265,8 @@ pub async fn fetch_source_page(
                 author { ...ActorFields }
                 repository { id name nameWithOwner owner { login } }
                 labels(first: 5) { nodes { name color } }
+                assignees(first: 10) { nodes { login avatarUrl } }
+                comments { totalCount }
             }
             fragment PullRequestFields on PullRequest {
                 __typename
@@ -258,10 +274,13 @@ pub async fn fetch_source_page(
                 author { ...ActorFields }
                 repository { id name nameWithOwner owner { login } }
                 labels(first: 5) { nodes { name color } }
+                baseRefName headRefName
+                assignees(first: 10) { nodes { login avatarUrl } }
+                comments { totalCount }
                 reviewDecision
                 reviews(last: 10) { nodes { author { login } state } }
                 reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } } } }
-                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
+                commits(last: 1) { totalCount nodes { commit { statusCheckRollup { state } } } }
             }
             query($search: String!, $first: Int!, $cursor: String) {
                 search(query: $search, type: ISSUE, first: $first, after: $cursor) {

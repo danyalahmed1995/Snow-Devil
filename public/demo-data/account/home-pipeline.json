@@ -116,7 +116,15 @@
       "createdAt": "2026-02-05T10:00:00Z",
       "updatedAt": "2026-02-13T08:00:00Z",
       "isDraft": true,
-      "inclusionReason": "authored"
+      "inclusionReason": "authored",
+      "baseBranch": "main",
+      "headBranch": "feature/shortcut-overlay",
+      "commentCount": 3,
+      "commitCount": 2,
+      "completeness": "complete",
+      "stageHistory": [
+        { "id": "demo-pr-181-draft", "stage": "coding", "label": "Draft pull request opened", "occurredAt": "2026-02-05T10:00:00Z" }
+      ]
     },
     {
       "id": "demo-pr-178",
@@ -178,7 +186,17 @@
         "reviews": [{ "author": "imani-vale", "state": "CHANGES_REQUESTED" }]
       },
       "checksSummary": { "state": "SUCCESS", "totalCount": 4, "successCount": 4, "failureCount": 0 },
-      "inclusionReason": "authored"
+      "inclusionReason": "authored",
+      "baseBranch": "main",
+      "headBranch": "feature/offline-demo",
+      "commentCount": 8,
+      "commitCount": 5,
+      "completeness": "complete",
+      "stageHistory": [
+        { "id": "demo-pr-184-opened", "stage": "pull_requests", "label": "Pull request opened", "occurredAt": "2026-02-08T11:00:00Z" },
+        { "id": "demo-pr-184-review", "stage": "review", "label": "Review requested", "occurredAt": "2026-02-09T10:00:00Z" },
+        { "id": "demo-pr-184-changes", "stage": "review", "label": "Changes requested", "occurredAt": "2026-02-13T14:30:00Z" }
+      ]
     },
     {
       "id": "demo-pr-186",
@@ -299,6 +317,27 @@
       "tagName": "v2.4.0",
       "isPrerelease": false,
       "inclusionReason": "authored"
+    },
+    {
+      "id": "demo-deployment-production-v2-4-0",
+      "type": "deployment",
+      "repositoryId": "repo-snow",
+      "repositoryName": "nova-labs/snow-devil",
+      "owner": "nova-labs",
+      "title": "Production deployment v2.4.0",
+      "stage": "deployed",
+      "status": "deployed",
+      "author": { "login": "deploy-bot", "isBot": true },
+      "labels": [],
+      "createdAt": "2026-02-14T18:30:00Z",
+      "updatedAt": "2026-02-14T19:00:00Z",
+      "deployedAt": "2026-02-14T19:00:00Z",
+      "environment": "production",
+      "completeness": "complete",
+      "stageHistory": [
+        { "id": "demo-deployment-created", "stage": "deployed", "label": "Deployed to production", "occurredAt": "2026-02-14T19:00:00Z" }
+      ],
+      "inclusionReason": "deployment triggered by you"
     }
   ]
 }

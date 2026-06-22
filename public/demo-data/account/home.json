@@ -1,5 +1,6 @@
 {
   "metrics": { "contributions": 1248, "currentStreak": 17, "longestStreak": 64, "needsAttention": 6, "waitingReview": 4, "failingChecks": 2, "recentlyMerged": 11, "notifications": 8 },
+  "previousMetrics": { "needsAttention": 4, "waitingReview": 5, "failingChecks": 1, "recentlyMerged": 8 },
   "recentActivity": [
     { "id": "activity-1", "title": "Released Snow Devil v2.4.0", "type": "release", "occurredAt": "2026-02-14T18:00:00Z" },
     { "id": "activity-2", "title": "Approved keyboard-first flow navigation", "type": "review", "occurredAt": "2026-02-13T13:20:00Z" },

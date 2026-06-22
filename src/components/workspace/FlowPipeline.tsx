@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FlowItem, FlowStage } from '../../types/flow';
 import { FlowCard } from './FlowCard';
+import { WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import './FlowPipeline.css';
 
 export interface SourceControls {
@@ -16,18 +17,9 @@ interface FlowPipelineProps {
   onSelectItem?: (item: FlowItem) => void;
   sourceControls: SourceControls;
   resetKey?: string;
+  hideEmptyStages?: boolean;
+  onOpenItem?: (item: FlowItem) => void;
 }
-
-const STAGES: { id: FlowStage; label: string }[] = [
-  { id: 'issues', label: 'Issues' },
-  { id: 'coding', label: 'Coding' },
-  { id: 'pull_requests', label: 'Pull Requests' },
-  { id: 'review', label: 'Review' },
-  { id: 'checks', label: 'Checks' },
-  { id: 'ready', label: 'Ready' },
-  { id: 'merged', label: 'Merged' },
-  { id: 'released', label: 'Released' },
-];
 
 function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
   switch (stage) {
@@ -41,7 +33,7 @@ function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
 // Cache to preserve scroll positions across tab switches for the same context
 const scrollCache = new Map<string, { left: number; tops: Record<string, number> }>();
 
-export function FlowPipeline({ items, selectedItemId, onSelectItem, sourceControls, resetKey }: FlowPipelineProps) {
+export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, sourceControls, resetKey, hideEmptyStages = false }: FlowPipelineProps) {
   const laneScrollerRef = useRef<HTMLDivElement>(null);
 
   const previousScrollContextRef = useRef<string | null>(null);
@@ -114,7 +106,8 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, sourceContro
       checks: [],
       ready: [],
       merged: [],
-      released: [],
+    released: [],
+    deployed: [],
       closed: [],
       absent: []
     } as Record<FlowStage, FlowItem[]>);
@@ -131,7 +124,7 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, sourceContro
       )}
       <div className="flow-lane-scroller" ref={laneScrollerRef} data-testid="flow-lane-scroller" onScroll={handleLaneScroll}>
         <div className="flow-workbench-pipeline" data-testid="flow-pipeline">
-          {STAGES.map((stage) => {
+          {WORKFLOW_STAGES.filter(stage => !hideEmptyStages || groupedItems[stage.id].length > 0).map((stage) => {
             const sourceKey = getSourceKeyForStage(stage.id);
             const source = sourceControls[sourceKey];
             const isCanonical = stage.id === 'issues' || stage.id === 'merged' || stage.id === 'pull_requests';
@@ -152,9 +145,9 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, sourceContro
                 items={groupedItems[stage.id]} 
                 selectedItemId={selectedItemId} 
                 onSelectItem={onSelectItem} 
+                onOpenItem={onOpenItem}
                 source={source}
                 countDisplay={countDisplay}
-                resetKey={resetKey}
                 onScroll={handleLaneScroll}
               />
             );
@@ -165,22 +158,29 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, sourceContro
   );
 }
 
-function FlowColumn({ stage, items, selectedItemId, onSelectItem, source, countDisplay, onScroll }: any) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
+const FLOW_STAGE_PREVIEW_LIMIT = 5;
+
+function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, source, countDisplay, onScroll }: { stage: { id: FlowStage; label: string }; items: FlowItem[]; selectedItemId?: string; onSelectItem?: (item: FlowItem) => void; onOpenItem?: (item: FlowItem) => void; source: SourceControls[keyof SourceControls]; countDisplay: string | number; onScroll: () => void }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, FLOW_STAGE_PREVIEW_LIMIT);
+  const hidden = Math.max(0, items.length - visibleItems.length);
 
   useEffect(() => {
-    if (!sentinelRef.current || !source.hasNextPage || source.isFetching) return;
+    if (!expanded || !selectedItemId || !scrollRef.current) return;
+    const selected = [...scrollRef.current.querySelectorAll<HTMLElement>('[data-flow-item-id]')].find(element => element.dataset.flowItemId === selectedItemId);
+    selected?.scrollIntoView?.({ block: 'nearest' });
+  }, [expanded, selectedItemId]);
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !source.isFetching) {
-        source.fetchNextPage();
-      }
-    }, { rootMargin: '200px' }); // Load ahead by 200px
-
-    observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [source.hasNextPage, source.isFetching, source.fetchNextPage]);
+  const toggleExpanded = () => {
+    if (expanded) {
+      setExpanded(false);
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      return;
+    }
+    setExpanded(true);
+    if (source.hasNextPage && !source.isFetching) source.fetchNextPage();
+  };
 
   return (
     <div className="flow-workbench-lane">
@@ -191,18 +191,19 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, source, countD
         </span>
       </div>
       <div className="flow-stage-content" ref={scrollRef} data-stage-id={stage.id} onScroll={onScroll}>
-        {items.map((item: FlowItem) => (
-          <FlowCard
-            key={item.id}
+        {visibleItems.map((item) => (
+          <div key={item.id} data-flow-item-id={item.id}><FlowCard
             item={item}
             isSelected={item.id === selectedItemId}
             onClick={() => onSelectItem?.(item)}
+            onOpen={() => onOpenItem?.(item)}
             variant="workbench"
-          />
+          /></div>
         ))}
+        {items.length === 0 && <div className="flow-stage-empty">No items in this stage</div>}
         {source.isFetching && <div className="flow-lane-loading">Loading...</div>}
-        {source.hasNextPage && <div ref={sentinelRef} style={{ height: '20px' }} />}
       </div>
+      {(hidden > 0 || expanded || source.hasNextPage) && <button className="flow-stage-more" type="button" onClick={toggleExpanded}>{expanded ? 'Show fewer' : hidden > 0 ? `Show ${hidden} more` : 'Load more'}</button>}
     </div>
   );
 }

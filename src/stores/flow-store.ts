@@ -19,6 +19,11 @@ export interface TabFlowState {
   cursorTime: number;
   isPlaying: boolean;
   playbackSpeed: number;
+  search: string;
+  activeOnly: boolean;
+  hideEmptyStages: boolean;
+  filterStage?: FlowItem['stage'];
+  statusFilter: 'all' | 'attention' | 'waiting_review' | 'failing' | 'merged';
 }
 
 const DEFAULT_FLOW_STATE: TabFlowState = {
@@ -30,6 +35,10 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
   cursorTime: Date.now() - 7 * 24 * 60 * 60 * 1000,
   isPlaying: false,
   playbackSpeed: 1,
+  search: '',
+  activeOnly: false,
+  hideEmptyStages: false,
+  statusFilter: 'all',
 };
 
 interface FlowStore {

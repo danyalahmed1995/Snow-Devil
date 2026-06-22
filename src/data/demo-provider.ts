@@ -4,7 +4,7 @@ import type { FlowItem } from '../types/flow';
 
 export interface DemoRepository { id: string; nameWithOwner: string; description?: string | null; archived: boolean; fork: boolean; stars: number; language?: string | null }
 export interface DemoManifest { schemaVersion: number; referenceDate: string; identity: ConnectedAccount; repositories: DemoRepository[]; coverage: string[]; fixtures: Record<string, string> }
-export interface DemoHome { metrics: Record<string, number>; recentActivity: Array<{ id: string; title: string; type: string; occurredAt: string }>; notifications: Array<{ id: string; title: string; reason: string }>; featuredRepositoryIds: string[] }
+export interface DemoHome { metrics: Record<string, number>; previousMetrics?: Record<string, number>; recentActivity: Array<{ id: string; title: string; type: string; occurredAt: string }>; notifications: Array<{ id: string; title: string; reason: string }>; featuredRepositoryIds: string[] }
 export type DemoPipelineItem = FlowItem;
 
 export interface DemoPipeline { schemaVersion: number; referenceDate: string; items: DemoPipelineItem[] }
@@ -25,9 +25,9 @@ const object = (value: unknown): value is Record<string, unknown> => !!value && 
 const manifest = (value: unknown): value is DemoManifest => object(value) && value.schemaVersion === 1 && typeof value.referenceDate === 'string' && object(value.identity) && Array.isArray(value.repositories) && Array.isArray(value.coverage) && object(value.fixtures);
 const events = (value: unknown): value is SimulatorEvent[] => Array.isArray(value) && value.length > 0 && value.every(item => object(item) && typeof item.id === 'string' && typeof item.occurredAt === 'string' && typeof item.eventType === 'string' && typeof item.subjectType === 'string');
 
-const VALID_ITEM_TYPES = new Set(['issue', 'pull_request', 'release']);
-const VALID_STAGES = new Set(['issues', 'coding', 'pull_requests', 'review', 'checks', 'ready', 'merged', 'released', 'closed', 'absent']);
-const VALID_STATUSES = new Set(['idle', 'active', 'queued', 'blocked', 'failing', 'passing', 'changes_requested', 'approved', 'merged', 'released', 'closed']);
+const VALID_ITEM_TYPES = new Set(['issue', 'pull_request', 'release', 'deployment']);
+const VALID_STAGES = new Set(['issues', 'coding', 'pull_requests', 'review', 'checks', 'ready', 'merged', 'released', 'deployed', 'closed', 'absent']);
+const VALID_STATUSES = new Set(['idle', 'active', 'queued', 'blocked', 'failing', 'passing', 'changes_requested', 'approved', 'merged', 'released', 'deployed', 'closed']);
 
 function isDemoPipelineItem(v: unknown): v is DemoPipelineItem {
   if (!object(v)) return false;
@@ -96,6 +96,9 @@ export function demoPipelineItemToFlowItem(item: DemoPipelineItem): FlowItem {
       reviews: item.reviewSummary.reviews.map(review => ({ ...review })),
     } : undefined,
     linkedIssueIds: item.linkedIssueIds ? [...item.linkedIssueIds] : undefined,
+    assignees: item.assignees?.map(assignee => ({ ...assignee })),
+    requestedReviewers: item.requestedReviewers?.map(reviewer => ({ ...reviewer })),
+    stageHistory: item.stageHistory?.map(entry => ({ ...entry })),
   };
 }
 

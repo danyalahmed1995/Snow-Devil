@@ -1,7 +1,8 @@
 export type FlowItemType =
   | 'issue'
   | 'pull_request'
-  | 'release';
+  | 'release'
+  | 'deployment';
 
 export type FlowStage =
   | 'issues'
@@ -12,6 +13,7 @@ export type FlowStage =
   | 'ready'
   | 'merged'
   | 'released'
+  | 'deployed'
   | 'closed'
   | 'absent';
 
@@ -26,6 +28,7 @@ export type FlowStatus =
   | 'approved'
   | 'merged'
   | 'released'
+  | 'deployed'
   | 'closed';
 
 export interface ActorSummary {
@@ -79,8 +82,31 @@ export interface FlowItem {
   linkedIssueIds?: string[];
   publishedAt?: string;
   tagName?: string;
+  deployedAt?: string;
+  environment?: string;
   isPrerelease?: boolean;
   inclusionReason?: string;
+  stageReason?: string;
+  baseBranch?: string;
+  headBranch?: string;
+  assignees?: ActorSummary[];
+  requestedReviewers?: ActorSummary[];
+  commentCount?: number;
+  commitCount?: number;
+  stageHistory?: FlowStageHistoryEntry[];
+  completeness?: 'complete' | 'partial' | 'unknown';
+  completenessReason?: string;
+  sourceMode?: 'live' | 'demo';
+  sourceType?: string;
+  referenceTime?: string;
+}
+
+export interface FlowStageHistoryEntry {
+  id: string;
+  stage: FlowStage;
+  label: string;
+  occurredAt: string;
+  inferred?: boolean;
 }
 
 export interface FlowEvent {

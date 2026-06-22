@@ -42,6 +42,9 @@
   overflow-x: hidden;
   overflow-y: hidden;
 }
+.flow-stage-more { flex:0 0 auto; min-height:30px; margin:6px; border:1px solid var(--border-color); border-radius:5px; color:var(--text-secondary); background:var(--bg-primary); font-size:11px; }
+.flow-stage-more:hover { border-color:var(--accent-primary); color:var(--text-primary); }
+.flow-stage-empty { display:grid; place-items:center; min-height:88px; padding:10px; color:var(--text-muted); font-size:11px; text-align:center; }
 
 .flow-lane-scroller {
   flex: 1 1 auto;
@@ -94,6 +97,7 @@
    ============================== */
 
 .flow-stage-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -123,8 +127,11 @@
 }
 
 .flow-stage-content {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
   padding: 12px;
   display: flex;
   flex-direction: column;

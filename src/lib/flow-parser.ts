@@ -10,6 +10,10 @@ function parseActor(actor: any): ActorSummary | undefined {
   };
 }
 
+function parseActors(connection: any): ActorSummary[] {
+  return (connection?.nodes || []).filter(Boolean).map((actor: any) => parseActor(actor)).filter(Boolean) as ActorSummary[];
+}
+
 function parseLabels(labelsNode: any): LabelSummary[] {
   if (!labelsNode?.nodes) return [];
   return labelsNode.nodes.map((l: any) => ({ name: l.name, color: l.color }));
@@ -64,12 +68,18 @@ export function parseGitHubIssueOrPR(node: any, type: 'issue' | 'pull_request'):
     updatedAt: node.updatedAt,
     mergedAt: node.mergedAt,
     closedAt: node.closedAt,
+    assignees: parseActors(node.assignees),
+    commentCount: node.comments?.totalCount,
   };
 
   if (type === 'pull_request') {
     base.isDraft = node.isDraft;
     base.checksSummary = parseChecks(node.commits);
     base.reviewSummary = parseReviews(node);
+    base.baseBranch = node.baseRefName;
+    base.headBranch = node.headRefName;
+    base.commitCount = node.commits?.totalCount;
+    base.requestedReviewers = (node.reviewRequests?.nodes || []).map((request: any) => parseActor(request.requestedReviewer)).filter(Boolean);
     
     // Normalize status strings for mapping
     if (node.state === 'MERGED') {

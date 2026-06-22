@@ -56,7 +56,7 @@ test.describe('Flow Layout', () => {
     const pipeline = page.locator('[data-testid="flow-pipeline"]');
     
     const lanes = pipeline.locator('.flow-workbench-lane');
-    await expect(lanes).toHaveCount(8);
+    await expect(lanes).toHaveCount(9);
 
     const issuesLane = lanes.nth(0);
     const codingLane = lanes.nth(1);
@@ -72,7 +72,7 @@ test.describe('Flow Layout', () => {
     expect(first!.width).toBeGreaterThanOrEqual(320);
 
     // Verify all adjacent pairs
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       const left = await lanes.nth(i).boundingBox();
       const right = await lanes.nth(i + 1).boundingBox();
       const gap = right!.x - (left!.x + left!.width);
@@ -106,12 +106,12 @@ test.describe('Flow Layout', () => {
     );
     expect(newScrollLeft).toBe(scrollLeft);
 
-    // Verify the Released lane becomes fully visible at maximum scroll
-    const releasedLane = lanes.nth(7);
-    const releasedBox = await releasedLane.boundingBox();
+    // Verify the final Deployed lane becomes fully visible at maximum scroll
+    const deployedLane = lanes.nth(8);
+    const deployedBox = await deployedLane.boundingBox();
     
     // The right edge of the released lane should be visible within the page
     const scrollerBox = await scroller.boundingBox();
-    expect(releasedBox!.x + releasedBox!.width).toBeLessThanOrEqual(scrollerBox!.x + scrollerBox!.width + 5); // Allow 5px tolerance
+    expect(deployedBox!.x + deployedBox!.width).toBeLessThanOrEqual(scrollerBox!.x + scrollerBox!.width + 5); // Allow 5px tolerance
   });
 });

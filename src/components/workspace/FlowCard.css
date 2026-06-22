@@ -1,4 +1,8 @@
 .flow-card {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  color: inherit;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -9,6 +13,7 @@
   gap: 8px;
   flex-shrink: 0;
 }
+.flow-card:focus-visible { outline:2px solid var(--accent-primary,#2f81f7); outline-offset:1px; }
 
 .home-flow-preview-card {
   width: 100%;
@@ -150,3 +155,5 @@
 .badge-checks.badge-pending {
   background-color: var(--warning-color, #d29922);
 }
+.badge-neutral { background:var(--bg-tertiary); color:var(--text-secondary); }
+.flow-card-age { color:var(--text-muted); font-size:10px; margin-left:auto; white-space:nowrap; }
