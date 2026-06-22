@@ -63,6 +63,11 @@ pub fn run() {
             commands::simulator::get_simulator_entities,
             commands::simulator::get_simulator_sync_state,
             commands::simulator::save_simulator_sync_state,
+            commands::analytics::analytics_fetch_rest,
+            commands::analytics::save_analytics_records,
+            commands::analytics::get_analytics_records,
+            commands::analytics::save_analytics_sync_state,
+            commands::analytics::get_analytics_sync_state,
             // Browser commands
             browser::commands::browser_create,
             browser::commands::browser_activate,

@@ -167,7 +167,8 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
             const isExpanded = expandedStages.has(stage);
             return <SimulatorStageColumn key={stage} stage={stage} entities={entitiesInStage} expanded={isExpanded} selectedEntityId={selectedEntityId} onSelect={entity => { setSelectedEntityId(entity.id); setSelectedEventId(undefined); }} onExpand={() => setExpansion(current => {
               const stages = current.context === expansionContext ? new Set(current.stages) : new Set<string>();
-              stages.add(stage);
+              if (stages.has(stage)) stages.delete(stage);
+              else stages.add(stage);
               return { context: expansionContext, stages };
             })} />;
           })}

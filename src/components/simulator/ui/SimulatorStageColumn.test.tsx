@@ -27,5 +27,18 @@ describe('SimulatorStageColumn overflow', () => {
     expect(screen.getByRole('button', { name: /Pull request 2/ })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: /Pull request 7/ }));
     expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'entity-7' }));
+    expect(screen.getByTestId('simulator-stage-viewport-merged')).toHaveClass('is-expanded');
+    const fewer = screen.getByRole('button', { name: 'Show fewer Merged' });
+    expect(fewer).toHaveTextContent('Show fewer');
+    fireEvent.click(fewer);
+    expect(onExpand).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps expansion inside a focusable scrolling viewport', () => {
+    render(<SimulatorStageColumn stage="merged" entities={Array.from({ length: 8 }, (_, index) => entity(index + 1))} expanded selectedEntityId="entity-8" onExpand={vi.fn()} onSelect={vi.fn()} />);
+    const viewport = screen.getByTestId('simulator-stage-viewport-merged');
+    expect(viewport).toHaveAttribute('tabindex', '0');
+    expect(viewport).toHaveClass('is-expanded');
+    expect(screen.getAllByRole('button', { name: /Pull request/ })).toHaveLength(8);
   });
 });

@@ -67,7 +67,7 @@ The fixed `2026-06-21` analytics generator supplies 90 days of four-repository h
 
 ## 14. `+N more`
 
-`SimulatorStageColumn` renders four preview cards and a real, labeled button. Expansion is stage-specific and context-keyed, reveals all local cards in deterministic order, keeps the stage vertically scrollable, does not fetch, and preserves cursor, playback, and selection. Home uses the same local-expansion behavior; genuinely paginated live previews hand off to Flow.
+`SimulatorStageColumn` renders four preview cards and a real, labeled button. The original expanded list remained a flex child with its action inside the scrolling content, allowing card intrinsic height to pressure the board grid track and paint across the lower deck. The fix separates a fixed header, `flex: 1 1 0; min-height: 0` viewport, card stack, and fixed footer. Only the viewport receives `overflow-y: auto`, `overscroll-behavior-y: contain`, and stable scrollbar gutter. `Show fewer` resets scroll safely; expansion remains stage/context keyed and never fetches or resets playback, selection, cursor, filters, or timeline state.
 
 ## 15. Tooltip Clamping
 
@@ -85,28 +85,45 @@ The fixed `2026-06-21` analytics generator supplies 90 days of four-repository h
 - `src/components/inspector/*`, `src/lib/entity-target.ts`: shared evidence and target path.
 - `src/browser/*`, `WorkspaceContent.tsx`: native tab/navigation integration.
 - `src/data/demo-provider.ts`, `Dashboard.tsx`, stores/hooks, and focused tests.
+- `src/analytics/sync.ts`, `useAnalyticsSync.ts`: bounded live sync coordinator, coverage, cancellation, and cache hydration.
+- `src-tauri/src/commands/analytics.rs`, migration v4: authenticated paged REST transport, transactional record upserts, and resumable sync state.
 
 ## 18. Tests Added
 
-Tests cover business time, age bands, percentiles, outliers, CI grading, streaks, cumulative flow, throughput, lead time, Inventory reasons, repository overrides, lineage confidence, target resolution, all tooltip endpoints/resize/long width, exact overflow expansion, page rendering/filtering, settings reset, and four simulator issue/PR state-preservation cases.
+Tests cover business time, age bands, percentiles, outliers, CI grading, streaks, cumulative flow, throughput, lead time, Inventory reasons, repository overrides, lineage confidence, target resolution, all tooltip endpoints/resize/long width, overflow expansion/collapse/viewport containment, page rendering/filtering, settings reset, first/paged sync, transactional dedupe identity, cancellation, partial repository failure, rate limit, auth expiry, unsupported capabilities, coverage states, and four simulator issue/PR state-preservation cases.
 
 ## 19. Validation
 
-- `pnpm test`: 23 files, 133 tests passed.
+- `pnpm test`: 24 files, 139 tests passed.
 - `pnpm build`: passed.
-- `pnpm lint`: passed with 23 pre-existing hook warnings; no errors.
+- `pnpm lint`: passed with pre-existing hook warnings; no errors.
 - `pnpm test:e2e`: 5 passed.
-- `cargo test`: 51 passed.
+- `cargo test`: 52 passed.
 - `cargo check`: passed with one pre-existing unused-import warning.
 - `git diff --check`: passed.
 
 ## 20. Performance
 
-Selectors run against one normalized dataset and are memoized at page boundaries. Business weekday formatting is cached by timezone/hour. Charts are dependency-free DOM/SVG. Live history is bounded and cache-first; no account-wide reconstruction runs on every render.
+Selectors run against one normalized dataset and are memoized at page boundaries. Business weekday formatting is cached by timezone/hour. Charts are dependency-free DOM/SVG. Live history is bounded and cache-first; no account-wide work runs during rendering or launch. A renderer singleton prevents duplicate account sync, repository work is sequential and bounded, records write in chunks of 100, and the UI receives compact state rather than a copied account dataset.
+
+## 20A. Connected Analytics Synchronization
+
+- Migration: schema v4 adds normalized `analytics_records` and `analytics_sync_state`; existing simulator rows remain untouched. Keys `(account_login, source_type, source_id)` guarantee idempotent upsert and deduplication.
+- Commands: `analytics_fetch_rest`, `save_analytics_records`, `get_analytics_records`, `save_analytics_sync_state`, and `get_analytics_sync_state`. Existing secure GitHub authentication is reused.
+- Endpoints: `/user/repos`; repository `/issues`, `/pulls`, `/branches`, `/actions/runs`, default-ref `/check-runs`, `/releases`, and `/deployments`. Pages are 100 records, capped at 10 pages per source/repository and stopped at the configured retention boundary where timestamps allow.
+- Stages: repository inventory; issues/PRs; branches; workflows/check runs; releases/deployments; then local lineage reconstruction using the existing confidence/evidence model.
+- Resume: every stage/repository saves a continuation marker, completed/failed repositories, counts, rate status, and retained range. Restarting safely replays the bounded pages and idempotently upserts them; successful repositories survive partial failures.
+- Cancellation: checked between pages and repositories. An in-flight HTTPS request is allowed to finish, after which state becomes cancelled without partial-row corruption.
+- Rate limits: response headers are persisted. Exhaustion stops further calls, preserves continuation, classifies coverage Partial, and exposes retry guidance after reset rather than issuing a blind retry loop.
+- Coverage: Complete requires all included repositories and the configured retained boundary; Partial covers missing repositories/sources or a short range; Syncing, Stale, Unavailable, and Failed are explicit. Settings fingerprints mark source-affecting changes stale without deleting unrelated data. Unsupported release/deployment endpoints are shown as unavailable, not zero.
+- Demo isolation: the sync hook derives no account in Demo Mode, issues no Tauri sync calls, renders no live sync controls, and the Demo provider remains deterministic/offline. Demo rows never enter v4 cache.
 
 ## 21. Known Limitations
 
-- Connected analytics are only as complete as locally cached simulator/sync history. There is not yet a dedicated staged account-wide branch/release/deployment backfill.
+- GitHub branch history exposes current refs, not authoritative creation/deletion timestamps; first observation is explicitly estimated.
+- The REST deployment list does not prove that Actions environments are configured, and access can depend on token permissions. A 404/409 is Unavailable; an empty supported response means no retained observations.
+- Cancellation occurs between GitHub requests because Tauri invoke does not currently pass an abort signal into reqwest.
+- Resume replays the bounded current source page rather than resuming mid-response; upsert identity keeps this safe and idempotent.
 - Public-holiday calendars are excluded from MVP business time.
 - Release/deployment temporal matches remain explicitly `inferred` without SHA/tag evidence.
 - Standalone Vite browser runs log expected Tauri-bridge errors; packaged Tauri and mocked automated tests provide the bridge.
@@ -122,6 +139,11 @@ All requested captures are in `screenshots/`:
 - `expanded-pipeline-stage.png`
 - `simulator-cursor-left-edge.png`, `simulator-cursor-right-edge.png`
 - `account-simulator-open-in-tab.png`, `repository-simulator-open-in-tab.png`
+- `repository-simulator-collapsed-1920x1080.png`, `repository-simulator-collapsed-1280x800.png`
+- `repository-simulator-merged-expanded-1920x1080.png`, `repository-simulator-merged-expanded-1280x800.png`
+- `repository-simulator-merged-scrolled-1920x1080.png`
+
+Measured verification: 1920 board/stage height 516px, internal viewport 449px with 1,587px scroll content and no overlap; 1600 board ends 10px above the lower deck; 1280 internal viewport is 221px and remains contained. `Show fewer` stays outside the scroll viewport and reachable.
 
 ## 23. Scope Confirmation
 

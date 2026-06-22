@@ -30,7 +30,9 @@ pub fn reset_local_app_data(
              DELETE FROM saved_views;
              DELETE FROM simulator_events;
              DELETE FROM simulator_entities;
-             DELETE FROM simulator_sync_state;",
+             DELETE FROM simulator_sync_state;
+             DELETE FROM analytics_records;
+             DELETE FROM analytics_sync_state;",
         ).map_err(|e| e.to_string())?;
         tx.commit().map_err(|e| e.to_string())?;
     }

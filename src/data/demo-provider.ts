@@ -104,6 +104,6 @@ export const DemoDataProvider = {
   home: () => fixture<DemoHome>('account/home.json', (v): v is DemoHome => object(v) && object(v.metrics) && Array.isArray(v.recentActivity) && Array.isArray(v.notifications) && Array.isArray(v.featuredRepositoryIds)),
   pipeline: () => fixture<DemoPipeline>('account/home-pipeline.json', isPipeline),
   accountEvents: async () => [...await fixture('simulator/account-history.json', events), ...accountOverflowEvents()].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
-  repositoryEvents: async (repositoryId: string) => (await fixture(`simulator/repositories/${repositoryId.replace('/', '--')}.json`, events)).filter(event => event.repositoryId === repositoryId),
+  repositoryEvents: async (repositoryId: string) => [...await fixture(`simulator/repositories/${repositoryId.replace('/', '--')}.json`, events), ...accountOverflowEvents()].filter(event => event.repositoryId === repositoryId).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
   clear: () => cache.clear(),
 };

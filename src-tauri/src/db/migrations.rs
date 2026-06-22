@@ -197,6 +197,42 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
 
         tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (3)", [])?;
     }
+    if current_version < 4 {
+        tx.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS analytics_records (
+                account_login TEXT NOT NULL,
+                repository_id TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                PRIMARY KEY (account_login, source_type, source_id)
+            );
+            CREATE TABLE IF NOT EXISTS analytics_sync_state (
+                account_login TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
+                current_stage TEXT,
+                current_repository TEXT,
+                completed_repositories_json TEXT NOT NULL DEFAULT '[]',
+                failed_repositories_json TEXT NOT NULL DEFAULT '[]',
+                continuation_json TEXT,
+                last_attempted_at TEXT,
+                last_successful_at TEXT,
+                retention_start TEXT,
+                coverage_start TEXT,
+                coverage_end TEXT,
+                counts_json TEXT NOT NULL DEFAULT '{}',
+                rate_limit_json TEXT,
+                error TEXT,
+                settings_fingerprint TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_analytics_records_repo ON analytics_records(account_login, repository_id);
+            CREATE INDEX IF NOT EXISTS idx_analytics_records_updated ON analytics_records(account_login, updated_at);
+            ",
+        )?;
+        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (4)", [])?;
+    }
 
     tx.commit()?;
     Ok(())

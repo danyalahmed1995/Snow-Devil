@@ -40,9 +40,12 @@
 .simulator-stage { min-width:112px; min-height:0; display:flex; flex-direction:column; padding:7px 6px 6px; border:1px solid var(--sim-border); border-radius:6px; background:linear-gradient(180deg,var(--sim-panel-strong),var(--sim-panel)); overflow:hidden; }
 .simulator-stage__header { height:24px; display:flex; align-items:flex-start; justify-content:space-between; color:#dce4ec; font-size:11px; font-weight:650; text-transform:capitalize; }
 .simulator-stage__header > span { min-width:18px; padding:1px 5px; text-align:center; border-radius:9px; background:#090f16; color:#9da9b5; font-size:9px; }
-.simulator-stage__cards { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; overflow:hidden; }
-.simulator-stage__cards.is-expanded { overflow-x:hidden; overflow-y:auto; padding-right:2px; scrollbar-gutter:stable; }
-.simulator-stage__more { width:100%; margin-top:auto; padding:4px; text-align:center; border:1px solid transparent; border-radius:4px; background:rgba(5,10,15,.45); color:#8b949e; font-size:9px; cursor:pointer; }
+.simulator-stage__viewport { flex:1 1 0; min-height:0; overflow:hidden; overscroll-behavior-y:contain; }
+.simulator-stage__viewport.is-expanded { overflow-x:hidden; overflow-y:auto; padding-right:2px; scrollbar-gutter:stable; }
+.simulator-stage__cards { min-height:0; display:flex; flex-direction:column; gap:6px; }
+.simulator-stage__cards > div { flex:0 0 auto; min-width:0; }
+.simulator-stage__viewport:focus-visible { outline:1px solid #2f81f7; outline-offset:-1px; border-radius:4px; }
+.simulator-stage__more { flex:0 0 auto; width:100%; margin-top:6px; padding:4px; text-align:center; border:1px solid transparent; border-radius:4px; background:rgba(5,10,15,.45); color:#8b949e; font-size:9px; cursor:pointer; }
 .simulator-stage__more:hover { color:#7ee787; border-color:rgba(63,185,80,.4); }
 .simulator-stage__more:focus-visible { outline:2px solid #2f81f7; outline-offset:1px; }
 .simulator-card { --stage:#388bfd; position:relative; width:100%; min-height:72px; display:flex; flex-direction:column; align-items:stretch; gap:3px; padding:7px; overflow:visible; text-align:left; border:1px solid rgba(139,148,158,.18); border-radius:5px; background:linear-gradient(145deg,#0d1620,#0a1119); color:var(--text-secondary); box-shadow:0 2px 7px rgba(0,0,0,.18); }
