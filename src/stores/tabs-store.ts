@@ -12,7 +12,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { WorkspaceTab, NativeTab, BrowserTab } from '../browser/browser-tabs';
-import type { NativeTabKind } from '../browser/browser-tabs';
+import type { NativeTabKind, NativeTabContext } from '../browser/browser-tabs';
 import type { BrowserTabKind } from '../browser/browser-url';
 import { isNativeTab, isBrowserTab } from '../browser/browser-tabs';
 
@@ -38,6 +38,21 @@ const DEFAULT_HOME: NativeTab = {
   lastActivatedAt: Date.now(),
 };
 
+function normalizeTab(tab: WorkspaceTab): WorkspaceTab {
+  if (tab.id === 'native:home') {
+    return { ...tab, pinned: true, closable: false };
+  }
+  if (tab.id === 'github:profile' && isBrowserTab(tab)) {
+    return { ...tab, pinned: false, closable: true };
+  }
+  return tab;
+}
+
+function normalizeRestoredTabs(tabs: WorkspaceTab[]): WorkspaceTab[] {
+  const normalized = tabs.map(normalizeTab);
+  return normalized.some(tab => tab.id === DEFAULT_HOME.id) ? normalized : [{ ...DEFAULT_HOME, createdAt: Date.now(), lastActivatedAt: Date.now() }, ...normalized];
+}
+
 // ---------------------------------------------------------------------------
 // State interface
 // ---------------------------------------------------------------------------
@@ -54,6 +69,7 @@ interface TabsState {
     title: string,
     pinned?: boolean,
     closable?: boolean,
+    context?: NativeTabContext,
   ) => void;
 
   /** Open or focus a browser tab. */
@@ -128,7 +144,9 @@ function migrateLegacyTabs(raw: unknown): { tabs: WorkspaceTab[]; activeTabId: s
   const alreadyMigrated = oldTabs.length > 0 && 'family' in oldTabs[0];
   if (alreadyMigrated) {
     if (activeTabId === 'system:dashboard') activeTabId = 'native:home';
-    return { tabs: oldTabs as unknown as WorkspaceTab[], activeTabId };
+    const tabs = normalizeRestoredTabs(oldTabs as unknown as WorkspaceTab[]);
+    if (!tabs.some(t => t.id === activeTabId)) activeTabId = 'native:home';
+    return { tabs, activeTabId };
   }
 
   const migrated: WorkspaceTab[] = [];
@@ -162,11 +180,13 @@ function migrateLegacyTabs(raw: unknown): { tabs: WorkspaceTab[]; activeTabId: s
     migrated.unshift(DEFAULT_HOME);
   }
 
-  if (!migrated.some(t => t.id === activeTabId)) {
+  const normalized = normalizeRestoredTabs(migrated);
+
+  if (!normalized.some(t => t.id === activeTabId)) {
     activeTabId = 'native:home';
   }
 
-  return { tabs: migrated, activeTabId };
+  return { tabs: normalized, activeTabId };
 }
 
 // ---------------------------------------------------------------------------
@@ -181,20 +201,18 @@ export const useTabsStore = create<TabsState>()(
       navigationGeneration: 1,
 
       // ---------------------------------------------------------------
-      openNativeTab: (id, kind, title, pinned = false, closable = true) => {
-        const { tabs, activeTabId } = get();
+      openNativeTab: (id, kind, title, pinned = false, closable = true, context) => {
+        const { tabs } = get();
         const existing = tabs.find(t => t.id === id);
         const now = Date.now();
 
         if (existing) {
-          if (activeTabId !== id) {
-            set({
-              activeTabId: id,
-              tabs: tabs.map(t =>
-                t.id === id ? { ...t, lastActivatedAt: now } : t,
-              ),
-            });
-          }
+          set({
+            activeTabId: id,
+            tabs: tabs.map(t => t.id === id
+              ? { ...t, ...(t.family === 'native' && context ? { context } : {}), lastActivatedAt: now }
+              : t),
+          });
           return;
         }
 
@@ -207,6 +225,7 @@ export const useTabsStore = create<TabsState>()(
           closable,
           createdAt: now,
           lastActivatedAt: now,
+          context,
         };
 
         set({ tabs: [...tabs, newTab], activeTabId: id });
@@ -438,8 +457,17 @@ export const useTabsStore = create<TabsState>()(
     }),
     {
       name: 'github-graph-browser-tabs',
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
+        if (version < 5 && persisted && typeof persisted === 'object') {
+          const state = persisted as any;
+          if (Array.isArray(state.tabs) && state.tabs.length > 0 && 'family' in state.tabs[0]) {
+            state.tabs = normalizeRestoredTabs(state.tabs as WorkspaceTab[]);
+            if (!state.tabs.some((tab: WorkspaceTab) => tab.id === state.activeTabId)) {
+              state.activeTabId = 'native:home';
+            }
+          }
+        }
         if (version < 2) {
           const migrated = migrateLegacyTabs(persisted);
           return { ...(persisted as object), ...migrated };

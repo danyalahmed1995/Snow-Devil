@@ -8,8 +8,8 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: var(--bg-primary);
+  font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  background: radial-gradient(circle at 50% -30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 42%), var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden; /* Desktop app layout */
   user-select: none; /* Desktop feel */
@@ -31,6 +31,46 @@ button {
   color: inherit;
 }
 
+button, input, select, textarea, [tabindex] {
+  transition: border-color var(--motion-fast) var(--ease-standard), background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--accent) 38%, transparent); color: var(--text-on-accent); }
+
+:root[data-theme-ready="true"] body,
+:root[data-theme-ready="true"] .glass-panel,
+:root[data-theme-ready="true"] .workspace,
+:root[data-theme-ready="true"] .workspace-content,
+:root[data-theme-ready="true"] .navigator,
+:root[data-theme-ready="true"] .inspector {
+  transition:
+    background-color var(--motion-normal) var(--ease-standard),
+    border-color var(--motion-normal) var(--ease-standard),
+    color var(--motion-normal) var(--ease-standard),
+    box-shadow var(--motion-normal) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Semantic compatibility overrides keep legacy feature CSS theme-aware. */
+.home-metric--danger { border-left-color: var(--danger) !important; }
+.home-metric--warning { border-left-color: var(--warning) !important; }
+.home-metric--good { border-left-color: var(--success) !important; }
+.analytics-tone--info strong,.analytics-state button,.analytics-tabs button.is-active { color: var(--info) !important; }
+.analytics-tone--good strong { color: var(--success) !important; }
+.analytics-tone--warning strong,.analytics-sync__error { color: var(--warning) !important; }
+.analytics-tone--danger strong,.analytics-state--error,.analytics-button--danger { color: var(--danger) !important; }
+.analytics-button--primary { border-color: var(--accent) !important; background: var(--accent) !important; }
+.analytics-sync--complete { border-left-color: var(--success) !important; }
+.analytics-sync--failed { border-left-color: var(--danger) !important; }
+.analytics-sync--syncing { border-left-color: var(--accent) !important; }
+.badge-review.badge-approved,.badge-checks.badge-success { background: var(--status-success-bg) !important; color: var(--status-success-fg) !important; }
+.badge-review.badge-changes_requested,.badge-checks.badge-failure,.badge-checks.badge-error { background: var(--status-danger-bg) !important; color: var(--status-danger-fg) !important; }
+.badge-checks.badge-pending { background: var(--status-warning-bg) !important; color: var(--status-warning-fg) !important; }
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -39,11 +79,11 @@ button {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--surface-hover);
+  background: var(--scrollbar, var(--surface-hover));
   border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: var(--scrollbar-hover, var(--text-muted));
 }
 .fresh-launch { align-items: center; justify-content: center; }
 .fresh-launch__card { max-width: 640px; padding: 48px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-secondary); }

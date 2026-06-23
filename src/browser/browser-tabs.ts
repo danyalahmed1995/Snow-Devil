@@ -22,7 +22,13 @@ export type NativeTabKind =
   | "personalFocus"
   | "settings"
   | "accountSimulator"
-  | "repositorySimulator";
+  | "repositorySimulator"
+  | "repositoryExplorer"
+  | "pullRequestDiff";
+
+export type NativeTabContext =
+  | { type: "repository"; repository: string; ref?: string; path?: string }
+  | { type: "pullRequest"; repository: string; number: number };
 
 /** A tab backed by a built-in React view. */
 export type NativeTab = {
@@ -34,6 +40,7 @@ export type NativeTab = {
   closable: boolean;
   createdAt: number;
   lastActivatedAt: number;
+  context?: NativeTabContext;
 };
 
 // ---------------------------------------------------------------------------

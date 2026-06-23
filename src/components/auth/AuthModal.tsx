@@ -41,11 +41,11 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 placeholder="Client ID (e.g. Iv1.xxx)" 
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: '#fff', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: '4px' }}
               />
             </div>
             {pollError && (
-              <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'rgba(248, 81, 73, 0.1)', padding: '8px', borderRadius: '4px' }}>
+              <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
                 {pollError}
               </div>
             )}
@@ -94,7 +94,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <p className="waiting-text">Waiting for authorization...</p>
                 {pollError && (
-                  <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'rgba(248, 81, 73, 0.1)', padding: '8px', borderRadius: '4px' }}>
+                  <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
                     {pollError}
                   </div>
                 )}

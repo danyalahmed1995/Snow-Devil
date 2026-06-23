@@ -66,7 +66,7 @@ export function RepositorySelector({ selectedRepo, onSelect, compact = false }: 
           padding: compact ? '0 10px' : '8px 12px',
           borderRadius: '5px',
           border: '1px solid var(--border-subtle)',
-          background: compact ? '#0c131b' : 'var(--bg-primary)',
+          background: compact ? 'var(--surface-nested)' : 'var(--bg-primary)',
           color: 'var(--text-primary)',
           fontSize: compact ? '11px' : undefined,
           textOverflow: 'ellipsis',
@@ -85,7 +85,7 @@ export function RepositorySelector({ selectedRepo, onSelect, compact = false }: 
           maxHeight: '300px',
           overflowY: 'auto',
           zIndex: 10,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          boxShadow: 'var(--shadow-sm)'
         }}>
           {filteredRepos.length === 0 ? (
             <div style={{ padding: '8px 12px', color: 'var(--text-muted)' }}>No matches found</div>

@@ -7,7 +7,7 @@ import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard } from './AnalyticsShared';
 
 type AnalyticsTab = 'cumulative' | 'throughput' | 'lead-time';
-const FLOW_COLORS = { issues: '#388bfd', coding: '#58a6ff', pullRequests: '#a371f7', reviewChecks: '#d2a8ff', ready: '#e3b341', merged: '#3fb950', deployed: '#39c5cf', released: '#8b949e' };
+const FLOW_COLORS = { issues: 'var(--pipeline-issue)', coding: 'var(--pipeline-coding)', pullRequests: 'var(--pipeline-review)', reviewChecks: 'var(--pipeline-review)', ready: 'var(--warning)', merged: 'var(--pipeline-delivery)', deployed: 'var(--info)', released: 'var(--text-muted)' };
 
 function StackedFlowChart({ snapshots }: { snapshots: ReturnType<typeof cumulativeFlow> }) {
   const max = Math.max(1, ...snapshots.map(snapshot => Object.entries(snapshot).filter(([key]) => key !== 'date').reduce((sum, [, value]) => sum + Number(value), 0)));
@@ -15,7 +15,7 @@ function StackedFlowChart({ snapshots }: { snapshots: ReturnType<typeof cumulati
 }
 
 function ThroughputChart({ buckets }: { buckets: ReturnType<typeof throughputBuckets> }) {
-  const series = [{ key: 'merged', color: '#3fb950' }, { key: 'issuesClosed', color: '#58a6ff' }, { key: 'releases', color: '#a371f7' }, { key: 'deployments', color: '#d29922' }] as const;
+  const series = [{ key: 'merged', color: 'var(--success)' }, { key: 'issuesClosed', color: 'var(--info)' }, { key: 'releases', color: 'var(--pipeline-review)' }, { key: 'deployments', color: 'var(--warning)' }] as const;
   const max = Math.max(1, ...buckets.flatMap(bucket => series.map(item => bucket[item.key])));
   const points = (key: typeof series[number]['key']) => buckets.map((bucket, index) => `${buckets.length <= 1 ? 0 : index / (buckets.length - 1) * 100},${100 - bucket[key] / max * 92}`).join(' ');
   return <div className="analytics-chart"><div className="analytics-chart-legend">{series.map(item => <span key={item.key}><i style={{ background: item.color }} />{item.key.replace(/([A-Z])/g, ' $1')}</span>)}</div><svg className="analytics-line-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Throughput over time">{[25, 50, 75, 100].map(y => <line key={y} x1="0" y1={y} x2="100" y2={y} />)}{series.map(item => <polyline key={item.key} points={points(item.key)} stroke={item.color} />)}</svg></div>;

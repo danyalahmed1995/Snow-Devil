@@ -47,12 +47,12 @@ export function FlowCard({ item, isSelected, onClick, onOpen, variant = 'workben
           {item.isDraft && <span className="badge badge-neutral">Draft</span>}
           {item.isBot && <span className="badge badge-neutral">Bot</span>}
           {item.type === 'release' && item.tagName && (
-            <span className="badge" style={{ backgroundColor: 'var(--accent-secondary)' }} title="Tag Name">
+            <span className="badge badge-info" title="Tag Name">
               Tag {item.tagName}
             </span>
           )}
           {item.type === 'release' && item.isPrerelease && (
-            <span className="badge" style={{ backgroundColor: 'var(--warning-color)' }} title="Pre-release">
+            <span className="badge badge-warning" title="Pre-release">
               Pre-release
             </span>
           )}

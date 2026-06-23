@@ -79,7 +79,7 @@
 
 .topbar-search input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(47, 129, 247, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .topbar-actions {
@@ -121,4 +121,4 @@
   color: var(--danger);
   background: var(--surface-hover);
 }
-.demo-mode-badge { color: #79c0ff; border: 1px solid #1f6feb; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.demo-mode-badge { color: var(--status-info-fg); background: var(--status-info-bg); border: 1px solid color-mix(in srgb, currentColor 24%, transparent); border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 700; white-space: nowrap; }

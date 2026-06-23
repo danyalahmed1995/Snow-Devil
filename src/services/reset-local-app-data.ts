@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth-store';
 import { useFlowStore } from '../stores/flow-store';
 import { useModeStore } from '../stores/mode-store';
 
-const OWNED_KEYS = ['github-graph-browser-tabs', 'snow-devil-mode', 'snow-devil-demo-state'];
+const OWNED_KEYS = ['github-graph-browser-tabs', 'snow-devil-mode', 'snow-devil-demo-state', 'snow-devil-theme', 'snow-devil-layout', 'snow-devil-explorer-state'];
 
 export async function resetLocalAppData() {
   await invoke('reset_local_app_data');

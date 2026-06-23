@@ -4,6 +4,7 @@
   height: 100%;
   width: 100%;
   background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 /* ── New tab strip ── */
@@ -22,6 +23,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  scroll-behavior: smooth;
 }
 
 .workspace-tab {
@@ -32,7 +34,7 @@
   height: 34px;
   min-width: 110px;
   max-width: 220px;
-  padding: 0 12px;
+  padding: 0 4px 0 12px;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -46,6 +48,11 @@
   border-bottom: none;
   margin-bottom: -1px;
   gap: 6px;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    max-width var(--motion-fast) var(--ease-standard);
 }
 
 .workspace-tab--active {
@@ -57,6 +64,7 @@
 
 .workspace-tab:hover:not(.workspace-tab--active) {
   background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .workspace-tab__title {
@@ -66,6 +74,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.2;
+  flex: 1 1 auto;
 }
 
 .workspace-tab__close {
@@ -73,23 +82,31 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  margin-left: 5px;
   color: var(--text-muted);
-  opacity: 0.5;
-  transition: all 0.2s;
+  opacity: 0.62;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .workspace-tab:hover .workspace-tab__close {
   opacity: 1;
 }
 
+.workspace-tab--active .workspace-tab__close { opacity: .9; }
+
 .workspace-tab__close:hover {
   background: var(--surface-hover);
   color: var(--danger);
 }
+.workspace-tab__close:active { transform: scale(.92); }
+.workspace-tab__close:focus-visible { outline: 0; box-shadow: inset 0 0 0 1px var(--border-focus), var(--shadow-focus); }
 
 /* ── Legacy compat: keep old selectors working ── */
 
@@ -162,6 +179,22 @@
   overflow: hidden;
   min-width: 0;
   min-height: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.workspace-content > * {
+  animation: workspace-content-enter var(--motion-normal) var(--ease-standard);
+}
+
+@keyframes workspace-content-enter {
+  from { opacity: .82; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-tab-strip { scroll-behavior: auto; }
+  .workspace-content > * { animation: none; }
 }
 
 .entity-view {

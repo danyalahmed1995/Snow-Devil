@@ -56,11 +56,33 @@ pub fn reset_local_app_data(
     Ok(())
 }
 
+/// Clears account-scoped cached data while preserving the credential and account connection.
+#[tauri::command]
+pub fn reset_local_cache(db: tauri::State<'_, AppState>) -> Result<(), String> {
+    let mut guard = db.db_conn.lock().map_err(|e| e.to_string())?;
+    let conn = guard.as_mut().ok_or("Database is unavailable")?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute_batch(
+        "DELETE FROM edges; DELETE FROM nodes; DELETE FROM notifications; DELETE FROM timeline_events;
+         DELETE FROM sync_state; DELETE FROM simulator_events; DELETE FROM simulator_entities;
+         DELETE FROM simulator_sync_state; DELETE FROM analytics_records; DELETE FROM analytics_sync_state;"
+    ).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
     fn reset_sql_is_idempotent_by_construction() {
         let conn = rusqlite::Connection::open_in_memory().unwrap();
         conn.execute_batch("CREATE TABLE cache (id INTEGER); DELETE FROM cache; DELETE FROM cache;").unwrap();
+    }
+
+    #[test]
+    fn cache_reset_does_not_require_credential_removal() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch("CREATE TABLE accounts (id TEXT); CREATE TABLE cache (id INTEGER); INSERT INTO accounts VALUES ('me'); DELETE FROM cache;").unwrap();
+        assert_eq!(conn.query_row("SELECT COUNT(*) FROM accounts", [], |row| row.get::<_, i64>(0)).unwrap(), 1);
     }
 }

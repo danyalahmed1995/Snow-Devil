@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
+import { githubLabelStyle } from '../../lib/color-contrast';
 import { parseGitHubIssueOrPR, parseRelease } from '../../lib/flow-parser';
 import { formatEntityTitle, formatEventTitle, formatSubjectType, humanizeSimulatorValue } from '../../simulator/simulator-presentation';
 import { useFlowStore } from '../../stores/flow-store';
@@ -49,8 +50,7 @@ function useResolvedFlowItem(selectedItemId?: string): FlowItem | undefined {
 }
 
 function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'good' | 'warning' | 'danger' | 'info' }) {
-  const color = tone === 'good' ? 'var(--success-color)' : tone === 'warning' ? 'var(--warning-color)' : tone === 'danger' ? 'var(--danger-color)' : tone === 'info' ? 'var(--accent-primary)' : 'var(--bg-tertiary)';
-  return <span className="inspector-entity-badge" style={{ backgroundColor: color }}>{children}</span>;
+  return <span className={`inspector-entity-badge inspector-entity-badge--${tone}`}>{children}</span>;
 }
 
 function Meta({ label, children }: { label: string; children: ReactNode }) { return <div className="meta-row"><span className="meta-key">{label}</span><span className="meta-val">{children}</span></div>; }
@@ -74,7 +74,7 @@ function FlowDetails({ item, mode }: { item: FlowItem; mode: 'live' | 'demo' }) 
     <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={tone}>{value.type === 'pull_request' ? 'Pull Request' : value.type}</Badge><span className="inspector-stage-badge">{value.stage.replace(/_/g, ' ')}</span>{value.isDraft && <Badge>Draft</Badge>}{value.isBot && <Badge>Bot</Badge>}</div><h4 className="inspector-title">{value.title}</h4><p className="inspector-repository">{value.repositoryName}{value.number ? ` #${value.number}` : ''}</p></section>
     <section className="inspector-section inspector-why"><h5 className="section-title">Why it's here</h5><p className="meta-val">{value.stageReason}</p></section>
     <section className="inspector-section"><h5 className="section-title">Details</h5><div className="metadata"><Meta label="Author">{value.author?.login ?? 'Not reported'}</Meta><Meta label="Created">{new Date(value.createdAt).toLocaleString()}</Meta><Meta label="Updated">{new Date(value.updatedAt).toLocaleString()}</Meta><Meta label="Time in stage">{formatTimeInStage(value)}</Meta>{value.baseBranch && <Meta label="Base branch">{value.baseBranch}</Meta>}{value.headBranch && <Meta label="Head branch">{value.headBranch}</Meta>}<Meta label="Checks">{value.checksSummary?.state ?? 'Not reported'}</Meta><Meta label="Review">{value.reviewSummary?.state.replace(/_/g, ' ') ?? 'Not reported'}</Meta>{value.reviewSummary && <Meta label="Approval progress">{value.reviewSummary.reviews.filter(review => review.state === 'APPROVED').length} approvals</Meta>}{value.assignees && <Meta label="Assignees">{value.assignees.map(actor => actor.login).join(', ') || 'Unassigned'}</Meta>}{value.reviewSummary?.requestedReviewers && <Meta label="Requested reviewers">{value.reviewSummary.requestedReviewers.join(', ') || 'None'}</Meta>}{value.commentCount != null && <Meta label="Comments">{value.commentCount}</Meta>}{value.commitCount != null && <Meta label="Commits">{value.commitCount}</Meta>}{value.environment && <Meta label="Environment">{value.environment}</Meta>}<Meta label="Completeness">{value.completeness ?? 'unknown'}</Meta></div>{value.completenessReason && <p className="inspector-partial">{value.completenessReason}</p>}</section>
-    {value.labels && value.labels.length > 0 && <section className="inspector-section"><h5 className="section-title">Labels</h5><div className="labels-container">{value.labels.map(label => <span key={label.name} className="label-badge" style={{ backgroundColor: `#${label.color || '555555'}`, color: '#fff' }}>{label.name}</span>)}</div></section>}
+    {value.labels && value.labels.length > 0 && <section className="inspector-section"><h5 className="section-title">Labels</h5><div className="labels-container">{value.labels.map(label => <span key={label.name} className="label-badge" style={githubLabelStyle(label.color)} title={label.name} aria-label={`Label: ${label.name}`}>{label.name}</span>)}</div></section>}
     <section className="inspector-section"><h5 className="section-title">Stage History</h5>{value.stageHistory?.length ? <div className="inspector-timeline">{value.stageHistory.map(entry => <div key={entry.id}><i /><span><strong>{entry.label}</strong><small>{new Date(entry.occurredAt).toLocaleString()}{entry.inferred ? ' · inferred' : ''}</small></span></div>)}</div> : <p className="meta-val">No synchronized stage history is available.</p>}</section>
   </div>;
 }

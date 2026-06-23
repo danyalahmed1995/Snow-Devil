@@ -2,6 +2,7 @@ use crate::auth::secure_store::get_token;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
+use base64::Engine;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 const REST_URL: &str = "https://api.github.com";
@@ -149,6 +150,7 @@ pub async fn fetch_repo_file(
                     ... on Blob {
                         text
                         byteSize
+                        isBinary
                     }
                 }
             }
@@ -176,6 +178,48 @@ pub async fn fetch_repo_file(
     }
 
     Ok(json_res["data"]["repository"]["object"].clone())
+}
+
+pub async fn fetch_repo_file_content(
+    owner: &str,
+    name: &str,
+    expression: &str,
+    path: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let mut value = fetch_repo_file(owner, name, expression).await?;
+    value["path"] = json!(path);
+    let extension = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    let mime_type = match extension.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "svg" => Some("image/svg+xml"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    };
+    value["mimeType"] = json!(mime_type);
+    let byte_size = value.get("byteSize").and_then(|item| item.as_u64()).unwrap_or(0);
+    if mime_type.is_none() || extension == "svg" || byte_size > 5_000_000 {
+        return Ok(value);
+    }
+
+    let token = get_token()?.ok_or("No token")?;
+    let encoded_path = path.split('/').map(|segment| {
+        url::form_urlencoded::byte_serialize(segment.as_bytes()).collect::<String>()
+    }).collect::<Vec<_>>().join("/");
+    let branch = expression.split_once(':').map(|(reference, _)| reference).unwrap_or("HEAD");
+    let response = Client::new()
+        .get(format!("{}/repos/{}/{}/contents/{}?ref={}", REST_URL, owner, name, encoded_path, url::form_urlencoded::byte_serialize(branch.as_bytes()).collect::<String>()))
+        .bearer_auth(&token)
+        .header("User-Agent", "snow-devil")
+        .header("Accept", "application/vnd.github.raw+json")
+        .send().await?;
+    if !response.status().is_success() {
+        return Err(format!("GitHub image request failed ({})", response.status()).into());
+    }
+    let bytes = response.bytes().await?;
+    if bytes.len() > 5_000_000 { return Ok(value); }
+    value["contentBase64"] = json!(base64::engine::general_purpose::STANDARD.encode(bytes));
+    Ok(value)
 }
 
 pub async fn fetch_repo_prs(

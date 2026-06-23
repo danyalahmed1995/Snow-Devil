@@ -46,20 +46,21 @@
 }
 
 .nav-item.active {
-  background: var(--surface-active);
+  background: var(--surface-selected);
   border-left: 3px solid var(--accent-primary);
   padding-left: 13px;
 }
 
-.badge {
-  background: var(--bg-tertiary);
+.navigator .badge {
+  background: var(--counter-bg);
   padding: 2px 8px;
   border-radius: 10px;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--counter-fg);
+  font-weight: 700;
 }
 
-.nav-item.active .badge {
-  background: var(--accent-primary);
-  color: #fff;
+.navigator .nav-item.active .badge {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
 }

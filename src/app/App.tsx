@@ -6,6 +6,8 @@ import { useTabsStore } from '../stores/tabs-store';
 import { onBrowserNavigation, onBrowserOpenEntity } from '../browser/browser-events';
 import { classifyGithubUrl, tabIdForUrl, titleForGithubUrl } from '../browser/browser-url';
 import '../styles/globals.css';
+import { CommandPalette } from '../components/palette/CommandPalette';
+import { ThemeProvider } from '../components/theme/ThemeProvider';
 
 function BrowserEventOrchestrator() {
   useEffect(() => {
@@ -37,7 +39,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserEventOrchestrator />
+      <ThemeProvider />
       <Layout />
+      <CommandPalette />
     </QueryClientProvider>
   );
 }

@@ -18,6 +18,7 @@ import { BrowserToolbar } from '../../browser/BrowserToolbar';
 import { AddressBar } from '../../navigation/AddressBar';
 import { resetLocalAppData } from '../../services/reset-local-app-data';
 import './TopBar.css';
+import { AppearanceMenu } from '../theme/AppearanceMenu';
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
@@ -51,13 +52,13 @@ export function TopBar() {
     <>
       <header className="top-bar glass-panel-strong">
         <div className="top-bar-left">
-          <button className="icon-button" onClick={toggleNavigator}>
+          <button className="icon-button" onClick={toggleNavigator} aria-label="Toggle Navigator" title="Toggle Navigator">
             <Menu size={18} />
           </button>
           <BrowserToolbar activeTab={activeBrowserTab} />
           <div className="app-title">
             <Globe size={16} />
-            <span>GitHub Graph Browser</span>
+            <span>Snow Devil</span>
           </div>
         </div>
         
@@ -106,7 +107,8 @@ export function TopBar() {
             )}
           </div>
           <div className="divider" />
-          <button className="icon-button" onClick={toggleInspector}>
+          <AppearanceMenu />
+          <button className="icon-button" onClick={toggleInspector} aria-label={isInspectorOpen ? 'Close Inspector' : 'Open Inspector'} title={isInspectorOpen ? 'Close Inspector' : 'Open Inspector'}>
             {isInspectorOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
           </button>
         </div>

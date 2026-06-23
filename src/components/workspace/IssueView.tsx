@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { githubLabelStyle } from '../../lib/color-contrast';
 
 export function IssueView({ nodeId }: { nodeId: string }) {
   const [issue, setIssue] = useState<any>(null);
@@ -46,8 +47,9 @@ export function IssueView({ nodeId }: { nodeId: string }) {
             borderRadius: '16px', 
             fontSize: '12px',
             fontWeight: '600',
-            background: issue.state === 'OPEN' ? '#238636' : (issue.state === 'COMPLETED' ? '#8957e5' : 'var(--text-secondary)'),
-            color: '#fff'
+            border: '1px solid color-mix(in srgb, currentColor 22%, transparent)',
+            background: issue.state === 'OPEN' ? 'var(--status-success-bg)' : (issue.state === 'COMPLETED' ? 'var(--status-review-bg)' : 'var(--status-neutral-bg)'),
+            color: issue.state === 'OPEN' ? 'var(--status-success-fg)' : (issue.state === 'COMPLETED' ? 'var(--status-review-fg)' : 'var(--status-neutral-fg)')
           }}>
             {issue.state}
           </span>
@@ -92,7 +94,7 @@ export function IssueView({ nodeId }: { nodeId: string }) {
              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                {issue.labels?.nodes?.length > 0
                  ? issue.labels.nodes.map((l: any) => (
-                    <span key={l.name} style={{ background: `#${l.color}40`, border: `1px solid #${l.color}`, color: `var(--text-primary)`, padding: '2px 8px', borderRadius: '12px', fontSize: '12px' }}>
+                    <span key={l.name} style={{ ...githubLabelStyle(l.color), padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} title={l.name} aria-label={`Label: ${l.name}`}>
                       {l.name}
                     </span>
                  ))

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface LayoutState {
   navigatorWidth: number;
@@ -11,7 +12,7 @@ interface LayoutState {
   toggleInspector: () => void;
 }
 
-export const useLayoutStore = create<LayoutState>((set) => ({
+export const useLayoutStore = create<LayoutState>()(persist((set) => ({
   navigatorWidth: 280,
   inspectorWidth: 380,
   isNavigatorOpen: true,
@@ -20,4 +21,4 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   setInspectorWidth: (width) => set({ inspectorWidth: Math.max(200, Math.min(width, 600)) }),
   toggleNavigator: () => set((state) => ({ isNavigatorOpen: !state.isNavigatorOpen })),
   toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
-}));
+}), { name: 'snow-devil-layout', version: 1 }));

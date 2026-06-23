@@ -31,6 +31,12 @@ pub async fn get_repo_file(
 }
 
 #[tauri::command]
+pub async fn get_repo_file_content(owner: String, name: String, expression: String, path: String) -> Result<Value, String> {
+    crate::github::repo_api::fetch_repo_file_content(&owner, &name, &expression, &path)
+        .await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_repo_prs(owner: String, name: String) -> Result<Value, String> {
     crate::github::repo_api::fetch_repo_prs(&owner, &name)
         .await

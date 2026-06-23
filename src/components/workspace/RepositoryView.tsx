@@ -107,7 +107,7 @@ export function RepositoryView({ nodeId }: { nodeId: string }) {
               style={{
                 paddingBottom: '8px',
                 cursor: 'pointer',
-                borderBottom: activeInnerTab === tab ? '2px solid #58a6ff' : '2px solid transparent',
+                borderBottom: activeInnerTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
                 color: activeInnerTab === tab ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontWeight: activeInnerTab === tab ? '600' : 'normal',
                 textTransform: 'capitalize'
@@ -197,7 +197,7 @@ function RepoList({ type, owner, name }: { type: 'prs' | 'issues', owner: string
           onClick={() => handleOpen(item)}
         >
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ color: item.state === 'OPEN' ? '#3fb950' : 'var(--text-secondary)' }}>
+            <span style={{ color: item.state === 'OPEN' ? 'var(--success)' : 'var(--text-secondary)' }}>
               {type === 'prs' ? '⇄' : '⊙'}
             </span>
             <span style={{ fontWeight: '600', fontSize: '16px' }}>{item.title}</span>
@@ -303,7 +303,7 @@ function FileBrowser({ owner, name, defaultBranch }: { owner: string, name: stri
                 alignItems: 'center'
               }}
             >
-              <span style={{ color: entry.type === 'tree' ? '#58a6ff' : 'var(--text-secondary)' }}>
+              <span style={{ color: entry.type === 'tree' ? 'var(--info)' : 'var(--text-secondary)' }}>
                 {entry.type === 'tree' ? '📁' : '📄'}
               </span>
               <span>{entry.name}</span>

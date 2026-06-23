@@ -49,7 +49,7 @@ export function Navigator() {
       if (existingTab && existingTab.family === 'browser') {
         import('../../browser/browser-commands').then(({ browserNavigate, browserGetState }) => {
           browserGetState(shortcut.tabId).then((state) => {
-            if (state.url !== targetUrl && state.url !== targetUrl + '/') {
+            if (state && state.url !== targetUrl && state.url !== targetUrl + '/') {
               browserNavigate(shortcut.tabId, targetUrl).catch(console.error);
             }
           }).catch(console.error);

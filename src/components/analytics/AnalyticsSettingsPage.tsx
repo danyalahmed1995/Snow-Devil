@@ -3,6 +3,12 @@ import { includedRepositories } from '../../analytics/selectors';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { DEFAULT_ANALYTICS_SETTINGS, effectiveRepositorySettings, useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { AnalyticsPage, AnalyticsState, SectionCard } from './AnalyticsShared';
+import { ThemeSelect } from '../theme/ThemeSelect';
+import '../theme/Theme.css';
+import { useAuthStore } from '../../stores/auth-store';
+import { resetLocalCache } from '../../services/reset-local-cache';
+import { resetLocalAppData } from '../../services/reset-local-app-data';
+import { AuthModal } from '../auth/AuthModal';
 
 function SettingRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return <label className="analytics-setting-row"><span>{label}<small>{description}</small></span>{children}</label>;
@@ -15,12 +21,18 @@ export function AnalyticsSettingsPage() {
   const updateOverride = useAnalyticsSettingsStore(state => state.updateRepositoryOverride);
   const resetSettings = useAnalyticsSettingsStore(state => state.resetSettings);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [lifecycleStatus,setLifecycleStatus]=useState('');
+  const [showAuth,setShowAuth]=useState(false);
+  const session=useAuthStore(state=>state.session);
+  const disconnect=useAuthStore(state=>state.disconnect);
   const repositories = analytics.data?.repositories ?? [];
   const includedCount = analytics.data ? includedRepositories(analytics.data, settings).length : 0;
 
   return <AnalyticsPage title="Analytics Settings" description="Control repository coverage, business time, thresholds, and evidence matching" demo={analytics.mode === 'demo'}>
     <AnalyticsState loading={analytics.isLoading} error={analytics.error} partialReasons={[]} onRetry={() => void analytics.refetch()} />
     <div className="analytics-settings">
+      <SectionCard title="Appearance" action={<span className="analytics-status analytics-status--good">Global</span>}><div className="analytics-settings-group"><SettingRow label="Snow Devil theme" description="Shared by Demo Mode, connected accounts, and the top-right appearance menu"><ThemeSelect /></SettingRow></div></SectionCard>
+      <SectionCard title="Account and local data" action={<span className={`analytics-status ${session.status==='connected'?'analytics-status--excellent':'analytics-status--warning'}`}>{session.status}</span>}><div className="analytics-settings-group"><SettingRow label="GitHub account" description={session.status==='connected'?`Connected as ${session.account.login}`:'Connect or reconnect an individual GitHub account'}><div className="settings-action-row">{session.status==='connected'?<><button className="analytics-button" onClick={()=>{void disconnect().then(()=>setLifecycleStatus('Signed out; private tabs and selections were cleared.'))}}>Sign out</button><button className="analytics-button" onClick={()=>{void disconnect().then(()=>setShowAuth(true))}}>Switch account</button></>:<button className="analytics-button analytics-button--primary" onClick={()=>setShowAuth(true)}>{session.status==='error'?'Reconnect GitHub':'Sign in'}</button>}</div></SettingRow><SettingRow label="Reset local cache" description="Remove synchronized GitHub, simulator, and analytics cache without disconnecting"><button className="analytics-button" onClick={()=>{setLifecycleStatus('Clearing local cache…');void resetLocalCache().then(()=>setLifecycleStatus('Local cache cleared. Your GitHub account remains connected.')).catch(()=>setLifecycleStatus('Local cache reset failed.'))}}>Reset local cache</button></SettingRow><SettingRow label="Full local reset" description="Remove account, embedded session, restored tabs, simulator state, analytics, and preferences"><button className="analytics-button analytics-button--danger" onClick={()=>void resetLocalAppData()}>Full local reset</button></SettingRow>{lifecycleStatus&&<p className="settings-lifecycle-status" aria-live="polite">{lifecycleStatus}</p>}</div></SectionCard>
       <SectionCard title="Account Defaults" action={<span className="analytics-status analytics-status--good">{includedCount} included</span>}>
         <div className="analytics-settings-group">
           <SettingRow label="Include archived repositories" description="Archived experiments are excluded by default"><input type="checkbox" checked={settings.includeArchived} onChange={event => updateSettings({ includeArchived: event.target.checked })} /></SettingRow>
@@ -54,5 +66,5 @@ export function AnalyticsSettingsPage() {
       </SectionCard>
     </div>
     <p style={{ color: 'var(--text-muted)', fontSize: 9, margin: '10px 2px' }}>Defaults: {DEFAULT_ANALYTICS_SETTINGS.branchThresholdHours} business-hour branch threshold, {DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds.agingDays}-{DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds.staleDays} day inventory bands, and bounded cached history.</p>
-  </AnalyticsPage>;
+    {showAuth&&<AuthModal onClose={()=>setShowAuth(false)}/>}</AnalyticsPage>;
 }

@@ -18,6 +18,8 @@ import { InventoryPage } from '../analytics/InventoryPage';
 import { FlowAnalyticsPage } from '../analytics/FlowAnalyticsPage';
 import { PersonalFocusPage } from '../analytics/PersonalFocusPage';
 import { AnalyticsSettingsPage } from '../analytics/AnalyticsSettingsPage';
+import { RepositoryExplorer } from '../repository/RepositoryExplorer';
+import { PullRequestDiff } from '../diff/PullRequestDiff';
 
 export function WorkspaceContent() {
   const tabs = useTabsStore(s => s.tabs);
@@ -54,6 +56,8 @@ export function WorkspaceContent() {
         {activeTab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-simulator-${demoRevision}`} mode="account" />}
         {activeTab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-simulator-${demoRevision}`} mode="repository" />}
         {activeTab.kind === 'settings' && <AnalyticsSettingsPage />}
+        {activeTab.kind === 'repositoryExplorer' && activeTab.context?.type === 'repository' && <RepositoryExplorer repository={activeTab.context.repository} initialRef={activeTab.context.ref} initialPath={activeTab.context.path} />}
+        {activeTab.kind === 'pullRequestDiff' && activeTab.context?.type === 'pullRequest' && <PullRequestDiff repository={activeTab.context.repository} number={activeTab.context.number} />}
       </div>
     );
   }

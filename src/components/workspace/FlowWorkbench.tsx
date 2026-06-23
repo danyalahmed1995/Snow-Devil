@@ -405,7 +405,7 @@ export function FlowWorkbench() {
         {mode === 'replay' && scope === 'repository' && selectedRepository && (
           <div className="replay-controls-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
             <div className="replay-controls" style={{ padding: '12px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <button onClick={() => setFlowState(activeTabId, { isPlaying: !isPlaying })} style={{ padding: '6px 12px', borderRadius: '4px', background: isPlaying ? 'var(--danger-color)' : 'var(--primary-color)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => setFlowState(activeTabId, { isPlaying: !isPlaying })} style={{ padding: '6px 12px', borderRadius: '4px', background: isPlaying ? 'var(--status-danger-bg)' : 'var(--accent)', color: isPlaying ? 'var(--status-danger-fg)' : 'var(--text-on-accent)', border: 'none', cursor: 'pointer' }}>
                 {isPlaying ? 'Pause' : 'Play'}
               </button>
               <select value={playbackSpeed} onChange={(e) => setFlowState(activeTabId, { playbackSpeed: parseFloat(e.target.value) })}>
@@ -432,13 +432,13 @@ export function FlowWorkbench() {
               </span>
             </div>
             
-            <div className="replay-summary" style={{ padding: '8px 12px', background: displayPartial ? 'rgba(255, 170, 0, 0.1)' : 'var(--surface)', borderRadius: '8px', border: displayPartial ? '1px solid var(--warning-color)' : '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
+            <div className="replay-summary" style={{ padding: '8px 12px', background: displayPartial ? 'var(--status-warning-bg)' : 'var(--surface)', color: displayPartial ? 'var(--status-warning-fg)' : undefined, borderRadius: '8px', border: displayPartial ? '1px solid color-mix(in srgb, currentColor 24%, transparent)' : '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span><strong>Range:</strong> {new Date(rangeStart).toLocaleString()} - {new Date(rangeEnd).toLocaleString()}</span>
                 {replayStatus === 'loading' && <span style={{ color: 'var(--text-muted)' }}>Loading history...</span>}
                 {isReplayRefreshing && <span style={{ color: 'var(--text-muted)' }}>Refreshing...</span>}
-                {displayPartial && <span style={{ color: 'var(--warning-color)', fontWeight: 'bold' }} title={replayCompleteness.reasons.join(', ')}>Partial History</span>}
-                {replayError && <span style={{ color: 'var(--danger-color)' }}>{replayError.message}</span>}
+                {displayPartial && <span style={{ fontWeight: 'bold' }} title={replayCompleteness.reasons.join(', ')}>Partial History</span>}
+                {replayError && <span style={{ color: 'var(--status-danger-fg)', background: 'var(--status-danger-bg)', borderRadius: '4px', padding: '2px 6px' }}>{replayError.message}</span>}
               </div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', color: 'var(--text-secondary)' }}>
                 <span>{issuesLoaded} issues</span>
@@ -462,7 +462,7 @@ export function FlowWorkbench() {
             Loading {scope} flow...
           </div>
         ) : error ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger-color)' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
             Error loading flow: {(error as Error).message}
           </div>
         ) : (

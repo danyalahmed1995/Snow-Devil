@@ -1,0 +1,16 @@
+import { beforeEach,describe,expect,it } from 'vitest';
+import { SIDEBAR_SHORTCUTS } from '../browser/browser-shortcuts';
+import { useTabsStore } from './tabs-store';
+const tab=(id:string,title=id)=>({id,family:'native' as const,kind:'flow' as const,title,pinned:false,closable:true,createdAt:1,lastActivatedAt:1});
+const accountTab={id:'github:profile',family:'browser' as const,kind:'profile' as const,title:'Account',canonicalUrl:'https://github.com/danyalahmed1995',currentUrl:'https://github.com/danyalahmed1995',history:['https://github.com/danyalahmed1995'],historyIndex:0,lifecycle:'resident' as const,pinned:false,closable:true,createdAt:1,lastActivatedAt:1};
+
+describe('browser-grade tab closing',()=>{
+  beforeEach(()=>{localStorage.clear();useTabsStore.setState({tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},tab('a'),tab('b'),tab('c')],activeTabId:'b'});});
+  it('closes only the target and selects the previous neighbor for an active tab',()=>{useTabsStore.getState().closeTab('b');expect(useTabsStore.getState().tabs.map(value=>value.id)).toEqual(['native:home','a','c']);expect(useTabsStore.getState().activeTabId).toBe('a');});
+  it('preserves the active tab when a background tab closes',()=>{useTabsStore.getState().closeTab('c');expect(useTabsStore.getState().activeTabId).toBe('b');});
+  it('never closes a pinned unclosable tab',()=>{useTabsStore.getState().closeTab('native:home');expect(useTabsStore.getState().tabs.some(value=>value.id==='native:home')).toBe(true);});
+  it('defines the embedded GitHub Account shortcut as a closable dynamic tab',()=>{expect(SIDEBAR_SHORTCUTS.find(shortcut=>shortcut.tabId==='github:profile')).toMatchObject({pinned:false,closable:true});});
+  it('closes an active Account tab back to Home when it is the last dynamic tab',()=>{useTabsStore.setState({tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},accountTab],activeTabId:'github:profile'});useTabsStore.getState().closeTab('github:profile');expect(useTabsStore.getState().tabs.map(value=>value.id)).toEqual(['native:home']);expect(useTabsStore.getState().activeTabId).toBe('native:home');});
+  it('keeps active tab stable when a background Account tab closes',()=>{useTabsStore.setState({tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},accountTab,tab('native:flow','Flow')],activeTabId:'native:flow'});useTabsStore.getState().closeTab('github:profile');expect(useTabsStore.getState().activeTabId).toBe('native:flow');});
+  it('normalizes restored Account tabs to remain closable',async()=>{localStorage.setItem('github-graph-browser-tabs',JSON.stringify({state:{tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},{...accountTab,pinned:true,closable:false}],activeTabId:'github:profile',navigationGeneration:1},version:4}));await useTabsStore.persist.rehydrate();const restored=useTabsStore.getState().tabs.find(value=>value.id==='github:profile');expect(restored).toMatchObject({pinned:false,closable:true});});
+});

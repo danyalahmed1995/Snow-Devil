@@ -90,7 +90,7 @@ export function ListView({ type }: { type: string }) {
                 cursor: 'pointer'
               }}
             >
-              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: '#58a6ff' }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '8px', color: 'var(--info)' }}>
                 {type === 'repositories' ? item.nameWithOwner : item.title}
               </div>
               {type !== 'repositories' && (

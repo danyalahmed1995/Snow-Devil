@@ -79,9 +79,15 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
   vertical-align: middle;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   border-radius: 6px;
-  color: white;
+  background: var(--status-neutral-bg);
+  color: var(--status-neutral-fg);
 }
+.inspector-entity-badge--good { background:var(--status-success-bg); color:var(--status-success-fg); }
+.inspector-entity-badge--warning { background:var(--status-warning-bg); color:var(--status-warning-fg); }
+.inspector-entity-badge--danger { background:var(--status-danger-bg); color:var(--status-danger-fg); }
+.inspector-entity-badge--info { background:var(--status-info-bg); color:var(--status-info-fg); }
 
 .inspector-stage-badge {
   display: inline-flex;
@@ -95,14 +101,20 @@
   letter-spacing: 0.01em;
   white-space: nowrap;
   vertical-align: middle;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
   border-radius: 6px;
+  background: var(--badge-bg);
+  color: var(--badge-fg);
 }
 
 .label-badge {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
+  border: 1px solid var(--label-border, color-mix(in srgb, currentColor 24%, transparent));
   border-radius: 12px;
+  background: var(--label-bg);
+  color: var(--label-fg);
   font-size: 11px;
   font-weight: 600;
   max-width: 100%;
@@ -183,19 +195,19 @@
   margin-top: 16px;
   border: 0;
   border-radius: 6px;
-  background: var(--accent-primary, #2f81f7);
-  color: white;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
   font-weight: 650;
   cursor: pointer;
 }
-.inspector-open-tab:disabled { cursor:not-allowed; opacity:.55; }
-.inspector-why { padding:9px; border:1px solid rgba(47,129,247,.25); border-radius:5px; background:rgba(47,129,247,.07); }
-.inspector-partial { margin:0; padding:6px; border-radius:4px; color:#e3b341; background:rgba(210,153,34,.1); font-size:10px; }
-.inspector-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:16px; }.inspector-actions .inspector-open-tab { grid-column:1/-1; margin:0; }.inspector-actions>button:not(.inspector-open-tab) { min-height:31px; display:inline-flex; align-items:center; justify-content:center; gap:5px; border:1px solid var(--border-subtle); border-radius:5px; color:var(--text-secondary); background:var(--bg-secondary); font-size:10px; }.inspector-copy-status { min-height:16px; margin-top:5px; color:#7ee787; font-size:9px; text-align:center; }
+.inspector-open-tab:disabled { cursor:not-allowed; background:var(--disabled-bg); color:var(--disabled-fg); border:1px solid var(--border-subtle); }
+.inspector-why { padding:9px; border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border-standard)); border-radius:5px; background:color-mix(in srgb,var(--accent) 8%,var(--surface-panel)); }
+.inspector-partial { margin:0; padding:6px; border:1px solid color-mix(in srgb,var(--status-warning-bg) 35%,var(--border-standard)); border-radius:4px; color:var(--status-warning-fg); background:var(--status-warning-bg); font-size:10px; }
+.inspector-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:16px; }.inspector-actions .inspector-open-tab { grid-column:1/-1; margin:0; }.inspector-actions>button:not(.inspector-open-tab) { min-height:31px; display:inline-flex; align-items:center; justify-content:center; gap:5px; border:1px solid var(--border-subtle); border-radius:5px; color:var(--text-secondary); background:var(--bg-secondary); font-size:10px; }.inspector-copy-status { min-height:16px; margin-top:5px; color:var(--success); font-size:9px; text-align:center; }
 
 .inspector-timeline { display:flex; flex-direction:column; }
 .inspector-timeline > div { display:flex; gap:8px; min-height:38px; }
-.inspector-timeline i { position:relative; flex:0 0 7px; width:7px; height:7px; margin-top:4px; border-radius:50%; background:var(--accent-primary,#2f81f7); }
+.inspector-timeline i { position:relative; flex:0 0 7px; width:7px; height:7px; margin-top:4px; border-radius:50%; background:var(--accent-primary); }
 .inspector-timeline i::after { content:""; position:absolute; top:8px; left:3px; width:1px; height:30px; background:var(--border-subtle); }
 .inspector-timeline > div:last-child i::after { display:none; }
 .inspector-timeline span { min-width:0; }
