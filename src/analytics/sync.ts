@@ -35,7 +35,7 @@ export function isAnalyticsSyncActive(account: string) { return active?.account 
 export function cancelAnalyticsSync(account: string) { if (active?.account === account) active.cancelled = true; }
 
 export function analyticsSettingsFingerprint(settings: AnalyticsSettings): string {
-  return JSON.stringify({ includedRepositories: settings.includedRepositories, ignoredRepositories: settings.ignoredRepositories, includeArchived: settings.includeArchived, includeForks: settings.includeForks, includePrivate: settings.includePrivate, retention: settings.cacheRetentionDays, overrides: settings.repositoryOverrides, matching: settings.releaseDeploymentStrategy });
+  return JSON.stringify({ includedRepositories: settings.includedRepositories, ignoredRepositories: settings.ignoredRepositories, includeArchived: settings.includeArchived, includeForks: settings.includeForks, includePrivate: settings.includePrivate, retention: settings.cacheRetentionDays, overrides: settings.repositoryOverrides, releaseMatching: settings.releaseMatchingStrategy ?? settings.releaseDeploymentStrategy, deploymentMatching: settings.deploymentMatchingStrategy ?? settings.releaseDeploymentStrategy });
 }
 
 export async function getAnalyticsSyncState(account: string): Promise<AnalyticsSyncState | null> {

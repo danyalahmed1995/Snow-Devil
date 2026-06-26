@@ -14,15 +14,15 @@ describe('flow-mapping', () => {
     expect(status).toBe('failing');
   });
 
-  it('Draft PR with failing checks follows precedence (Checks > Coding)', () => {
+  it('keeps draft implementation work in Coding when checks are not the primary blocker', () => {
     const item: Partial<FlowItem> = {
       type: 'pull_request',
       isDraft: true,
       checksSummary: { state: 'FAILURE', totalCount: 1, successCount: 0, failureCount: 1 }
     };
     const { stage, status } = determineFlowStageAndStatus(item);
-    expect(stage).toBe('checks');
-    expect(status).toBe('failing');
+    expect(stage).toBe('coding');
+    expect(status).toBe('idle');
   });
 
   it('Changes requested after an earlier approval goes to Review', () => {
@@ -49,7 +49,7 @@ describe('flow-mapping', () => {
     expect(stage).toBe('review');
   });
 
-  it('Approved with missing check data goes to Ready', () => {
+  it('does not call approved work Ready when passing check evidence is missing', () => {
     const item: Partial<FlowItem> = {
       type: 'pull_request',
       isDraft: false,
@@ -57,7 +57,7 @@ describe('flow-mapping', () => {
       checksSummary: { state: 'MISSING', totalCount: 0, successCount: 0, failureCount: 0 }
     };
     const { stage } = determineFlowStageAndStatus(item);
-    expect(stage).toBe('ready');
+    expect(stage).toBe('checks');
   });
 
   it('Merged PR goes to merged', () => {

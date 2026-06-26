@@ -49,7 +49,7 @@ describe('shared workflow presentation model', () => {
 
   it('combines search, active, stage, and repository filters', () => {
     const values = [item(), item({ id: 'pr:2', repositoryId: 'repo:two', repositoryName: 'octo/two', title: 'Fix checks', stage: 'checks', status: 'failing', labels: [{ name: 'urgent', color: 'f00' }] }), item({ id: 'pr:3', stage: 'merged', status: 'merged', mergedAt: '2026-06-12T00:00:00Z' })];
-    expect(filterWorkflowItems(values, { search: 'urgent', activeOnly: true })).toHaveLength(1);
+    expect(filterWorkflowItems(values, { search: 'label:urgent', activeOnly: true })).toHaveLength(1);
     expect(filterWorkflowItems(values, { search: '', activeOnly: false, stage: 'merged' })).toHaveLength(1);
     expect(filterWorkflowItems(values, { search: '', activeOnly: false, repositoryId: 'repo:two' })).toHaveLength(1);
   });

@@ -46,6 +46,7 @@ export function FlowCard({ item, isSelected, onClick, onOpen, variant = 'workben
         <div className="flow-card-badges">
           {item.isDraft && <span className="badge badge-neutral">Draft</span>}
           {item.isBot && <span className="badge badge-neutral">Bot</span>}
+          {item.confidence && <span className="badge badge-neutral" title={item.missingEvidence?.join('. ')}>{item.confidence}</span>}
           {item.type === 'release' && item.tagName && (
             <span className="badge badge-info" title="Tag Name">
               Tag {item.tagName}

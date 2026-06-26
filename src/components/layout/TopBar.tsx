@@ -19,6 +19,7 @@ import { AddressBar } from '../../navigation/AddressBar';
 import { resetLocalAppData } from '../../services/reset-local-app-data';
 import './TopBar.css';
 import { AppearanceMenu } from '../theme/AppearanceMenu';
+import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
@@ -38,13 +39,13 @@ export function TopBar() {
 
   const handleCopyUrl = useCallback(() => {
     if (activeBrowserTab?.currentUrl) {
-      navigator.clipboard.writeText(activeBrowserTab.currentUrl).catch(console.error);
+      void copyCanonicalLink(activeBrowserTab.currentUrl).catch(console.error);
     }
   }, [activeBrowserTab]);
 
   const handleOpenExternal = useCallback(() => {
     if (activeBrowserTab?.currentUrl) {
-      window.open(activeBrowserTab.currentUrl, '_blank');
+      void openInDefaultBrowser(activeBrowserTab.currentUrl).catch(console.error);
     }
   }, [activeBrowserTab]);
 

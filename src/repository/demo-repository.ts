@@ -7,6 +7,10 @@ const FILES: Record<string, string> = {
   'src/app/App.tsx': "import { Layout } from '../../components/layout/Layout';\n\nexport default function App() {\n  return <Layout />;\n}\n",
   'src/styles/tokens.css': ':root {\n  --bg-primary: #080d14;\n  --accent: #3b8ef3;\n  --text-primary: #e6edf3;\n}\n',
   'docs/architecture.md': '# Architecture\n\nThe native workspace reuses typed tabs, shared data providers, and a read-only GitHub adapter.\n',
+  'Benchmark Files/heavy_mdx_5mb_examples/01-large-doc.mdx': '# Oversized benchmark\n',
+  'Benchmark Files/path with spaces/read me.md': '# Spaced path\n',
+  'Benchmark Files/url-sensitive/100% ready #1?.md': '# Punctuation path\n',
+  'Unicode/雪.md': '# Unicode path\n',
   'assets/snow-devil-mark.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><rect width="120" height="120" rx="24" fill="#0d1620"/><path d="M24 72 60 20l36 52-36 28z" fill="#58a6ff"/></svg>',
   'assets/unsafe-preview.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><script>alert(1)</script><image href="https://example.com/tracker.png"/><rect width="80" height="80" fill="#f05d5e" onload="alert(2)"/></svg>',
   'assets/theme-preview.png': '',
@@ -44,6 +48,7 @@ export function demoAllEntries(): RepositoryEntry[] {
 
 export function demoFile(path: string): RepositoryFile | undefined {
   if (!(path in FILES)) return undefined;
+  if(path.endsWith('01-large-doc.mdx')) return { text:FILES[path],mimeType:'text/markdown',byteSize:5_250_000,path };
   if(path.endsWith('oversized-preview.png')) return { text:null,mimeType:'image/png',byteSize:6_500_000,path };
   if(path.endsWith('.png')) return { text:null,contentBase64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8Y8WQAAAABJRU5ErkJggg==',mimeType:'image/png',byteSize:70,path };
   if(path.endsWith('.jpg')) return { text:null,contentBase64:'/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////2wBDAf//////////////////////////////////////////////////////////////////////////////////////wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABBQJ//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPwF//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPwF//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQAGPwJ//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPyF//9oADAMBAAIAAwAAABAf/8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAwEBPxB//8QAFBEBAAAAAAAAAAAAAAAAAAAAAP/aAAgBAgEBPxB//8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k=',mimeType:'image/jpeg',byteSize:286,path };

@@ -1,6 +1,7 @@
 import type { SimulatorEventType, SimulatorStage, SimulatorSubjectType } from '../simulator/simulator-types';
+import type { ActivityClassification, ActorClassification, AttentionReason, EvidenceConfidence } from '../lib/delivery-semantics';
 
-export type LineageConfidence = 'exact' | 'strong' | 'inferred' | 'unknown';
+export type LineageConfidence = EvidenceConfidence;
 
 export type DeliveryEntityType = SimulatorSubjectType | 'review' | 'check_run';
 
@@ -33,6 +34,12 @@ export interface DeliveryEntity {
   assignees?: string[];
   sourceCompleteness: 'complete' | 'partial' | 'unknown';
   evidence?: string[];
+  actorClassification?: ActorClassification;
+  activityClassification?: ActivityClassification;
+  attentionReasons?: AttentionReason[];
+  confidence?: EvidenceConfidence;
+  missingEvidence?: string[];
+  linkedEntityId?: string;
 }
 
 export interface DeliveryEvent {
@@ -118,6 +125,7 @@ export interface AnalyticsSettings {
   includeBots: boolean;
   includeDependabot: boolean;
   includeRenovate: boolean;
+  includeOtherBots: boolean;
   includeDraftPullRequests: boolean;
   defaultRangeDays: 30 | 60 | 90;
   businessTimezone: string;
@@ -128,11 +136,14 @@ export interface AnalyticsSettings {
   cacheRetentionDays: number;
   refreshIntervalMinutes: number;
   releaseDeploymentStrategy: 'explicit' | 'tag_or_sha' | 'disabled';
+  releaseMatchingStrategy: 'explicit' | 'tag_or_sha' | 'disabled';
+  deploymentMatchingStrategy: 'explicit' | 'environment_or_sha' | 'disabled';
   minimumPercentileSamples: number;
+  reducedMotion: boolean;
   repositoryOverrides: Record<string, RepositoryAnalyticsOverride>;
 }
 
-export type CiStatus = 'excellent' | 'good' | 'warning' | 'poor';
+export type CiStatus = 'excellent' | 'healthy' | 'warning' | 'poor' | 'unknown' | 'sync_failed' | 'unsupported';
 export type AgeBand = 'in_flight' | 'aging' | 'stale';
 
 export interface RepositoryHealth {
@@ -149,6 +160,8 @@ export interface RepositoryHealth {
   p50BranchHours: number | null;
   p90BranchHours: number | null;
   estimated: boolean;
+  sampleCount: number;
+  coverage: 'complete' | 'partial' | 'failed' | 'unsupported' | 'unavailable';
 }
 
 export type InventoryType =
@@ -177,6 +190,12 @@ export interface InventoryItem {
   blockingReason: string;
   relatedEntityIds: string[];
   confidence: LineageConfidence;
+  entityType: DeliveryEntityType;
+  inventoryReason: string;
+  evidenceCount: number;
+  firstFailureAt?: string;
+  latestFailureAt?: string;
+  missingEvidence?: string[];
 }
 
 export interface LeadTimeSample {
@@ -193,13 +212,13 @@ export type LeadTimeMetric =
   | 'pr_to_merge'
   | 'commit_to_merge'
   | 'merge_to_deploy'
-  | 'deploy_to_release'
+  | 'release_to_deploy'
   | 'issue_to_release'
   | 'issue_to_deploy';
 
 export interface AnalyticsInspectable {
   id: string;
-  kind: DeliveryEntityType | 'repository' | 'ci_health' | 'inventory';
+  kind: DeliveryEntityType | 'repository' | 'ci_health' | 'inventory' | 'flow_analytics' | 'personal_focus';
   title: string;
   repositoryId?: string;
   number?: number;
@@ -209,6 +228,11 @@ export interface AnalyticsInspectable {
   reason?: string;
   confidence?: LineageConfidence;
   evidence?: string[];
+  missingEvidence?: string[];
+  definition?: string;
+  sampleCount?: number;
+  excludedCount?: number;
+  coverage?: string;
   relatedEntityIds?: string[];
   timeline?: Array<{ label: string; occurredAt: string; confidence: LineageConfidence }>;
 }

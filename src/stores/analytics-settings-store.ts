@@ -11,6 +11,7 @@ export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   includeBots: false,
   includeDependabot: false,
   includeRenovate: false,
+  includeOtherBots: false,
   includeDraftPullRequests: true,
   defaultRangeDays: 60,
   businessTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -21,7 +22,10 @@ export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   cacheRetentionDays: 180,
   refreshIntervalMinutes: 30,
   releaseDeploymentStrategy: 'tag_or_sha',
+  releaseMatchingStrategy: 'tag_or_sha',
+  deploymentMatchingStrategy: 'environment_or_sha',
   minimumPercentileSamples: 5,
+  reducedMotion: false,
   repositoryOverrides: {},
 };
 

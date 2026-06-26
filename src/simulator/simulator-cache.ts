@@ -57,7 +57,8 @@ export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<S
     const subjectType = (e.subject_type || inferredType) as SimulatorEvent["subjectType"];
     const inferredNumber = e.subject_id.match(/^(?:pr|pull_request|issue)-(\d+)$/)?.[1];
     const subjectNumber = e.subject_number ?? (inferredNumber ? Number(inferredNumber) : undefined);
-    const subjectId = subjectNumber == null ? e.subject_id : `${subjectType}-${subjectNumber}`;
+    const legacyShortSubject = /^(?:pr|pull_request|issue)-\d+$/.test(e.subject_id);
+    const subjectId = legacyShortSubject && subjectNumber != null ? `${subjectType}-${subjectNumber}` : e.subject_id;
     return ({
     id: e.id,
     repositoryId: e.repository_id,

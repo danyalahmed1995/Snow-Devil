@@ -38,6 +38,10 @@ vi.mock('../../hooks/useReplayBuffer', () => ({
 }));
 
 describe('FlowWorkbench', () => {
+  const choose = (label: string, option: string) => {
+    fireEvent.click(screen.getByLabelText(label));
+    fireEvent.click(screen.getByRole('option', { name: option }));
+  };
   beforeEach(() => {
     useTabsStore.setState({ activeTabId: 'test-tab', tabs: [{ id: 'test-tab', title: 'Flow', closable: true } as any] });
     useFlowStore.setState({ states: {} });
@@ -55,17 +59,15 @@ describe('FlowWorkbench', () => {
 
   it('renders repository selector and empty state when repository scope is selected without a repo', () => {
     render(<FlowWorkbench />);
-    const select = screen.getByLabelText('Flow scope');
-    fireEvent.change(select, { target: { value: 'repository' } });
+    choose('Flow scope', 'Repository Flow');
     
     expect(screen.getByText('Select a Repository')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Select a repository...')).toBeInTheDocument();
+    expect(screen.getByLabelText('Repository')).toBeInTheDocument();
   });
 
   it('does not dispatch repository flow request until repository is selected', () => {
     render(<FlowWorkbench />);
-    const select = screen.getByLabelText('Flow scope');
-    fireEvent.change(select, { target: { value: 'repository' } });
+    choose('Flow scope', 'Repository Flow');
     
     // We mocked useRepositoryFlow to check `enabled`. 
     // Since we see "Select a Repository", we know it's not fetching
@@ -75,8 +77,7 @@ describe('FlowWorkbench', () => {
   it('clears stale selection when scope changes', async () => {
     useFlowStore.getState().setTabState('test-tab', { scope: 'account', selectedItemId: 'stale-item' });
     render(<FlowWorkbench />);
-    const select = screen.getByLabelText('Flow scope');
-    fireEvent.change(select, { target: { value: 'repository' } });
+    choose('Flow scope', 'Repository Flow');
     
     await waitFor(() => {
       expect(useFlowStore.getState().getTabState('test-tab').selectedItemId).toBeUndefined();
@@ -98,7 +99,7 @@ describe('FlowWorkbench', () => {
     expect(state.statusFilter).toBe('all');
   });
 
-  it('shows replay controls only in replay mode with selected repo', () => {
+  it('removes the fake Live and Replay controls from Flow', () => {
     useFlowStore.getState().setTabState('test-tab', { 
       scope: 'repository', 
       mode: 'replay',
@@ -107,8 +108,9 @@ describe('FlowWorkbench', () => {
     
     render(<FlowWorkbench />);
     
-    expect(screen.getByText('Play')).toBeInTheDocument();
-    expect(screen.getByText('1x Speed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Replay')).not.toBeInTheDocument();
+    expect(screen.getByText(/Synced snapshot/)).toBeInTheDocument();
   });
 
   it('uses the production pipeline and cards in Demo Mode without live commands', async () => {
@@ -119,8 +121,8 @@ describe('FlowWorkbench', () => {
     expect(screen.queryByText('Connected Activity Flow')).not.toBeInTheDocument();
     expect(document.querySelector('.demo-flow__canvas')).not.toBeInTheDocument();
     expect(screen.getByText('Deployment rollback telemetry is missing for failed canary releases')).toBeInTheDocument();
-    expect(screen.getByText('Live')).toBeInTheDocument();
-    expect(screen.getByText('Replay')).toBeInTheDocument();
+    expect(screen.queryByText('Live')).not.toBeInTheDocument();
+    expect(screen.queryByText('Replay')).not.toBeInTheDocument();
     const liveFlowCalls = vi.mocked(invoke).mock.calls.filter(([command]) => command === 'get_source_page' || command === 'get_item_timeline');
     expect(liveFlowCalls).toHaveLength(0);
   });
@@ -145,7 +147,7 @@ describe('FlowWorkbench', () => {
     await waitFor(() => expect(screen.getAllByText('Cache invalidation after repository scope switching').length).toBeGreaterThan(0));
     expect(screen.queryByText('Deployment rollback telemetry is missing for failed canary releases')).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Flow scope'), { target: { value: 'account' } });
+    choose('Flow scope', 'Account Flow');
     await waitFor(() => expect(screen.getAllByText('Deployment rollback telemetry is missing for failed canary releases').length).toBeGreaterThan(0));
   });
 });

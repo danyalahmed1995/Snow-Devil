@@ -1,14 +1,79 @@
-import { Binary, Braces, File, FileCode2, FileImage, FileJson, FileKey2, FileText, Folder, FolderGit2, FolderOpen, Hash } from 'lucide-react';
+import {
+  BadgeCheck,
+  Binary,
+  BookOpen,
+  Box,
+  Boxes,
+  Braces,
+  Coffee,
+  Component,
+  File,
+  FileArchive,
+  FileCode2,
+  FileCog,
+  FileImage,
+  FileJson,
+  FileKey2,
+  FileText,
+  Folder,
+  FolderCode,
+  FolderGit2,
+  FolderOpen,
+  Globe2,
+  Hash,
+  Image,
+  Package,
+  Palette,
+  ScrollText,
+  Settings,
+  Terminal,
+} from 'lucide-react';
+import { resolveRepositoryTreeIcon, type RepositoryTreeIconKind } from '../../repository/repository-tree-icons';
 
 export function TreeFileIcon({path,type,open=false}:{path:string;type:'tree'|'blob';open?:boolean}){
-  const name=path.split('/').pop()?.toLowerCase()??'';const ext=name.split('.').pop()??'';
-  if(type==='tree')return open?<FolderOpen size={15}/>:name==='.git'||name==='.github'?<FolderGit2 size={15}/>:<Folder size={15}/>;
-  if(['png','jpg','jpeg','svg','webp'].includes(ext))return <FileImage size={15}/>;
-  if(['ts','tsx','js','jsx','rs','py','sh','bash','html','css'].includes(ext))return <FileCode2 size={15}/>;
-  if(['json','yaml','yml','toml'].includes(ext))return ext==='json'?<FileJson size={15}/>:<Braces size={15}/>;
-  if(['md','mdx','txt'].includes(ext))return <FileText size={15}/>;
-  if(name.includes('lock')||name.endsWith('.lock'))return <FileKey2 size={15}/>;
-  if(name.startsWith('.git'))return <Hash size={15}/>;
-  if(['zip','gz','7z','exe','dll','wasm','pdf'].includes(ext))return <Binary size={15}/>;
-  return ext?<File size={15}/>:<FileText size={15}/>;
+  const descriptor=resolveRepositoryTreeIcon(path,type,open);const Icon=ICON_COMPONENTS[descriptor.kind]??File;
+  return <span className={`repo-tree-icon repo-tree-icon--${descriptor.kind}`} data-tree-icon={descriptor.kind} title={descriptor.label} aria-hidden="true"><Icon size={15}/></span>;
 }
+
+const ICON_COMPONENTS: Record<RepositoryTreeIconKind, typeof File> = {
+  folder: Folder,
+  "folder-open": FolderOpen,
+  "folder-github": FolderGit2,
+  "folder-source": FolderCode,
+  "folder-public": Globe2,
+  "folder-docs": BookOpen,
+  "folder-scripts": Terminal,
+  "folder-tests": BadgeCheck,
+  "folder-assets": Image,
+  "folder-config": Settings,
+  "folder-build": Boxes,
+  "folder-examples": Box,
+  "folder-packages": Package,
+  "folder-components": Component,
+  "folder-styles": Palette,
+  "file-markdown": FileText,
+  "file-json": FileJson,
+  "file-yaml": Braces,
+  "file-typescript": FileCode2,
+  "file-javascript": FileCode2,
+  "file-rust": FileCode2,
+  "file-html": FileCode2,
+  "file-style": Palette,
+  "file-shell": Terminal,
+  "file-powershell": Terminal,
+  "file-python": FileCode2,
+  "file-cpp": FileCode2,
+  "file-csharp": Hash,
+  "file-java": Coffee,
+  "file-swift": FileCode2,
+  "file-image": FileImage,
+  "file-media": Binary,
+  "file-package": Package,
+  "file-lock": FileKey2,
+  "file-git": Hash,
+  "file-env": FileCog,
+  "file-license": ScrollText,
+  "file-readme": BookOpen,
+  "file-binary": FileArchive,
+  "file-generic": File,
+};

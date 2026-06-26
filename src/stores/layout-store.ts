@@ -10,6 +10,7 @@ interface LayoutState {
   setInspectorWidth: (width: number) => void;
   toggleNavigator: () => void;
   toggleInspector: () => void;
+  setInspectorOpen: (open: boolean) => void;
 }
 
 export const useLayoutStore = create<LayoutState>()(persist((set) => ({
@@ -21,4 +22,5 @@ export const useLayoutStore = create<LayoutState>()(persist((set) => ({
   setInspectorWidth: (width) => set({ inspectorWidth: Math.max(200, Math.min(width, 600)) }),
   toggleNavigator: () => set((state) => ({ isNavigatorOpen: !state.isNavigatorOpen })),
   toggleInspector: () => set((state) => ({ isInspectorOpen: !state.isInspectorOpen })),
+  setInspectorOpen: (open) => set({ isInspectorOpen: open }),
 }), { name: 'snow-devil-layout', version: 1 }));

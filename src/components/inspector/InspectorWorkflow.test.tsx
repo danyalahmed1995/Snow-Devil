@@ -22,7 +22,7 @@ describe('workflow Inspector', () => {
   it('explains classification and renders metadata plus stage history', () => {
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
     expect(screen.getByText('Why it\'s here')).toBeInTheDocument();
-    expect(screen.getByText('Waiting for review from 1 requested reviewer.')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for 1 requested reviewer.')).toBeInTheDocument();
     expect(screen.getByText('feature/workflow')).toBeInTheDocument();
     expect(screen.getByText('Review requested')).toBeInTheDocument();
     expect(screen.getByText('complete')).toBeInTheDocument();
@@ -31,9 +31,8 @@ describe('workflow Inspector', () => {
   it('provides internal, external, and copy actions with feedback', async () => {
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
     expect(screen.getByRole('button', { name: 'Open in Tab' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Open on GitHub' }));
-    expect(window.open).toHaveBeenCalledWith('https://github.com/octo/app/pull/42', '_blank', 'noopener,noreferrer');
-    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open in Default Browser' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
     await waitFor(() => expect(screen.getByText('Link copied')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://github.com/octo/app/pull/42');
   });

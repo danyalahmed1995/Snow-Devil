@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SimulatorEvent, SimulatorEntityState } from "../simulator/simulator-types";
 import { reconstructState } from "../simulator/simulator-reducer";
 
@@ -11,8 +11,7 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
     [events, cursor],
   );
 
-  const lastUpdateRef = useRef<number>(0);
-  const animationRef = useRef<number | undefined>(undefined);
+  const meaningfulTimestamps = useMemo(() => [...new Set(events.map(event => event.occurredAt))].sort(), [events]);
 
   useEffect(() => {
     setIsPlaying(false);
@@ -20,42 +19,19 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
   }, [loadedSince, loadedUntil]);
 
   useEffect(() => {
-    if (!isPlaying) {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      return;
-    }
-
-    lastUpdateRef.current = Date.now();
-
-    const animate = () => {
-      const now = Date.now();
-      const deltaMs = now - lastUpdateRef.current;
-      lastUpdateRef.current = now;
-
-      setCursor(prevCursor => {
-        const prevTime = new Date(prevCursor).getTime();
-        // 1 day per second at 1x speed => 86400000 ms simulated per 1000ms real
-        // Let's do 1 hour per real second at 1x = 3600000ms
-        const simulatedMsPerRealMs = 3600 * speedMultiplier;
-        const newTime = prevTime + deltaMs * simulatedMsPerRealMs;
-        
-        const untilTime = new Date(loadedUntil).getTime();
-        if (newTime >= untilTime) {
+    if (!isPlaying) return;
+    const timer = window.setInterval(() => {
+      setCursor(current => {
+        const next = meaningfulTimestamps.find(timestamp => timestamp > current);
+        if (!next) {
           setIsPlaying(false);
           return loadedUntil;
         }
-        
-        return new Date(newTime).toISOString();
+        return next;
       });
-
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [isPlaying, speedMultiplier, loadedUntil]);
+    }, Math.max(120, 800 / speedMultiplier));
+    return () => window.clearInterval(timer);
+  }, [isPlaying, loadedUntil, meaningfulTimestamps, speedMultiplier]);
 
   const togglePlay = () => setIsPlaying(p => !p);
   const pause = () => setIsPlaying(false);
@@ -63,9 +39,9 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
   
   const stepForward = () => {
     pause();
-    const currentEventIndex = events.findIndex(e => e.occurredAt > cursor);
-    if (currentEventIndex !== -1) {
-      setCursor(events[currentEventIndex].occurredAt);
+    const next = meaningfulTimestamps.find(timestamp => timestamp > cursor);
+    if (next) {
+      setCursor(next);
     } else {
       setCursor(loadedUntil);
     }
@@ -73,15 +49,15 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
 
   const stepBackward = () => {
     pause();
-    let currentEventIndex = -1;
-    for (let i = events.length - 1; i >= 0; i--) {
-      if (events[i].occurredAt < cursor) {
-        currentEventIndex = i;
+    let previous: string | undefined;
+    for (let i = meaningfulTimestamps.length - 1; i >= 0; i--) {
+      if (meaningfulTimestamps[i] < cursor) {
+        previous = meaningfulTimestamps[i];
         break;
       }
     }
-    if (currentEventIndex !== -1) {
-      setCursor(events[currentEventIndex].occurredAt);
+    if (previous) {
+      setCursor(previous);
     } else {
       setCursor(loadedSince);
     }

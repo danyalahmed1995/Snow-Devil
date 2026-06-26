@@ -111,7 +111,7 @@ describe('flow-replay', () => {
 
     // After approval
     state = reconstructItemState(item, events, new Date('2026-06-20T02:30:00Z').getTime());
-    expect(state.stage).toBe('ready'); // Approved, no checks yet (MISSING) maps to Ready
+    expect(state.stage).toBe('checks'); // Approval alone does not prove passing required checks.
 
     // After commit but before check completion
     state = reconstructItemState(item, events, new Date('2026-06-20T03:30:00Z').getTime());

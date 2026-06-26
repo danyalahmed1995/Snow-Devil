@@ -1,9 +1,22 @@
 import { useAuthStore } from '../../stores/auth-store';
 import { ExternalLink, Globe } from 'lucide-react';
 import './AuthModal.css';
+import { useEffect } from 'react';
+import { useOverlayStore } from '../../stores/overlay-store';
 
 export function AuthModal({ onClose }: { onClose: () => void }) {
+  const overlayId = 'auth-modal';
+  const openOverlay = useOverlayStore(state => state.openOverlay);
+  const closeOverlay = useOverlayStore(state => state.closeOverlay);
+  const activeOverlayId = useOverlayStore(state => state.activeOverlayId);
   const { isConnecting, userCode, verificationUri, startDeviceFlow, manualPoll, pollError, isAuthenticated, clientId, setClientId } = useAuthStore();
+  useEffect(() => { openOverlay(overlayId); return () => closeOverlay(overlayId); }, [openOverlay, closeOverlay]);
+  useEffect(() => {
+    if (activeOverlayId && activeOverlayId !== overlayId) onClose();
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [activeOverlayId, onClose]);
 
   if (isAuthenticated) {
     return (

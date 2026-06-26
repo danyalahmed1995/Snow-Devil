@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest';
+import { inventoryItems, throughputBuckets } from './selectors';
+import type { AnalyticsDataset, DeliveryEntity } from './types';
+import { DEFAULT_ANALYTICS_SETTINGS } from '../stores/analytics-settings-store';
+
+const baseEntity: DeliveryEntity = {
+  id: 'pr-1',
+  repositoryId: 'octo/app',
+  type: 'pull_request',
+  number: 1,
+  title: 'Fix delivery',
+  stage: 'checks',
+  state: 'open',
+  author: 'ada',
+  createdAt: '2026-05-01T00:00:00Z',
+  updatedAt: '2026-05-10T00:00:00Z',
+  branchName: 'fix/delivery',
+  checkState: 'success',
+  sourceCompleteness: 'complete',
+};
+
+function dataset(entities: DeliveryEntity[]): AnalyticsDataset {
+  return {
+    referenceDate: '2026-05-20T00:00:00Z',
+    refreshedAt: '2026-05-20T00:00:00Z',
+    repositories: [{ id: 'octo/app', nameWithOwner: 'octo/app', defaultBranch: 'main', releaseMatching: false, deploymentMatching: false }],
+    entities,
+    events: [
+      { id: 'failure-1', entityId: 'workflow-1', repositoryId: 'octo/app', type: 'workflow_failed', occurredAt: '2026-05-09T00:00:00Z', sourceCompleteness: 'complete' },
+      { id: 'failure-2', entityId: 'workflow-2', repositoryId: 'octo/app', type: 'workflow_failed', occurredAt: '2026-05-10T00:00:00Z', sourceCompleteness: 'complete' },
+      { id: 'merge-1', entityId: 'pr-1', repositoryId: 'octo/app', type: 'merged', occurredAt: '2026-05-11T00:00:00Z', sourceCompleteness: 'complete' },
+      { id: 'merge-duplicate', entityId: 'pr-1', repositoryId: 'octo/app', type: 'merged', occurredAt: '2026-05-11T00:00:00Z', sourceCompleteness: 'complete' },
+    ],
+    branches: [],
+    relationships: [],
+    partial: false,
+    partialReasons: [],
+  };
+}
+
+describe('analytics product correctness', () => {
+  it('aggregates repeated workflow failures under one unique PR inventory row', () => {
+    const workflow = (id: string): DeliveryEntity => ({ ...baseEntity, id, type: 'workflow_run', number: undefined, title: 'CI', checkState: 'failure', evidence: [`${id} failed`] });
+    const items = inventoryItems(dataset([baseEntity, workflow('workflow-1'), workflow('workflow-2')]), { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ entityType: 'pull_request', type: 'checks_failing', evidenceCount: 2 });
+  });
+
+  it('counts a duplicated completion event only once per unique work item and bucket', () => {
+    const buckets = throughputBuckets(dataset([{ ...baseEntity, stage: 'merged', state: 'merged', mergedAt: '2026-05-11T00:00:00Z' }]), 30);
+    expect(buckets.reduce((sum, bucket) => sum + bucket.merged, 0)).toBe(1);
+  });
+
+  it('does not invent deployment inventory when the repository cannot supply deployment evidence', () => {
+    const items = inventoryItems(dataset([{ ...baseEntity, stage: 'merged', state: 'merged', mergedAt: '2026-05-11T00:00:00Z' }]), DEFAULT_ANALYTICS_SETTINGS);
+    expect(items.some(item => item.type === 'merged_not_deployed')).toBe(false);
+  });
+
+  it('keeps unique inventory stable across 100 repositories and 5,000 normalized items', () => {
+    const repositories = Array.from({ length: 100 }, (_, index) => ({
+      id: `octo/repo-${index}`,
+      nameWithOwner: `octo/repo-${index}`,
+      defaultBranch: 'main',
+      releaseMatching: false,
+      deploymentMatching: false,
+    }));
+    const entities = repositories.flatMap(repository => Array.from({ length: 50 }, (_, index): DeliveryEntity => ({
+      ...baseEntity,
+      id: `${repository.id}:pr-${index}`,
+      repositoryId: repository.id,
+      number: index + 1,
+      title: `Delivery item ${index + 1}`,
+      checkState: 'failure',
+    })));
+    const largeDataset: AnalyticsDataset = {
+      referenceDate: '2026-05-20T00:00:00Z',
+      refreshedAt: '2026-05-20T00:00:00Z',
+      repositories,
+      entities,
+      events: [],
+      branches: [],
+      relationships: [],
+      partial: false,
+      partialReasons: [],
+    };
+
+    const items = inventoryItems(largeDataset, DEFAULT_ANALYTICS_SETTINGS);
+    expect(items).toHaveLength(5_000);
+    expect(new Set(items.map(item => item.id)).size).toBe(5_000);
+  });
+});

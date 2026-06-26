@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, Box, CheckCircle2, GitMerge, GitPullRequest, Rocket, Search, Tag } from "lucide-react";
+import { Box, CheckCircle2, GitMerge, GitPullRequest, Rocket, Search, Tag } from "lucide-react";
 import type { SimulatorEvent } from "../../../simulator/simulator-types";
 import { formatEventReference, formatEventTitle, humanizeSimulatorValue } from "../../../simulator/simulator-presentation";
 
@@ -17,7 +17,7 @@ export function SimulatorEventStream({ events, cursor, selectedEventId, onSelect
   const visible = useMemo(() => events.filter(event => event.occurredAt <= cursor && `${event.eventType} ${event.subjectTitle} ${event.actor?.login ?? ""}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)), [events, cursor, query]);
   return (
     <section className="simulator-panel simulator-events">
-      <header className="simulator-panel__header"><h3>Event Stream</h3><label><Search size={12} /><input aria-label="Filter events" placeholder="Filter..." value={query} onChange={event => setQuery(event.target.value)} /></label><span className="simulator-live"><Activity size={10} /> Live</span></header>
+      <header className="simulator-panel__header"><h3>Event Stream <span>({visible.length} before cursor)</span></h3><label><Search size={12} /><input aria-label="Filter events" placeholder="Filter..." value={query} onChange={event => setQuery(event.target.value)} /></label></header>
       <div className="simulator-panel__scroll">
         {visible.length === 0 ? <div className="simulator-empty">No events before cursor.</div> : visible.slice(0, 100).map(event => (
           <button type="button" key={event.id} className={`simulator-event-row${selectedEventId === event.id ? " is-selected" : ""}`} onClick={() => onSelectEvent(event.id)} title={`${humanizeSimulatorValue(event.eventType)}: ${formatEventTitle(event)}`}>

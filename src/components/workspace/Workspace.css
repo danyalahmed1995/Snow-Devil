@@ -20,11 +20,11 @@
   align-items: flex-end;
   gap: 4px;
   z-index: 5;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   scrollbar-width: thin;
   scroll-behavior: smooth;
 }
+.workspace-tab-scroll{min-width:0;flex:1;display:flex;align-items:flex-end;gap:4px;overflow-x:auto;overflow-y:hidden}.workspace-tab-overflow{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;margin-bottom:3px;border-radius:5px;color:var(--text-muted)}.workspace-tab-overflow:hover{background:var(--surface-hover);color:var(--text-primary)}.workspace-tab__family{flex:0 0 auto}.workspace-tab--browser .workspace-tab__family{color:var(--info)}.workspace-tab--native .workspace-tab__family{color:var(--text-muted)}.workspace-tab-menu{position:fixed;z-index:5000;width:220px;max-height:300px;overflow:auto;padding:5px;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-elevated);box-shadow:var(--shadow-lg)}.workspace-tab-menu>strong{display:block;padding:6px 8px;color:var(--text-muted);font-size:9px;text-transform:uppercase}.workspace-tab-menu>button{width:100%;min-height:30px;display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;text-align:left;font-size:10px}.workspace-tab-menu>button:hover:not(:disabled),.workspace-tab-menu>button:focus-visible{background:var(--surface-hover);outline:1px solid var(--border-focus);outline-offset:-1px}.workspace-tab-menu>button:disabled{opacity:.45;cursor:not-allowed}.workspace-tab-menu__message{display:block;padding:6px 8px;color:var(--status-danger-fg);font-size:10px;line-height:1.35}.workspace-tab-menu hr{border:0;border-top:1px solid var(--border-subtle)}
 
 .workspace-tab {
   display: inline-flex;

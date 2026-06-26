@@ -1,4 +1,6 @@
 import type { FlowItem, FlowStage, FlowStageHistoryEntry, FlowStatus } from '../types/flow';
+import { classifyActor, classifyAttention, classifyLifecycle, type EvidenceConfidence } from './delivery-semantics';
+import { matchesStructuredSearch } from './structured-search';
 
 export const WORKFLOW_STAGES: ReadonlyArray<{ id: FlowStage; label: string }> = [
   { id: 'issues', label: 'Issues' },
@@ -24,35 +26,56 @@ export interface ClassifiedWorkflowState {
   stage: FlowStage;
   status: FlowStatus;
   reason: string;
+  confidence: EvidenceConfidence;
+  missingEvidence: string[];
 }
 
 export function classifyWorkflowItem(item: Partial<FlowItem>): ClassifiedWorkflowState {
-  if (item.type === 'deployment' || item.status === 'deployed' || item.deployedAt) return { stage: 'deployed', status: 'deployed', reason: 'A successful deployment observation is present.' };
-  if (item.type === 'release' && item.isDraft) return { stage: 'coding', status: 'idle', reason: 'The release is still a draft.' };
-  if (item.type === 'release' || item.status === 'released' || item.publishedAt) return { stage: 'released', status: 'released', reason: item.isPrerelease ? 'A prerelease was published.' : 'A published release is present.' };
-  if (item.status === 'merged' || item.mergedAt) return { stage: 'merged', status: 'merged', reason: `The pull request was merged${item.mergedAt ? ` at ${new Date(item.mergedAt).toLocaleString()}` : ''}.` };
-  if (item.status === 'closed' || item.closedAt) return { stage: 'closed', status: 'closed', reason: 'The item was closed without evidence that it merged.' };
-  if (item.type === 'issue') return { stage: 'issues', status: item.status ?? 'active', reason: item.inclusionReason ? `Open issue: ${item.inclusionReason}.` : 'The issue is open and no active implementation link is available.' };
-
-  const checks = item.checksSummary?.state ?? 'MISSING';
-  const review = item.reviewSummary?.state ?? 'NONE';
-  const failing = checks === 'FAILURE' || checks === 'ERROR';
-  const pending = checks === 'PENDING' || checks === 'EXPECTED';
-  if (failing) return { stage: 'checks', status: 'failing', reason: `${item.checksSummary?.failureCount || 1} required check${item.checksSummary?.failureCount === 1 ? '' : 's'} failed.` };
-  if (pending) return { stage: 'checks', status: 'active', reason: 'Required checks are still queued or running.' };
-  if (review === 'CHANGES_REQUESTED') return { stage: 'review', status: 'changes_requested', reason: 'Review changes were requested and have not been superseded by an approval.' };
-  if (review === 'APPROVED' && !item.isDraft) return { stage: 'ready', status: 'approved', reason: checks === 'SUCCESS' ? 'Required approvals and checks have passed.' : 'Required approval is present; no required check result was reported.' };
-  if (review === 'REVIEW_REQUIRED' || review === 'PENDING' || (item.reviewSummary?.requestedReviewers.length ?? 0) > 0) {
-    const count = item.reviewSummary?.requestedReviewers.length ?? 0;
-    return { stage: 'review', status: 'active', reason: count ? `Waiting for review from ${count} requested reviewer${count === 1 ? '' : 's'}.` : 'A review is pending.' };
-  }
-  if (item.isDraft) return { stage: 'coding', status: 'idle', reason: 'The pull request is still marked as draft.' };
-  return { stage: 'pull_requests', status: 'idle', reason: 'The pull request is open and has not entered review or required checks.' };
+  const result = classifyLifecycle({
+    id: item.id,
+    repositoryId: item.repositoryId,
+    type: item.type,
+    number: item.number,
+    title: item.title,
+    state: item.status,
+    status: item.status,
+    isDraft: item.isDraft,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    closedAt: item.closedAt,
+    mergedAt: item.mergedAt,
+    publishedAt: item.publishedAt,
+    deployedAt: item.deployedAt,
+    author: item.author?.login,
+    authorIsBot: item.author?.isBot,
+    assignees: item.assignees?.map(actor => actor.login),
+    reviewState: item.reviewSummary?.state,
+    requestedReviewers: item.reviewSummary?.requestedReviewers,
+    checkState: item.checksSummary?.state,
+    releasedAt: item.publishedAt,
+    releaseEvidence: Boolean(item.publishedAt || item.type === 'release' && !item.isDraft),
+    deploymentEvidence: Boolean(item.deployedAt || item.type === 'deployment'),
+    sourceCompleteness: item.completeness,
+  });
+  return { ...result, stage: result.stage as FlowStage, status: result.status as FlowStatus };
 }
 
 export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = item.sourceMode ?? 'live', referenceTime?: string): FlowItem {
   const classified = classifyWorkflowItem(item);
   const history = dedupeStageHistory(item.stageHistory ?? fallbackHistory(item, classified.stage));
+  const actorClassification = classifyActor(item.author?.login, item.isBot ?? item.author?.isBot);
+  const attention = classifyAttention({
+    id: item.id,
+    repositoryId: item.repositoryId,
+    type: item.type,
+    state: item.status,
+    updatedAt: item.updatedAt,
+    author: item.author?.login,
+    assignees: item.assignees?.map(actor => actor.login),
+    reviewState: item.reviewSummary?.state,
+    requestedReviewers: item.reviewSummary?.requestedReviewers,
+    checkState: item.checksSummary?.state,
+  });
   return {
     ...item,
     stage: classified.stage,
@@ -65,6 +88,10 @@ export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = it
     sourceType: item.sourceType ?? item.type,
     referenceTime: referenceTime ?? item.referenceTime,
     isBot: item.isBot ?? item.author?.isBot ?? false,
+    actorClassification,
+    confidence: classified.confidence,
+    missingEvidence: classified.missingEvidence,
+    attentionReasons: attention.reasons,
     stageHistory: history,
   };
 }
@@ -105,12 +132,24 @@ export function formatTimeInStage(item: FlowItem, referenceTime = item.reference
 }
 
 export function filterWorkflowItems(items: FlowItem[], filters: WorkflowFilters): FlowItem[] {
-  const search = filters.search.trim().toLowerCase();
   return items.filter(item => (!filters.repositoryId || item.repositoryId === filters.repositoryId)
     && (!filters.stage || item.stage === filters.stage)
     && (!filters.activeOnly || !['merged', 'released', 'deployed', 'closed'].includes(item.stage))
-    && (!filters.statusFilter || filters.statusFilter === 'all' || (filters.statusFilter === 'attention' && (item.status === 'failing' || item.status === 'changes_requested')) || (filters.statusFilter === 'waiting_review' && item.stage === 'review') || (filters.statusFilter === 'failing' && item.status === 'failing') || (filters.statusFilter === 'merged' && item.stage === 'merged'))
-    && (!search || `${item.title} ${item.repositoryName} ${item.number ?? ''} ${item.author?.login ?? ''} ${(item.labels ?? []).map(label => label.name).join(' ')}`.toLowerCase().includes(search)));
+    && (!filters.statusFilter || filters.statusFilter === 'all' || (filters.statusFilter === 'attention' && (item.attentionReasons?.length || item.status === 'failing' || item.status === 'changes_requested')) || (filters.statusFilter === 'waiting_review' && item.stage === 'review') || (filters.statusFilter === 'failing' && item.status === 'failing') || (filters.statusFilter === 'merged' && item.stage === 'merged'))
+    && (!filters.search.trim() || matchesStructuredSearch({
+      title: item.title,
+      repository: item.repositoryName,
+      number: item.number,
+      author: item.author?.login,
+      labels: item.labels?.map(label => label.name),
+      stage: item.stage,
+      state: item.status,
+      isDraft: item.isDraft,
+      checks: item.checksSummary?.state,
+      review: item.reviewSummary?.state,
+      type: item.type,
+      branch: item.headBranch,
+    }, filters.search)));
 }
 
 export function homePreview(items: FlowItem[], limit = 2): Record<FlowStage, FlowItem[]> {
@@ -118,12 +157,13 @@ export function homePreview(items: FlowItem[], limit = 2): Record<FlowStage, Flo
 }
 
 export function recentlyActiveRepositories(items: FlowItem[], limit = 4) {
-  const repos = new Map<string, { id: string; nameWithOwner: string; lastActivityAt: string; activeItems: number; status: 'healthy' | 'attention' }>();
+  const repos = new Map<string, { id: string; nameWithOwner: string; lastActivityAt: string; activeItems: number; status: 'healthy' | 'attention'; reason: string }>();
   items.forEach(item => {
     const current = repos.get(item.repositoryId);
     const active = !['merged', 'released', 'deployed', 'closed'].includes(item.stage);
     const attention = item.status === 'failing' || item.status === 'changes_requested';
-    repos.set(item.repositoryId, { id: item.repositoryId, nameWithOwner: item.repositoryName, lastActivityAt: current && current.lastActivityAt > item.updatedAt ? current.lastActivityAt : item.updatedAt, activeItems: (current?.activeItems ?? 0) + (active ? 1 : 0), status: attention || current?.status === 'attention' ? 'attention' : 'healthy' });
+    const reason = item.status === 'failing' ? 'Failing checks' : item.stage === 'review' ? 'Review requested' : item.stage === 'merged' ? 'Recent merge' : 'Recent meaningful activity';
+    repos.set(item.repositoryId, { id: item.repositoryId, nameWithOwner: item.repositoryName, lastActivityAt: current && current.lastActivityAt > item.updatedAt ? current.lastActivityAt : item.updatedAt, activeItems: (current?.activeItems ?? 0) + (active ? 1 : 0), status: attention || current?.status === 'attention' ? 'attention' : 'healthy', reason: attention || !current || item.updatedAt >= current.lastActivityAt ? reason : current.reason });
   });
   return [...repos.values()].sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt) || a.nameWithOwner.localeCompare(b.nameWithOwner)).slice(0, limit);
 }

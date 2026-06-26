@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { browserCreate, browserResize, browserActivate, type BrowserBounds } from './browser-commands';
+import { browserCreate, browserResize, browserActivate, browserHideAll, type BrowserBounds } from './browser-commands';
 import { useTabsStore, isBrowserTab } from '../stores/tabs-store';
+import { useOverlayStore } from '../stores/overlay-store';
 
 function measureSafeBounds(el: HTMLElement | null): BrowserBounds | null {
   if (!el) return null;
@@ -34,11 +35,17 @@ export function BrowserViewport() {
   const tabs = useTabsStore(s => s.tabs);
   const activeTab = tabs.find(t => t.id === activeTabId);
   const isBrowser = activeTab && isBrowserTab(activeTab);
+  const activeOverlayId = useOverlayStore(s => s.activeOverlayId);
   
   const lastSyncRef = useRef<{ tabId: string; url: string; bounds: BrowserBounds } | null>(null);
 
   const performSync = useCallback(() => {
     if (!activeTab || !isBrowserTab(activeTab)) return;
+    if (useOverlayStore.getState().activeOverlayId) {
+      lastSyncRef.current = null;
+      void browserHideAll();
+      return;
+    }
 
     let raf2: number;
 
@@ -107,9 +114,14 @@ export function BrowserViewport() {
 
   // Track tab selection or URL changes
   useEffect(() => {
+    if (activeOverlayId) {
+      lastSyncRef.current = null;
+      void browserHideAll();
+      return;
+    }
     const cleanup = performSync();
     return cleanup;
-  }, [activeTabId, isBrowser ? (activeTab as any).currentUrl : undefined, performSync]);
+  }, [activeTabId, isBrowser ? (activeTab as any).currentUrl : undefined, activeOverlayId, performSync]);
 
   // Keep exactly one persistent ResizeObserver
   useEffect(() => {

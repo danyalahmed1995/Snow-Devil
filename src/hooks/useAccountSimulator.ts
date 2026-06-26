@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
-import { SimulatorEvent, SimulatorLoadState } from "../simulator/simulator-types";
-import { fetchAccountActivity } from "../simulator/simulator-github-api";
+import { SimulatorEvent, SimulatorLoadDetails, SimulatorLoadState } from "../simulator/simulator-types";
 
-import { getSimulatorEventsFromDb, saveSimulatorEventsToDb } from "../simulator/simulator-cache";
 import { useModeStore } from "../stores/mode-store";
 import { DemoDataProvider } from "../data/demo-provider";
+import { emptySimulatorLoadDetails, loadAccountSimulatorSnapshot } from "../simulator/account-simulator-loader";
 
 export function useAccountSimulator(login: string) {
   const mode = useModeStore(state => state.mode);
   const demoRevision = useModeStore(state => state.demoRevision);
   const [events, setEvents] = useState<SimulatorEvent[]>([]);
   const [loadState, setLoadState] = useState<SimulatorLoadState>("idle");
+  const [details, setDetails] = useState<SimulatorLoadDetails>(() => emptySimulatorLoadDetails());
   const [since, setSince] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -19,7 +19,7 @@ export function useAccountSimulator(login: string) {
   const [until, setUntil] = useState(() => new Date().toISOString());
 
   const fetchActivity = async () => {
-    setLoadState("loading_initial");
+    setLoadState(events.length > 0 ? "refreshing" : "loading_initial");
     try {
       if (mode === 'demo') {
         const demoEvents = await DemoDataProvider.accountEvents();
@@ -27,29 +27,16 @@ export function useAccountSimulator(login: string) {
         setSince(demoEvents[0].occurredAt);
         setUntil(demoEvents[demoEvents.length - 1].occurredAt);
         setLoadState('ready_complete');
+        setDetails({ ...emptySimulatorLoadDetails(), loadedSources: 1, totalSources: 1, cacheRange: demoEvents.length ? { since: demoEvents[0].occurredAt, until: demoEvents[demoEvents.length - 1].occurredAt, eventCount: demoEvents.length } : undefined });
         return;
       }
-      const scopeId = `account:${login}`;
-      
-      const cached = await getSimulatorEventsFromDb(scopeId);
-      if (cached.length > 0) {
-        setEvents(cached);
-        setLoadState("refreshing");
-      }
-
-      const networkEvents = await fetchAccountActivity(login, since, until);
-      
-      // Override repositoryId to the scopeId so caching works, 
-      // but the event itself contains real repositoryName.
-      // Wait, SQLite constraint might require actual repo names, but for account we can use account scope.
-      await saveSimulatorEventsToDb(networkEvents);
-      
-      // But events from fetchAccountActivity have actual repositoryId. We just load all of them.
-      // For simplicity, we just use the network events directly if we can't scope the DB properly here.
-      setEvents(networkEvents);
-      setLoadState("ready_partial");
-    } catch (e) {
-      console.error(e);
+      const snapshot = await loadAccountSimulatorSnapshot(login, since, until);
+      setEvents(snapshot.events);
+      setDetails(snapshot.details);
+      setLoadState(snapshot.loadState);
+    } catch {
+      const fallback = emptySimulatorLoadDetails();
+      setDetails(fallback);
       setLoadState("error");
     }
   };
@@ -60,5 +47,5 @@ export function useAccountSimulator(login: string) {
     }
   }, [login, since, until, mode, demoRevision]);
 
-  return { events, loadState, since, until, setSince, setUntil, refresh: fetchActivity };
+  return { events, loadState, details, since, until, setSince, setUntil, refresh: fetchActivity };
 }

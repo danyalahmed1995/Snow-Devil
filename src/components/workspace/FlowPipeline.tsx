@@ -19,6 +19,7 @@ interface FlowPipelineProps {
   resetKey?: string;
   hideEmptyStages?: boolean;
   onOpenItem?: (item: FlowItem) => void;
+  focusedStage?: FlowStage;
 }
 
 function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
@@ -33,7 +34,7 @@ function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
 // Cache to preserve scroll positions across tab switches for the same context
 const scrollCache = new Map<string, { left: number; tops: Record<string, number> }>();
 
-export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, sourceControls, resetKey, hideEmptyStages = false }: FlowPipelineProps) {
+export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, sourceControls, resetKey, hideEmptyStages = false, focusedStage }: FlowPipelineProps) {
   const laneScrollerRef = useRef<HTMLDivElement>(null);
 
   const previousScrollContextRef = useRef<string | null>(null);
@@ -124,7 +125,7 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
       )}
       <div className="flow-lane-scroller" ref={laneScrollerRef} data-testid="flow-lane-scroller" onScroll={handleLaneScroll}>
         <div className="flow-workbench-pipeline" data-testid="flow-pipeline">
-          {WORKFLOW_STAGES.filter(stage => !hideEmptyStages || groupedItems[stage.id].length > 0).map((stage) => {
+          {WORKFLOW_STAGES.filter(stage => (!focusedStage || stage.id === focusedStage) && (!hideEmptyStages || groupedItems[stage.id].length > 0)).map((stage) => {
             const sourceKey = getSourceKeyForStage(stage.id);
             const source = sourceControls[sourceKey];
             const isCanonical = stage.id === 'issues' || stage.id === 'merged' || stage.id === 'pull_requests';
@@ -133,7 +134,7 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
             if (isCanonical && source.exactTotal !== undefined) {
               countDisplay = source.exactTotal;
             } else if (source.hasNextPage) {
-              countDisplay = `${countDisplay}+`;
+              countDisplay = `${countDisplay} loaded · more available`;
             } else if (countDisplay > 0) {
                countDisplay = `${countDisplay} loaded`;
             }
@@ -167,10 +168,11 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
   const hidden = Math.max(0, items.length - visibleItems.length);
 
   useEffect(() => {
-    if (!expanded || !selectedItemId || !scrollRef.current) return;
+    if (!selectedItemId || !scrollRef.current) return;
+    if (items.some(item => item.id === selectedItemId) && !visibleItems.some(item => item.id === selectedItemId)) setExpanded(true);
     const selected = [...scrollRef.current.querySelectorAll<HTMLElement>('[data-flow-item-id]')].find(element => element.dataset.flowItemId === selectedItemId);
     selected?.scrollIntoView?.({ block: 'nearest' });
-  }, [expanded, selectedItemId]);
+  }, [expanded, items, selectedItemId, visibleItems]);
 
   const toggleExpanded = () => {
     if (expanded) {

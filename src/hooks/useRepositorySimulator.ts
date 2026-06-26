@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
-import { SimulatorEvent, SimulatorLoadState } from "../simulator/simulator-types";
+import { SimulatorEvent, SimulatorLoadDetails, SimulatorLoadState } from "../simulator/simulator-types";
 import { fetchRepositoryActivity } from "../simulator/simulator-github-api";
 import { getSimulatorEventsFromDb, saveSimulatorEventsToDb } from "../simulator/simulator-cache";
 import { useModeStore } from "../stores/mode-store";
 import { DemoDataProvider } from "../data/demo-provider";
+import { emptySimulatorLoadDetails, accountCacheRange } from "../simulator/account-simulator-loader";
 
 export function useRepositorySimulator(owner: string, name: string) {
   const mode = useModeStore(state => state.mode);
   const demoRevision = useModeStore(state => state.demoRevision);
   const [events, setEvents] = useState<SimulatorEvent[]>([]);
   const [loadState, setLoadState] = useState<SimulatorLoadState>("idle");
+  const [details, setDetails] = useState<SimulatorLoadDetails>(() => emptySimulatorLoadDetails());
   const [since, setSince] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -27,6 +29,7 @@ export function useRepositorySimulator(owner: string, name: string) {
         setSince(demoEvents[0].occurredAt);
         setUntil(demoEvents[demoEvents.length - 1].occurredAt);
         setLoadState('ready_complete');
+        setDetails({ ...emptySimulatorLoadDetails(), loadedSources: 1, totalSources: 1, cacheRange: accountCacheRange(demoEvents) });
         return;
       }
       
@@ -36,6 +39,7 @@ export function useRepositorySimulator(owner: string, name: string) {
         setEvents(cached);
         // We might set 'ready_complete' or 'refreshing' here
         setLoadState("refreshing");
+        setDetails({ ...emptySimulatorLoadDetails(), cached: true, stale: true, loadedSources: 0, totalSources: 1, cacheRange: accountCacheRange(cached) });
       }
 
       // Fetch from network
@@ -47,8 +51,8 @@ export function useRepositorySimulator(owner: string, name: string) {
       
       setEvents(allCached);
       setLoadState("ready_partial"); // we mark as partial because we didn't fetch full history
-    } catch (e) {
-      console.error(e);
+      setDetails({ ...emptySimulatorLoadDetails(), loadedSources: 1, totalSources: 1, cacheRange: accountCacheRange(allCached) });
+    } catch {
       setLoadState("error");
     }
   };
@@ -59,5 +63,5 @@ export function useRepositorySimulator(owner: string, name: string) {
     }
   }, [owner, name, since, until, mode, demoRevision]);
 
-  return { events, loadState, since, until, setSince, setUntil, refresh: fetchActivity };
+  return { events, loadState, details, since, until, setSince, setUntil, refresh: fetchActivity };
 }

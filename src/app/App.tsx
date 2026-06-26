@@ -8,6 +8,7 @@ import { classifyGithubUrl, tabIdForUrl, titleForGithubUrl } from '../browser/br
 import '../styles/globals.css';
 import { CommandPalette } from '../components/palette/CommandPalette';
 import { ThemeProvider } from '../components/theme/ThemeProvider';
+import { AppErrorBoundary } from '../components/error/AppErrorBoundary';
 
 function BrowserEventOrchestrator() {
   useEffect(() => {
@@ -40,8 +41,10 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserEventOrchestrator />
       <ThemeProvider />
-      <Layout />
-      <CommandPalette />
+      <AppErrorBoundary>
+        <Layout />
+        <CommandPalette />
+      </AppErrorBoundary>
     </QueryClientProvider>
   );
 }

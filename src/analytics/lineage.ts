@@ -28,7 +28,7 @@ export function buildDeliveryLineage(entities: DeliveryEntity[], existing: Deliv
         addRelationship(relationships, matchingIssue.id, pullRequest.id, 'implemented_by', explicit ? 'exact' : 'inferred', explicit ? 'Explicit issue/PR link or closing reference' : 'Matching repository and issue number');
       }
       const matchingBranch = branches.find(branch => branch.branchName && branch.branchName === pullRequest.branchName);
-      if (matchingBranch) addRelationship(relationships, matchingBranch.id, pullRequest.id, 'implemented_by', 'strong', 'Matching repository and head branch ref');
+      if (matchingBranch) addRelationship(relationships, matchingBranch.id, pullRequest.id, 'implemented_by', 'matched', 'Matching repository and head branch ref');
 
       const mergeTime = pullRequest.mergedAt ? new Date(pullRequest.mergedAt).getTime() : NaN;
       if (Number.isFinite(mergeTime)) {

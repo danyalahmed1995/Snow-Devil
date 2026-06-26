@@ -15,6 +15,7 @@ import type {
   RepositoryHealth,
 } from './types';
 import { effectiveRepositorySettings } from '../stores/analytics-settings-store';
+import { classifyActivity, classifyActor, confidenceFromEvidence, isActorIncluded, uniqueWorkItemIdentity } from '../lib/delivery-semantics';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -44,8 +45,9 @@ function completedBranchHours(dataset: AnalyticsDataset, repositoryId: string, s
     .map(branch => businessHoursBetween(branch.firstObservedAt, branch.mergedAt ?? branch.deletedAt!, calendar));
 }
 
-function ciGrade(overThreshold: number, severe: number, staleDays: number, integrationsPerWeek: number): { status: CiStatus; reasons: string[] } {
+function ciGrade(overThreshold: number, severe: number, staleDays: number, integrationsPerWeek: number, hasEvidence: boolean): { status: CiStatus; reasons: string[] } {
   const reasons: string[] = [];
+  if (!hasEvidence) return { status: 'unknown', reasons: ['No qualifying branch or default-branch integration evidence is available'] };
   if (overThreshold === 0) reasons.push('No active branches exceed the configured threshold');
   else reasons.push(`${overThreshold} active branch${overThreshold === 1 ? '' : 'es'} exceed the configured threshold`);
   if (staleDays > 14) reasons.push(`Default branch has been inactive for ${Math.floor(staleDays)} days`);
@@ -56,7 +58,7 @@ function ciGrade(overThreshold: number, severe: number, staleDays: number, integ
 
   if (severe >= 2 || (overThreshold >= 3 && staleDays > 14)) return { status: 'poor', reasons };
   if (overThreshold > 0 || staleDays > 7 || integrationsPerWeek < 1) return { status: 'warning', reasons };
-  if (staleDays > 3 || integrationsPerWeek < 5) return { status: 'good', reasons };
+  if (staleDays > 3 || integrationsPerWeek < 5) return { status: 'healthy', reasons };
   return { status: 'excellent', reasons };
 }
 
@@ -73,7 +75,8 @@ export function repositoryHealth(dataset: AnalyticsDataset, settings: AnalyticsS
     const overThreshold = active.filter(item => item.hours > effective.branchThresholdHours).length;
     const severe = active.filter(item => item.hours > effective.branchThresholdHours * 3).length;
     const integrationsPerWeek = integrations.length / Math.max(1, rangeDays / 7);
-    const grade = ciGrade(overThreshold, severe, staleDays, integrationsPerWeek);
+    const hasEvidence = active.length > 0 || completed.length > 0 || integrations.length > 0;
+    const grade = ciGrade(overThreshold, severe, staleDays, integrationsPerWeek, hasEvidence);
     return {
       repository,
       status: grade.status,
@@ -88,12 +91,14 @@ export function repositoryHealth(dataset: AnalyticsDataset, settings: AnalyticsS
       p50BranchHours: percentile(completed, 50),
       p90BranchHours: percentile(completed, 90),
       estimated: dataset.branches.some(branch => branch.repositoryId === repository.id && branch.estimated),
+      sampleCount: completed.length,
+      coverage: !hasEvidence ? 'unavailable' : dataset.partial ? 'partial' : 'complete',
     };
   });
 }
 
 export function overallCiStatus(rows: RepositoryHealth[]): CiStatus {
-  const rank: Record<CiStatus, number> = { excellent: 0, good: 1, warning: 2, poor: 3 };
+  const rank: Record<CiStatus, number> = { excellent: 0, healthy: 1, unknown: 2, unsupported: 2, warning: 3, poor: 4, sync_failed: 5 };
   return rows.reduce<CiStatus>((worst, row) => rank[row.status] > rank[worst] ? row.status : worst, 'excellent');
 }
 
@@ -129,19 +134,43 @@ function inventoryCandidate(entity: DeliveryEntity, repository: AnalyticsReposit
 export function inventoryItems(dataset: AnalyticsDataset, settings: AnalyticsSettings): InventoryItem[] {
   const repositoryMap = new Map(includedRepositories(dataset, settings).map(repository => [repository.id, repository]));
   const calendar = calendarFromSettings(settings);
-  return dataset.entities.flatMap(entity => {
+  const aggregate = new Map<string, DeliveryEntity>();
+  dataset.entities.forEach(entity => {
+    const linked = entity.type === 'workflow_run' || entity.type === 'check_run'
+      ? dataset.entities.find(candidate => candidate.repositoryId === entity.repositoryId && candidate.type === 'pull_request' && entity.branchName && candidate.branchName === entity.branchName)
+      : undefined;
+    const target = linked ?? entity;
+    const identity = uniqueWorkItemIdentity({ ...target, linkedEntityId: linked?.id });
+    const current = aggregate.get(identity);
+    if (!current) {
+      aggregate.set(identity, { ...target, evidence: [...(target.evidence ?? []), ...(linked && linked.id !== entity.id ? entity.evidence ?? [] : [])], checkState: entity.checkState === 'failure' ? 'failure' : target.checkState });
+      return;
+    }
+    aggregate.set(identity, {
+      ...current,
+      updatedAt: current.updatedAt > entity.updatedAt ? current.updatedAt : entity.updatedAt,
+      checkState: current.checkState === 'failure' || entity.checkState === 'failure' ? 'failure' : current.checkState ?? entity.checkState,
+      evidence: [...new Set([...(current.evidence ?? []), ...(entity.evidence ?? [])])],
+      sourceCompleteness: current.sourceCompleteness === 'complete' && entity.sourceCompleteness === 'complete' ? 'complete' : 'partial',
+    });
+  });
+  return [...aggregate.values()].flatMap(entity => {
     const baseRepository = repositoryMap.get(entity.repositoryId);
-    if (!baseRepository || (!settings.includeBots && entity.isBot)) return [];
+    const actor = entity.actorClassification ?? classifyActor(entity.author, entity.isBot);
+    if (!baseRepository || !isActorIncluded(actor, { includeBots: settings.includeBots, includeDependabot: settings.includeDependabot, includeRenovate: settings.includeRenovate })) return [];
     const effective = effectiveRepositorySettings(settings, baseRepository.id);
     const repository = { ...baseRepository, releaseMatching: effective.releaseMatching ?? baseRepository.releaseMatching, deploymentMatching: effective.deploymentMatching ?? baseRepository.deploymentMatching };
     const thresholds = effective.inventoryThresholds;
     const ageBusinessDays = businessDaysBetween(entity.updatedAt, dataset.referenceDate, calendar);
     if ((entity.type === 'branch' || entity.isDraft) && ageBusinessDays < thresholds.staleDays) return [];
+    const activity = classifyActivity(entity, { referenceTime: dataset.referenceDate, activeWindowDays: Math.max(30, thresholds.staleDays * 3), agingDays: thresholds.agingDays, staleDays: thresholds.staleDays });
+    if (entity.type === 'branch' && !['stale', 'dormant'].includes(activity)) return [];
     const candidate = inventoryCandidate(entity, repository);
     if (!candidate) return [];
     const relationshipIds = dataset.relationships
       .filter(relationship => relationship.sourceId === entity.id || relationship.targetId === entity.id)
       .map(relationship => relationship.sourceId === entity.id ? relationship.targetId : relationship.sourceId);
+    const failures = dataset.events.filter(event => event.entityId === entity.id && ['check_failed', 'workflow_failed'].includes(event.type));
     return [{
       id: `inventory:${entity.id}:${candidate.type}`,
       entity,
@@ -153,7 +182,13 @@ export function inventoryItems(dataset: AnalyticsDataset, settings: AnalyticsSet
       lastActivityAt: entity.updatedAt,
       blockingReason: candidate.reason,
       relatedEntityIds: relationshipIds,
-      confidence: entity.sourceCompleteness === 'complete' ? 'exact' : 'inferred',
+      confidence: confidenceFromEvidence({ completeness: entity.sourceCompleteness, linked: entity.type === 'workflow_run' || entity.type === 'check_run' ? false : undefined }),
+      entityType: entity.type,
+      inventoryReason: candidate.reason,
+      evidenceCount: entity.evidence?.length ?? 0,
+      firstFailureAt: failures[0]?.occurredAt,
+      latestFailureAt: failures[failures.length - 1]?.occurredAt,
+      missingEvidence: entity.missingEvidence,
     } satisfies InventoryItem];
   }).sort((a, b) => b.ageBusinessDays - a.ageBusinessDays);
 }
@@ -164,7 +199,7 @@ const LEAD_TIME_FIELDS: Record<LeadTimeMetric, [keyof DeliveryEntity, keyof Deli
   pr_to_merge: ['prOpenedAt', 'mergedAt'],
   commit_to_merge: ['firstCommitAt', 'mergedAt'],
   merge_to_deploy: ['mergedAt', 'deployedAt'],
-  deploy_to_release: ['deployedAt', 'releasedAt'],
+  release_to_deploy: ['releasedAt', 'deployedAt'],
   issue_to_release: ['createdAt', 'releasedAt'],
   issue_to_deploy: ['createdAt', 'deployedAt'],
 };
@@ -190,10 +225,10 @@ export interface ThroughputBucket {
   deployments: number;
 }
 
-export function throughputBuckets(dataset: AnalyticsDataset, rangeDays: number, repositoryId?: string, weekly = false): ThroughputBucket[] {
+export function throughputBuckets(dataset: AnalyticsDataset, rangeDays: number, repositoryId?: string, grouping: boolean | number = false): ThroughputBucket[] {
   const end = new Date(dataset.referenceDate).getTime();
   const start = end - rangeDays * DAY;
-  const span = weekly ? 7 : 1;
+  const span = typeof grouping === 'number' ? Math.max(1, grouping) : grouping ? 7 : 1;
   const buckets = Array.from({ length: Math.ceil(rangeDays / span) }, (_, index) => ({
     date: new Date(start + index * span * DAY).toISOString().slice(0, 10),
     merged: 0,
@@ -201,15 +236,22 @@ export function throughputBuckets(dataset: AnalyticsDataset, rangeDays: number, 
     releases: 0,
     deployments: 0,
   }));
+  const entityMap = new Map(dataset.entities.map(entity => [entity.id, entity]));
+  const seen = new Set<string>();
   dataset.events.forEach(event => {
     if (repositoryId && event.repositoryId !== repositoryId) return;
     const timestamp = new Date(event.occurredAt).getTime();
     const index = Math.floor((timestamp - start) / (span * DAY));
     if (index < 0 || index >= buckets.length) return;
-    if (event.type === 'merged') buckets[index].merged += 1;
-    if (event.type === 'closed') buckets[index].issuesClosed += 1;
-    if (event.type === 'released') buckets[index].releases += 1;
-    if (event.type === 'deployment_succeeded') buckets[index].deployments += 1;
+    const entity = entityMap.get(event.entityId);
+    const increment = (kind: keyof Omit<ThroughputBucket, 'date'>) => {
+      const key = `${index}:${kind}:${event.entityId}`;
+      if (!seen.has(key)) { seen.add(key); buckets[index][kind] += 1; }
+    };
+    if (event.type === 'merged') increment('merged');
+    if (event.type === 'closed' && entity?.type === 'issue') increment('issuesClosed');
+    if (event.type === 'released') increment('releases');
+    if (event.type === 'deployment_succeeded') increment('deployments');
   });
   return buckets;
 }
@@ -219,7 +261,8 @@ export interface FlowSnapshot {
   issues: number;
   coding: number;
   pullRequests: number;
-  reviewChecks: number;
+  review: number;
+  checks: number;
   ready: number;
   merged: number;
   deployed: number;
@@ -228,10 +271,11 @@ export interface FlowSnapshot {
 
 function stageAt(entity: DeliveryEntity, timestamp: number): keyof Omit<FlowSnapshot, 'date'> | null {
   if (new Date(entity.createdAt).getTime() > timestamp) return null;
-  if (entity.releasedAt && new Date(entity.releasedAt).getTime() <= timestamp) return 'released';
   if (entity.deployedAt && new Date(entity.deployedAt).getTime() <= timestamp) return 'deployed';
+  if (entity.releasedAt && new Date(entity.releasedAt).getTime() <= timestamp) return 'released';
   if (entity.mergedAt && new Date(entity.mergedAt).getTime() <= timestamp) return 'merged';
-  if (entity.firstReviewAt && new Date(entity.firstReviewAt).getTime() <= timestamp) return 'reviewChecks';
+  if (entity.checkState && ['queued', 'running', 'failure'].includes(entity.checkState) && new Date(entity.updatedAt).getTime() <= timestamp) return 'checks';
+  if (entity.firstReviewAt && new Date(entity.firstReviewAt).getTime() <= timestamp) return 'review';
   if (entity.prOpenedAt && new Date(entity.prOpenedAt).getTime() <= timestamp) return entity.reviewState === 'approved' && entity.checkState === 'success' ? 'ready' : 'pullRequests';
   if (entity.firstCommitAt && new Date(entity.firstCommitAt).getTime() <= timestamp) return 'coding';
   return 'issues';
@@ -241,7 +285,7 @@ export function cumulativeFlow(dataset: AnalyticsDataset, rangeDays: number, rep
   const end = new Date(dataset.referenceDate).getTime();
   return Array.from({ length: rangeDays }, (_, index) => {
     const timestamp = end - (rangeDays - index - 1) * DAY;
-    const snapshot: FlowSnapshot = { date: new Date(timestamp).toISOString().slice(0, 10), issues: 0, coding: 0, pullRequests: 0, reviewChecks: 0, ready: 0, merged: 0, deployed: 0, released: 0 };
+    const snapshot: FlowSnapshot = { date: new Date(timestamp).toISOString().slice(0, 10), issues: 0, coding: 0, pullRequests: 0, review: 0, checks: 0, ready: 0, merged: 0, deployed: 0, released: 0 };
     dataset.entities.filter(entity => entity.type === 'pull_request' && (!repositoryId || entity.repositoryId === repositoryId)).forEach(entity => {
       const stage = stageAt(entity, timestamp);
       if (stage) snapshot[stage] += 1;
@@ -271,7 +315,11 @@ export function inventoryInspectable(dataset: AnalyticsDataset, item: InventoryI
     reason: item.blockingReason,
     confidence: item.confidence,
     evidence: item.entity.evidence,
+    missingEvidence: item.missingEvidence,
     relatedEntityIds: item.relatedEntityIds,
+    sampleCount: item.evidenceCount,
+    definition: `${item.inventoryReason}. Repeated workflow, check, and timeline evidence is aggregated under this unique work item.`,
+    coverage: dataset.partial ? 'partial' : 'complete',
     timeline: timelineForEntity(dataset, item.entity.id),
   };
 }
@@ -282,6 +330,6 @@ export function ageBandCounts(items: InventoryItem[]): Record<AgeBand, number> {
 
 export function normalWip(dataset: AnalyticsDataset): number {
   const snapshots = cumulativeFlow(dataset, 60);
-  const concurrent = snapshots.map(snapshot => snapshot.coding + snapshot.pullRequests + snapshot.reviewChecks + snapshot.ready);
+  const concurrent = snapshots.map(snapshot => snapshot.coding + snapshot.pullRequests + snapshot.review + snapshot.checks + snapshot.ready);
   return Math.max(1, Math.round(median(concurrent) ?? 1));
 }

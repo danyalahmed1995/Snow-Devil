@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Filter, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, Filter, Pause, Play, RotateCcw, SkipBack, SkipForward } from "lucide-react";
 import { useAccountSimulator } from "../../hooks/useAccountSimulator";
 import { useRepositorySimulator } from "../../hooks/useRepositorySimulator";
 import { useSimulatorPlayback } from "../../hooks/useSimulatorPlayback";
@@ -15,6 +15,11 @@ import { SimulatorEventStream } from "./ui/SimulatorEventStream";
 import { SimulatorEntityList } from "./ui/SimulatorEntityList";
 import { SimulatorMetrics } from "./ui/SimulatorMetrics";
 import { SimulatorStageColumn } from "./ui/SimulatorStageColumn";
+import { Select } from "../ui/Select";
+import { reconstructState } from "../../simulator/simulator-reducer";
+import { classifyActor } from "../../lib/delivery-semantics";
+import { safeSimulatorExplanation, safeSimulatorTitle } from "../../simulator/simulator-errors";
+import { useTabRefresh } from "../../hooks/useTabRefresh";
 
 const STAGES = [
   "issues",
@@ -49,6 +54,10 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>(undefined);
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
   const [expansion, setExpansion] = useState<{ context: string; stages: Set<string> }>({ context: '', stages: new Set() });
+  const [showFilters, setShowFilters] = useState(false);
+  const [showCoverage, setShowCoverage] = useState(false);
+  const [customRange, setCustomRange] = useState(false);
+  const [filters, setFilters] = useState({ repository: 'all', involvement: 'all', entityType: 'all', stage: 'all', actor: 'humans', checks: 'all', review: 'all', confidence: 'all', labels: '', includeBots: false });
 
   const repoOwner = selectedRepo ? selectedRepo.nameWithOwner.split("/")[0] : "";
   const repoName = selectedRepo ? selectedRepo.nameWithOwner.split("/")[1] : "";
@@ -60,10 +69,34 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
   const setTabState = useFlowStore(s => s.setTabState);
 
   const activeSim = mode === "account" ? accountSim : repoSim;
-  const { events, loadState, since, until, setSince, setUntil, refresh } = activeSim;
+  const { events, loadState, details, since, until, setSince, setUntil, refresh } = activeSim;
+  useTabRefresh(activeTabId, useMemo(() => ({ label: "Refresh tab", refresh }), [refresh]));
 
   const playback = useSimulatorPlayback(events, since, until);
-  const stateArray = useMemo(() => Array.from(playback.currentState.values()).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id)), [playback.currentState]);
+  const fullStateArray = useMemo(() => Array.from(playback.currentState.values()).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id)), [playback.currentState]);
+  const currentState = useMemo(() => reconstructState(events, until), [events, until]);
+  const stateArray = useMemo(() => fullStateArray.filter(entity => {
+    if (mode === 'account' && filters.repository !== 'all' && entity.repositoryId !== filters.repository) return false;
+    if (filters.entityType !== 'all' && entity.subjectType !== filters.entityType) return false;
+    if (filters.stage !== 'all' && entity.stage !== filters.stage) return false;
+    const actorType = classifyActor(entity.author?.login);
+    const isBot = ['dependabot', 'renovate', 'other_bot'].includes(actorType);
+    if (!filters.includeBots && isBot || filters.actor === 'humans' && isBot || filters.actor === 'bots' && !isBot || filters.actor === 'dependabot' && actorType !== 'dependabot' || filters.actor === 'renovate' && actorType !== 'renovate') return false;
+    if (filters.checks !== 'all' && entity.checkState !== filters.checks) return false;
+    if (filters.review !== 'all' && entity.reviewState !== filters.review) return false;
+    if (filters.confidence !== 'all' && entity.sourceCompleteness !== filters.confidence) return false;
+    if (filters.labels.trim() && !entity.labels.some(label => label.name.toLowerCase().includes(filters.labels.trim().toLowerCase()))) return false;
+      if (
+        mode === 'account'
+        && filters.involvement !== 'all'
+        && !entity.inclusionReason?.includes(filters.involvement)
+      ) return false;
+    return true;
+  }), [filters, fullStateArray, mode]);
+  const visibleEntityIds = useMemo(() => new Set(stateArray.map(entity => entity.id)), [stateArray]);
+  const visibleEvents = useMemo(() => events.filter(event => visibleEntityIds.has(event.subjectId)), [events, visibleEntityIds]);
+  const repositoryOptions = useMemo(() => Array.from(new Set(events.map(event => event.repositoryId))).sort(), [events]);
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => key === 'includeBots' ? value === true : value !== 'all' && value !== 'humans' && value !== '').length;
   const expansionContext = `${mode}:${selectedRepo?.id ?? 'account'}:${since}:${until}`;
   const expandedStages = expansion.context === expansionContext ? expansion.stages : new Set<string>();
 
@@ -71,21 +104,24 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
     if (selectedEventId) {
        const ev = events.find(e => e.id === selectedEventId);
        if (ev) {
-         setTabState(activeTabId, { selectedSimulatorEvent: ev, selectedSimulatorEntity: undefined });
+         setTabState(activeTabId, { selectedSimulatorEvent: ev, selectedSimulatorEntity: undefined, selectedSimulatorCurrentEntity: currentState.get(ev.subjectId) });
        } else {
          setTabState(activeTabId, { selectedSimulatorEvent: undefined, selectedSimulatorEntity: undefined });
        }
     } else if (selectedEntityId) {
        const ent = stateArray.find(e => e.id === selectedEntityId);
        if (ent) {
-         setTabState(activeTabId, { selectedSimulatorEntity: ent, selectedSimulatorEvent: undefined });
+         setTabState(activeTabId, { selectedSimulatorEntity: ent, selectedSimulatorCurrentEntity: currentState.get(ent.id), selectedSimulatorEvent: undefined });
        } else {
          setTabState(activeTabId, { selectedSimulatorEntity: undefined, selectedSimulatorEvent: undefined });
        }
     } else {
        setTabState(activeTabId, { selectedSimulatorEntity: undefined, selectedSimulatorEvent: undefined });
     }
-  }, [selectedEntityId, selectedEventId, stateArray, events, activeTabId, setTabState]);
+  }, [selectedEntityId, selectedEventId, stateArray, events, activeTabId, currentState, setTabState]);
+  useEffect(() => {
+    if (selectedEntityId && !visibleEntityIds.has(selectedEntityId)) { setSelectedEntityId(undefined); setSelectedEventId(undefined); }
+  }, [selectedEntityId, visibleEntityIds]);
 
   if (appMode !== 'demo' && session.status === "checking") {
     return <div style={{ padding: 32 }}>Resolving authenticated account...</div>;
@@ -104,7 +140,18 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
       );
     }
     if (loadState === "error") {
-      return <div style={{ flex: 1, padding: 32, color: "var(--text-error)" }}>Network failure loading simulator data.</div>;
+      const failure = details.refreshError ?? details.sourceFailures[0];
+      const category = failure?.category ?? "unknown";
+      return <div className="simulator-load-state simulator-load-state--error" role="alert">
+        <AlertTriangle size={20} />
+        <div>
+          <h3>{safeSimulatorTitle(category)}</h3>
+          <p>{failure?.message ?? safeSimulatorExplanation(category)}</p>
+          {details.cacheError && <small>Cached history could not be used: {details.cacheError.message}</small>}
+          {details.sourceFailures.length > 1 && <small>{details.sourceFailures.length} account sources failed.</small>}
+          <button className="simulator-control simulator-control--primary" onClick={refresh}><RotateCcw size={13} /> Retry</button>
+        </div>
+      </div>;
     }
     if (loadState === "loading_initial") {
       return <div style={{ flex: 1, padding: 32 }}>Loading historical events...</div>;
@@ -130,26 +177,37 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
                {playback.isPlaying ? <><Pause size={13} fill="currentColor" /> Pause</> : <><Play size={13} fill="currentColor" /> Play</>}
              </button>
              <button className="simulator-control" onClick={playback.stepForward}>Step Forward <ChevronRight size={14} /></button>
-             <button className="simulator-control" onClick={() => playback.setCursorManual(until)}>Live <SkipForward size={13} /></button>
-             
-             <select 
-               value={playback.speedMultiplier} 
-               onChange={(e) => playback.setSpeedMultiplier(Number(e.target.value))}
-               className="simulator-speed"
-             >
-               <option value={0.25}>0.25x</option>
-               <option value={1}>1x</option>
-               <option value={4}>4x</option>
-               <option value={8}>8x</option>
-             </select>
+             <button className="simulator-control" onClick={() => playback.setCursorManual(until)}>Jump to latest <SkipForward size={13} /></button>
+             <Select value={String(playback.speedMultiplier)} ariaLabel="Simulator speed" className="simulator-speed-select" onChange={value => playback.setSpeedMultiplier(Number(value))} options={[0.5, 1, 2, 4].map(value => ({ value: String(value), label: `${value}×` }))} />
              
              <span className="simulator-control-divider" />
              <div className="simulator-range" aria-label="History range">
-               {[1, 7, 30, 90].map(days => <button key={days} className={days === 30 ? "is-active" : ""} onClick={() => setRange(setSince, setUntil, days)}>{days === 1 ? "24h" : `${days}d`}</button>)}
+               {[1, 7, 30, 90].map(days => <button key={days} onClick={() => { setCustomRange(false); setRange(setSince, setUntil, days); }}>{days === 1 ? "24h" : `${days}d`}</button>)}<button className={customRange ? 'is-active' : ''} onClick={() => setCustomRange(true)}>Custom</button>
              </div>
              <button className="simulator-control simulator-refresh" onClick={refresh}><RotateCcw size={13} /> Refresh</button>
-             <button className="simulator-control"><Filter size={13} /> Filters <span className="simulator-filter-count">{stateArray.filter(entity => entity.stage !== "closed").length}</span></button>
+             <button className="simulator-control" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter size={13} /> Filters <span className="simulator-filter-count">{activeFilterCount}</span></button>
           </div>
+          {customRange && <div className="simulator-custom-range"><label>Start<input type="datetime-local" value={since.slice(0, 16)} max={until.slice(0, 16)} onChange={event => setSince(new Date(event.target.value).toISOString())} /></label><label>End<input type="datetime-local" value={until.slice(0, 16)} min={since.slice(0, 16)} onChange={event => setUntil(new Date(event.target.value).toISOString())} /></label></div>}
+          {showFilters && <div className="simulator-filter-panel" aria-label="Simulator filters">
+            {mode === 'account' && <><label>Repositories<Select ariaLabel="Simulator repository filter" searchable value={filters.repository} onChange={value => setFilters(current => ({ ...current, repository: value }))} options={[{ value: 'all', label: 'All repositories' }, ...repositoryOptions.map(value => ({ value, label: value }))]} /></label><label>Involvement<Select ariaLabel="Simulator involvement filter" value={filters.involvement} onChange={value => setFilters(current => ({ ...current, involvement: value }))} options={[{ value: 'all', label: 'All involvement' }, { value: 'authored_by_you', label: 'Authored by me' }, { value: 'assigned_to_you', label: 'Assigned to me' }, { value: 'review_requested_from_you', label: 'Review requested from me' }, { value: 'reviewed_by_you', label: 'Reviewed by me' }]} /></label></>}
+            <label>Entity type<Select ariaLabel="Simulator entity type" value={filters.entityType} onChange={value => setFilters(current => ({ ...current, entityType: value }))} options={[{ value: 'all', label: 'All entity types' }, ...['issue', 'pull_request', 'branch', 'commit', 'workflow_run', 'check_suite', 'release', 'deployment'].map(value => ({ value, label: value.replace(/_/g, ' ') }))]} /></label>
+            <label>Lifecycle stage<Select ariaLabel="Simulator lifecycle stage" value={filters.stage} onChange={value => setFilters(current => ({ ...current, stage: value }))} options={[{ value: 'all', label: 'All stages' }, ...STAGES.map(value => ({ value, label: value.replace(/_/g, ' ') }))]} /></label>
+            <label>Actor<Select ariaLabel="Simulator actor" value={filters.actor} onChange={value => setFilters(current => ({ ...current, actor: value, includeBots: value !== 'humans' }))} options={[{ value: 'humans', label: 'Humans only' }, { value: 'everyone', label: 'Everyone' }, { value: 'bots', label: 'Bots only' }, { value: 'dependabot', label: 'Dependabot' }, { value: 'renovate', label: 'Renovate' }]} /></label>
+            <label>Checks<Select ariaLabel="Simulator checks state" value={filters.checks} onChange={value => setFilters(current => ({ ...current, checks: value }))} options={[{ value: 'all', label: 'All check states' }, ...['unknown', 'queued', 'running', 'success', 'failure', 'cancelled'].map(value => ({ value, label: value }))]} /></label>
+            <label>Review<Select ariaLabel="Simulator review state" value={filters.review} onChange={value => setFilters(current => ({ ...current, review: value }))} options={[{ value: 'all', label: 'All review states' }, ...['none', 'requested', 'approved', 'changes_requested'].map(value => ({ value, label: value.replace(/_/g, ' ') }))]} /></label>
+            <label>Confidence<Select ariaLabel="Simulator confidence" value={filters.confidence} onChange={value => setFilters(current => ({ ...current, confidence: value }))} options={[{ value: 'all', label: 'All confidence' }, { value: 'complete', label: 'Exact / complete' }, { value: 'partial', label: 'Partial' }, { value: 'unknown', label: 'Unknown' }]} /></label>
+            <label>Labels<input value={filters.labels} onChange={event => setFilters(current => ({ ...current, labels: event.target.value }))} placeholder="Label contains…" /></label>
+            <button className="analytics-button" onClick={() => setFilters({ repository: 'all', involvement: 'all', entityType: 'all', stage: 'all', actor: 'humans', checks: 'all', review: 'all', confidence: 'all', labels: '', includeBots: false })}>Clear filters</button><span>{stateArray.length} of {fullStateArray.length} entities</span>
+          </div>}
+          {(details.stale || details.sourceFailures.length > 0) && <div className="simulator-partial-banner">
+            <AlertTriangle size={14} />
+            <span>
+              <strong>{details.stale ? "Showing cached simulator history." : "Partial simulator history."}</strong>{" "}
+              {details.stale && details.cacheRange ? `Cached range ${new Date(details.cacheRange.since).toLocaleDateString()} – ${new Date(details.cacheRange.until).toLocaleDateString()}. ` : ""}
+              {details.sourceFailures.length > 0 ? `${details.loadedSources} of ${details.totalSources} source${details.totalSources === 1 ? "" : "s"} loaded; ${details.sourceFailures.length} failed.` : ""}
+            </span>
+            <button type="button" onClick={refresh}>Retry</button>
+          </div>}
           
           <SimulatorTimeline
             since={since}
@@ -181,12 +239,12 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
              onSelect={(id) => { setSelectedEntityId(id); setSelectedEventId(undefined); }} 
           />
           <SimulatorEventStream 
-             events={events} 
+             events={visibleEvents}
              cursor={playback.cursor} 
              selectedEventId={selectedEventId}
-             onSelectEvent={(id) => { setSelectedEventId(id); setSelectedEntityId(undefined); }}
+             onSelectEvent={(id) => { const selected = events.find(event => event.id === id); if (selected) { playback.setCursorManual(selected.occurredAt); setSelectedEntityId(selected.subjectId); } setSelectedEventId(id); }}
           />
-          <SimulatorMetrics entities={stateArray} events={events.filter(event => event.occurredAt <= playback.cursor)} />
+          <SimulatorMetrics entities={stateArray} events={visibleEvents.filter(event => event.occurredAt <= playback.cursor)} />
         </div>
 
       </div>
@@ -211,10 +269,11 @@ export function SimulatorWorkbench({ mode }: { mode: "account" | "repository" })
           </h2>
           <div className="simulator-history">
             <span>History: {new Date(since).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} - {new Date(until).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
-            <span className={`simulator-completeness simulator-completeness--${loadState}`}>
-              {loadState === "ready_partial" ? "Partial history" : loadState === "loading_initial" ? "Loading history" : loadState === "error" ? "Load failed" : "Complete"}
-            </span>
+            <button className={`simulator-completeness simulator-completeness--${loadState}`} onClick={() => setShowCoverage(value => !value)}>
+              {details.stale ? "Cached history" : loadState === "ready_partial" ? "Partial history" : loadState === "loading_initial" ? "Loading history" : loadState === "error" ? "Load failed" : "Complete"}
+            </button>
           </div>
+          {showCoverage && <div className="simulator-coverage-details"><strong>Available range</strong> {new Date(details.cacheRange?.since ?? since).toLocaleString()} – {new Date(details.cacheRange?.until ?? until).toLocaleString()} · {events.length} events. {details.stale ? 'This is the last valid cached snapshot; the latest refresh failed.' : loadState === 'ready_partial' ? 'Some GitHub timeline, check, release, or deployment sources may be missing; inferred transitions and metrics are affected.' : 'All loaded sources completed for this bounded range.'}{details.sourceFailures.length > 0 && <ul>{details.sourceFailures.map(failure => <li key={`${failure.sourceId}-${failure.occurredAt}`}><strong>{failure.label}:</strong> {failure.message}</li>)}</ul>}{details.cacheError && <p><strong>Cache:</strong> {details.cacheError.message}</p>}</div>}
         </div>
         
         {mode === "repository" && (

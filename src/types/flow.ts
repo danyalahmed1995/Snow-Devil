@@ -99,6 +99,11 @@ export interface FlowItem {
   sourceMode?: 'live' | 'demo';
   sourceType?: string;
   referenceTime?: string;
+  confidence?: import('../lib/delivery-semantics').EvidenceConfidence;
+  attentionReasons?: import('../lib/delivery-semantics').AttentionReason[];
+  activityClassification?: import('../lib/delivery-semantics').ActivityClassification;
+  actorClassification?: import('../lib/delivery-semantics').ActorClassification;
+  missingEvidence?: string[];
 }
 
 export interface FlowStageHistoryEntry {

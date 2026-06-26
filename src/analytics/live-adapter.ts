@@ -2,6 +2,7 @@ import { reconstructState } from '../simulator/simulator-reducer';
 import type { SimulatorEvent } from '../simulator/simulator-types';
 import type { AnalyticsDataset, AnalyticsRepository, DeliveryBranch, DeliveryEntity, DeliveryEvent } from './types';
 import { buildDeliveryLineage } from './lineage';
+import { classifyActor, confidenceFromEvidence } from '../lib/delivery-semantics';
 
 function stringMetadata(event: SimulatorEvent, key: string): string | undefined {
   const value = event.metadata[key];
@@ -17,7 +18,10 @@ export function analyticsDatasetFromSimulatorEvents(
   const repoIds = new Set([...repositoryRows.map(repository => repository.id), ...simulatorEvents.map(event => event.repositoryId)]);
   const repositories: AnalyticsRepository[] = Array.from(repoIds).map(id => {
     const row = repositoryRows.find(repository => repository.id === id);
-    return { id, nameWithOwner: row?.name ?? id, url: row?.url, defaultBranch: 'main', releaseMatching: false, deploymentMatching: false, capabilityNote: 'Release and deployment matching is disabled until explicit evidence is observed.' };
+    const repositoryEvents = simulatorEvents.filter(event => event.repositoryId === id);
+    const releaseMatching = repositoryEvents.some(event => event.subjectType === 'release' || event.eventType === 'released');
+    const deploymentMatching = repositoryEvents.some(event => event.subjectType === 'deployment' || event.eventType.startsWith('deployment_'));
+    return { id, nameWithOwner: row?.name ?? id, url: row?.url, defaultBranch: 'main', releaseMatching, deploymentMatching, capabilityNote: !releaseMatching && !deploymentMatching ? 'No explicit release or deployment evidence was observed in cached history.' : undefined };
   });
   const entities: DeliveryEntity[] = state.map(entity => {
     const sourceEvents = simulatorEvents.filter(event => event.subjectId === entity.id && event.repositoryId === entity.repositoryId);
@@ -41,7 +45,7 @@ export function analyticsDatasetFromSimulatorEvents(
       mergedAt: entity.mergedAt,
       deployedAt: entity.deployedAt,
       releasedAt: entity.releasedAt,
-      branchName: first ? stringMetadata(first, 'headRefName') ?? stringMetadata(first, 'ref') : undefined,
+      branchName: first ? stringMetadata(first, 'headRefName') ?? stringMetadata(first, 'headBranch') ?? stringMetadata(first, 'ref') : undefined,
       baseBranch: first ? stringMetadata(first, 'baseRefName') : undefined,
       isDraft: entity.status === 'draft',
       reviewState: entity.reviewState,
@@ -50,6 +54,8 @@ export function analyticsDatasetFromSimulatorEvents(
       assignees: entity.assignees.map(assignee => assignee.login),
       sourceCompleteness: entity.sourceCompleteness ?? 'unknown',
       evidence: sourceEvents.map(event => `${event.source}: ${event.eventType}`).slice(0, 5),
+      actorClassification: classifyActor(entity.author?.login),
+      confidence: confidenceFromEvidence({ completeness: entity.sourceCompleteness }),
     };
   });
   const events: DeliveryEvent[] = simulatorEvents.map(event => ({

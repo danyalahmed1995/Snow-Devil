@@ -1,4 +1,5 @@
 import { SimulatorEvent, SimulatorEntityState } from "./simulator-types";
+import { classifyLifecycle } from "../lib/delivery-semantics";
 
 const COMPLETENESS_RANK: Record<SimulatorEvent["sourceCompleteness"], number> = {
   unknown: 0,
@@ -70,9 +71,16 @@ export function reconstructState(
         if (!ent.author && event.actor) {
           ent.author = { login: event.actor.login, avatarUrl: event.actor.avatarUrl };
         }
+        if (event.metadata?.draft === true) ent.status = "draft";
         if (event.subjectType === "pull_request") {
           ent.stage = "pull_requests";
         }
+        break;
+      case "converted_to_draft":
+        ent.status = "draft";
+        break;
+      case "ready_for_review":
+        ent.status = "open";
         break;
       case "closed":
         if (ent.stage !== "merged" && ent.stage !== "released" && ent.stage !== "deployed") {
@@ -164,6 +172,27 @@ export function reconstructState(
          ent.deployedAt = event.occurredAt;
          break;
     }
+
+    const classified = classifyLifecycle({
+      id: ent.id,
+      repositoryId: ent.repositoryId,
+      type: ent.subjectType,
+      state: ent.status,
+      isDraft: ent.status === "draft",
+      createdAt: ent.createdAt,
+      updatedAt: ent.updatedAt,
+      mergedAt: ent.mergedAt,
+      releasedAt: ent.releasedAt,
+      deployedAt: ent.deployedAt,
+      releaseEvidence: Boolean(ent.releasedAt || ent.subjectType === "release" && ent.status !== "draft"),
+      deploymentEvidence: Boolean(ent.deployedAt),
+      reviewState: ent.reviewState,
+      requestedReviewers: ent.reviewers.map(reviewer => reviewer.login),
+      checkState: ent.checkState,
+      sourceCompleteness: ent.sourceCompleteness,
+    });
+    ent.stage = classified.stage === "absent" ? "closed" : classified.stage;
+    ent.status = classified.status;
   }
 
   return state;

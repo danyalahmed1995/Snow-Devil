@@ -28,10 +28,6 @@ export function BrowserHydrator() {
     // We only want to run this once per startup
     startupHydrationStartedRef.current = true;
 
-    console.log(`Persistence restored`);
-    console.log(`Restored tab count: ${tabs.length}`);
-    console.log(`Active tab: ${activeTabId}`);
-
     const activeTab = tabs.find(t => t.id === activeTabId);
     
     // Remaining tabs sorted by lastActivatedAt descending
@@ -45,35 +41,21 @@ export function BrowserHydrator() {
     const needed = Math.max(0, 6 - eagerCandidates.length);
     eagerCandidates.push(...remainingTabs.slice(0, needed));
 
-    const eagerIds = eagerCandidates.map(t => t.id);
-    const suspendedIds = tabs.filter(t => !eagerIds.includes(t.id)).map(t => t.id);
-
-    console.log(`Eager queue: ${eagerIds.join(', ')}`);
-    if (suspendedIds.length > 0) {
-      console.log(`Suspended: ${suspendedIds.join(', ')}`);
-    }
-
     const hydrateTab = async (tab: typeof tabs[0]) => {
-      console.log(`Hydration started: ${tab.id} ${tab.kind}`);
-      
       if (isBrowserTab(tab)) {
         useTabsStore.getState().updateBrowserTabLifecycle(tab.id, 'hydrating' as any);
         // Force refresh via native browser creation
         try {
           await browserCreate(tab.id, tab.currentUrl, { x: -10000, y: -10000, width: 800, height: 600 });
           useTabsStore.getState().updateBrowserTabLifecycle(tab.id, 'resident');
-        } catch (e) {
-          console.error("Eager hydration failed for browser tab", tab.id, e);
+        } catch {
           useTabsStore.getState().updateBrowserTabLifecycle(tab.id, 'error' as any);
         }
       }
 
       // Route-specific React Query prefetch
       try {
-        const routeKey = [tab.kind];
-        
         if (tab.kind === 'home') {
-          console.log(`Refresh started: ${tab.id} ${routeKey.join(',')}`);
           await queryClient.prefetchQuery({
             queryKey: ['homeSummary'],
             queryFn: () => invoke('get_account_home_summary')
@@ -85,8 +67,6 @@ export function BrowserHydrator() {
           const owner = repo?.nameWithOwner.split('/')[0];
           const name = repo?.nameWithOwner.split('/')[1];
 
-          console.log(`Refresh started: ${tab.id} flow ${scope}`);
-          
           if (scope === 'repository' && owner && name) {
             queryClient.invalidateQueries({ queryKey: ['infinite_source', 'open_prs', owner, name] });
             await queryClient.prefetchInfiniteQuery({
@@ -104,13 +84,8 @@ export function BrowserHydrator() {
           }
         }
         
-        // Log refresh completion
-        const updatedAt = Date.now();
-        console.log(`Refresh completed: ${tab.id} ${updatedAt}`);
-        console.log(`Hydration ready: ${tab.id}`);
-
-      } catch (e) {
-        console.error(`Background refresh failed for ${tab.id}`, e);
+      } catch {
+        // Background hydration failures are reflected by the owning query/tab state.
       }
     };
 

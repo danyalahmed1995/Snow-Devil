@@ -27,7 +27,8 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(screen.getByRole('heading', { name: 'CI Health Monitor' })).toBeInTheDocument();
     expect(screen.getByText('excellent')).toBeInTheDocument();
     expect(screen.getAllByRole('row').length).toBeGreaterThan(4);
-    fireEvent.change(screen.getByLabelText('CI status filter'), { target: { value: 'poor' } });
+    fireEvent.click(screen.getByLabelText('CI status filter'));
+    fireEvent.click(screen.getByRole('option', { name: 'Poor' }));
     expect(screen.getAllByText('nova-labs/old-prototype').some(element => element.tagName === 'TD')).toBe(true);
   });
 
@@ -65,5 +66,10 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(screen.getByRole('button', { name: 'Confirm reset' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm reset' }));
     expect(useAnalyticsSettingsStore.getState().settings.branchThresholdHours).toBe(16);
+    fireEvent.click(screen.getByRole('button', { name: 'Full local reset…' }));
+    const destructive = screen.getByRole('button', { name: 'Delete all local data' });
+    expect(destructive).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Type RESET/), { target: { value: 'RESET' } });
+    expect(destructive).toBeEnabled();
   });
 });

@@ -22,7 +22,8 @@ export function detectOutliers(values: number[]): number[] {
 }
 
 export function formatDurationHours(hours: number | null): string {
-  if (hours == null || !Number.isFinite(hours)) return 'Unknown';
+  if (hours == null || !Number.isFinite(hours)) return 'Unavailable';
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
   if (hours < 24) return `${hours.toFixed(hours < 10 ? 1 : 0)}h`;
   return `${(hours / 24).toFixed(1)}d`;
 }

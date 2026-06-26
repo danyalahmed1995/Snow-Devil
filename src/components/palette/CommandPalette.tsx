@@ -6,6 +6,7 @@ import { useTabsStore } from '../../stores/tabs-store';
 import { useModeStore } from '../../stores/mode-store';
 import { useLayoutStore } from '../../stores/layout-store';
 import type { NativeTabKind } from '../../browser/browser-tabs';
+import { useOverlayStore } from '../../stores/overlay-store';
 import './CommandPalette.css';
 
 type PaletteMode = 'search' | 'files' | 'commands';
@@ -27,6 +28,7 @@ const DEMO_RESULTS: PaletteResult[] = [
 ];
 
 export function CommandPalette() {
+  const overlayId = 'command-palette';
   const mode = useModeStore(s => s.mode);
   const [open, setOpen] = useState(false);
   const [paletteMode, setPaletteMode] = useState<PaletteMode>('search');
@@ -35,8 +37,12 @@ export function CommandPalette() {
   const [remote, setRemote] = useState<PaletteResult[]>([]);
   const [status, setStatus] = useState('');
   const input = useRef<HTMLInputElement>(null);
+  const activeOverlayId = useOverlayStore(state => state.activeOverlayId);
+  const openOverlay = useOverlayStore(state => state.openOverlay);
+  const closeOverlay = useOverlayStore(state => state.closeOverlay);
 
-  const show = (nextMode: PaletteMode = 'search') => { setPaletteMode(nextMode); setQuery(''); setActive(0); setOpen(true); };
+  const close = () => { setOpen(false); closeOverlay(overlayId); };
+  const show = (nextMode: PaletteMode = 'search') => { setPaletteMode(nextMode); setQuery(''); setActive(0); setOpen(true); openOverlay(overlayId); };
   useEffect(() => {
     const onOpen = (event: Event) => show((event as CustomEvent<PaletteMode>).detail ?? 'search');
     const onKey = (event: KeyboardEvent) => {
@@ -48,6 +54,8 @@ export function CommandPalette() {
     return () => { window.removeEventListener('snow-devil:open-palette', onOpen); window.removeEventListener('keydown', onKey); };
   }, []);
   useEffect(() => { if (open) requestAnimationFrame(() => input.current?.focus()); }, [open]);
+  useEffect(() => { if (open && activeOverlayId !== overlayId) setOpen(false); }, [activeOverlayId, open]);
+  useEffect(() => () => closeOverlay(overlayId), [closeOverlay]);
 
   useEffect(() => {
     if (!open || mode === 'demo' || paletteMode === 'commands') { setRemote([]); setStatus(''); return; }
@@ -94,18 +102,18 @@ export function CommandPalette() {
     else if (result.type === 'file' || result.type === 'branch') openRepository(result.repository!, disposition === 'new', result.type === 'branch' ? result.title : undefined, result.path);
     else if (result.type === 'pr') openPullRequest(result.repository!, result.number!, disposition === 'new');
     else if (result.url) openBrowser(result);
-    setOpen(false);
+    close();
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+    if (event.key === 'Escape') { event.preventDefault(); close(); }
     else if (event.key === 'ArrowDown' || event.key === 'j' && !query) { event.preventDefault(); setActive(value => Math.min(results.length - 1, value + 1)); }
     else if (event.key === 'ArrowUp' || event.key === 'k' && !query) { event.preventDefault(); setActive(value => Math.max(0, value - 1)); }
     else if (event.key === 'Enter' && results[active]) { event.preventDefault(); run(results[active], event.ctrlKey || event.metaKey ? 'github' : event.shiftKey ? 'new' : 'current'); }
   };
 
   if (!open) return null;
-  return <div className="palette-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}><section className="command-palette glass-panel-strong" role="dialog" aria-modal="true" aria-label="Search and commands" onKeyDown={onKeyDown}>
-    <header><Search size={18}/><span>{paletteMode === 'files' ? 'Files' : paletteMode === 'commands' ? 'Commands' : 'Search'}</span><input ref={input} value={query} onChange={event => { setQuery(event.target.value); setActive(0); }} placeholder={paletteMode === 'files' ? 'Find a file by name or path…' : paletteMode === 'commands' ? 'Run a Snow Devil command…' : 'Search repositories, files, issues, pull requests…'} aria-controls="palette-results"/><kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} K</kbd><button aria-label="Close palette" onClick={() => setOpen(false)}><X size={16}/></button></header>
+  return <div className="palette-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}><section className="command-palette glass-panel-strong" role="dialog" aria-modal="true" aria-label="Search and commands" onKeyDown={onKeyDown}>
+    <header><Search size={18}/><span>{paletteMode === 'files' ? 'Files' : paletteMode === 'commands' ? 'Commands' : 'Search'}</span><input ref={input} value={query} onChange={event => { setQuery(event.target.value); setActive(0); }} placeholder={paletteMode === 'files' ? 'Find a file by name or path…' : paletteMode === 'commands' ? 'Run a Snow Devil command…' : 'Search repositories, files, issues, pull requests…'} aria-controls="palette-results"/><kbd>{navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'} K</kbd><button aria-label="Close palette" onClick={close}><X size={16}/></button></header>
     {Object.entries(parsed.filters).length > 0 && <div className="palette-filters">{Object.entries(parsed.filters).flatMap(([key, values]) => values!.map(value => <button key={`${key}:${value}`} onClick={() => setQuery(query.replace(`${key}:${value}`, '').trim())}>{key}:{value}<X size={11}/></button>))}</div>}
     <div id="palette-results" role="listbox" aria-label={`${results.length} results`} className="palette-results">{results.length ? results.map((result,index) => <button key={result.id} role="option" aria-selected={active === index} className={active === index ? 'is-active' : ''} onMouseEnter={() => setActive(index)} onClick={() => run(result,'current')}><span className="palette-result__icon">{iconFor(result.type)}</span><span className="palette-result__copy"><strong>{result.title}</strong><small>{result.repository && result.repository !== result.title ? `${result.repository} · ` : ''}{result.subtitle}</small></span><span className="palette-result__type">{result.type}</span>{active === index && <kbd>↵</kbd>}</button>) : <div className="palette-empty"><strong>No matching results</strong><span>Unknown filters stay in the fuzzy query. Try a broader term.</span></div>}</div>
     <footer><span aria-live="polite">{status || `${results.length} results · ${mode === 'demo' ? 'offline demo index' : 'local cache first'}`}</span><div><span>↑↓ Navigate</span><span>Enter Open</span><span>Shift Enter New tab</span><span>Ctrl Enter GitHub</span></div></footer>

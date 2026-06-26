@@ -34,4 +34,28 @@ describe('tabs-store migration', () => {
     expect(flowTab?.kind).toBe('flow');
     expect(flowTab?.title).toBe('Flow');
   });
+
+  it('sanitizes malformed version 5 restored tabs instead of trusting persisted state', async () => {
+    localStorage.setItem('github-graph-browser-tabs', JSON.stringify({
+      state: {
+        tabs: [
+          null,
+          { id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: true, pinned: false },
+          { id: 'native:bad-repo', family: 'native', kind: 'repositoryExplorer', title: 'Broken repo', context: { type: 'repository', repository: 42 } },
+          { id: 'native:flow', family: 'native', kind: 'flow', title: 'Repository Flow', closable: true, pinned: false },
+        ],
+        activeTabId: 'native:bad-repo',
+        navigationGeneration: 1,
+        closedTabs: [{ id: 'bad' }],
+      },
+      version: 5,
+    }));
+
+    await useTabsStore.persist.rehydrate();
+
+    const state = useTabsStore.getState();
+    expect(state.tabs.map(tab => tab.id)).toEqual(['native:home', 'native:flow']);
+    expect(state.activeTabId).toBe('native:home');
+    expect(state.tabs.find(tab => tab.id === 'native:home')).toMatchObject({ pinned: true, closable: false });
+  });
 });

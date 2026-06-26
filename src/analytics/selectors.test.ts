@@ -8,7 +8,7 @@ const settings = { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' };
 describe('delivery analytics selectors', () => {
   it('produces deterministic CI grades with documented reasons', () => {
     const rows = repositoryHealth(createDemoAnalyticsDataset(), settings, 30);
-    expect(rows.map(row => row.status)).toEqual(expect.arrayContaining(['excellent', 'good', 'warning', 'poor']));
+    expect(rows.map(row => row.status)).toEqual(expect.arrayContaining(['excellent', 'healthy', 'warning', 'poor']));
     expect(rows.every(row => row.reasons.length >= 3)).toBe(true);
     expect(rows.find(row => row.status === 'poor')?.branchesOverThreshold).toBeGreaterThan(1);
   });

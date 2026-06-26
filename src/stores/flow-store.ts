@@ -11,9 +11,12 @@ export interface TabFlowState {
   selectedItemId?: string;
   selectedFlowItem?: FlowItem;
   selectedSimulatorEntity?: SimulatorEntityState;
+  selectedSimulatorCurrentEntity?: SimulatorEntityState;
   selectedSimulatorEvent?: SimulatorEvent;
   selectedAnalyticsEntity?: AnalyticsInspectable;
-  timeRange: '24h' | '7d' | '30d';
+  timeRange: '24h' | '7d' | '30d' | 'custom';
+  customRangeStart?: string;
+  customRangeEnd?: string;
   rangeStart: number;
   rangeEnd: number;
   cursorTime: number;
@@ -24,6 +27,9 @@ export interface TabFlowState {
   hideEmptyStages: boolean;
   filterStage?: FlowItem['stage'];
   statusFilter: 'all' | 'attention' | 'waiting_review' | 'failing' | 'merged';
+  involvementFilter: 'all' | 'assigned' | 'authored' | 'review_requested' | 'mentioned' | 'participating';
+  actorFilter: 'everyone' | 'humans' | 'bots' | 'dependabot' | 'renovate';
+  accountRepositoryFilter: string;
 }
 
 const DEFAULT_FLOW_STATE: TabFlowState = {
@@ -39,6 +45,9 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
   activeOnly: false,
   hideEmptyStages: false,
   statusFilter: 'all',
+  involvementFilter: 'all',
+  actorFilter: 'everyone',
+  accountRepositoryFilter: 'all',
 };
 
 interface FlowStore {

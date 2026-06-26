@@ -13,7 +13,9 @@ import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
 import { filterWorkflowItems, normalizeWorkflowItem, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
+import { Select } from '../ui/Select';
 import './FlowWorkbench.css';
+import { useTabRefresh } from '../../hooks/useTabRefresh';
 
 function flattenSourcePages(
   data: any, 
@@ -52,7 +54,7 @@ function flattenSourcePages(
       // Runtime Assertions
       if (options?.assertRepoId) {
         if (item.repositoryId !== options.assertRepoId) {
-          console.warn(`[Flow] Data leak prevented: Discarded item ${item.id} belonging to ${item.repositoryName} instead of expected ${options.repoNameWithOwner}`);
+          console.warn('[Flow] Repository scope mismatch prevented.');
           continue;
         }
       }
@@ -80,7 +82,6 @@ export function FlowWorkbench() {
   
   const timeRange = flowState.timeRange;
   const rangeStart = flowState.rangeStart;
-  const rangeEnd = flowState.rangeEnd;
   const cursorTime = flowState.cursorTime;
   const isPlaying = flowState.isPlaying;
   const playbackSpeed = flowState.playbackSpeed;
@@ -89,12 +90,18 @@ export function FlowWorkbench() {
   const hideEmptyStages = flowState.hideEmptyStages;
   const filterStage = flowState.filterStage;
   const statusFilter = flowState.statusFilter;
+  const involvementFilter = flowState.involvementFilter;
+  const actorFilter = flowState.actorFilter;
+  const accountRepositoryFilter = flowState.accountRepositoryFilter;
 
   const repoOwner = selectedRepository?.nameWithOwner.split('/')[0] || '';
   const repoName = selectedRepository?.nameWithOwner.split('/')[1] || '';
   const isRepo = scope === 'repository' && !!selectedRepository;
   const isAccount = scope === 'account';
   const liveEnabled = appMode === 'live';
+  useEffect(() => {
+    if (mode !== 'live') setFlowState(activeTabId, { mode: 'live', isPlaying: false });
+  }, [activeTabId, mode, setFlowState]);
 
   // Repository Sources
   const repoOpenPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'open_prs', repositoryOwner: repoOwner, repositoryName: selectedRepository?.nameWithOwner.split('/')[1] || '', pageSize: 50, enabled: liveEnabled && isRepo });
@@ -109,6 +116,15 @@ export function FlowWorkbench() {
   const accAuthoredIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'authored_issues', pageSize: 50, enabled: liveEnabled && isAccount });
   const accAssignedIssues = useInfiniteSource({ scope, mode, timeRange, sourceType: 'assigned_issues', pageSize: 50, enabled: liveEnabled && isAccount });
   const accMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', pageSize: 50, enabled: liveEnabled && isAccount });
+  useTabRefresh(activeTabId, useMemo(() => ({ label: 'Refresh tab', refresh: async () => {
+    await Promise.all([
+      repoOpenPrs.refetch(), repoOpenIssues.refetch(), repoMergedPrs.refetch(), repoReleases.refetch(),
+      accAuthoredPrs.refetch(), accReviewReqPrs.refetch(), accReviewedPrs.refetch(), accAuthoredIssues.refetch(), accAssignedIssues.refetch(), accMergedPrs.refetch(),
+    ]);
+  } }), [
+    repoOpenPrs.refetch, repoOpenIssues.refetch, repoMergedPrs.refetch, repoReleases.refetch,
+    accAuthoredPrs.refetch, accReviewReqPrs.refetch, accReviewedPrs.refetch, accAuthoredIssues.refetch, accAssignedIssues.refetch, accMergedPrs.refetch,
+  ]));
 
   // Flatten and Map
   const repoOpts = useMemo(() => isRepo ? {
@@ -225,11 +241,11 @@ export function FlowWorkbench() {
   ]);
 
   // Replay Buffer Hook
-  const { events: replayEvents, status: replayStatus, isRefreshing: isReplayRefreshing, completeness: replayCompleteness, error: replayError } = useReplayBuffer({
+  const { events: replayEvents } = useReplayBuffer({
     items: baseItems,
     repositoryOwner: selectedRepository ? repoOwner : undefined,
     repositoryName: selectedRepository ? repoName : undefined,
-    timeRange,
+    timeRange: timeRange === 'custom' ? '30d' : timeRange,
     enabled: appMode === 'live' && mode === 'replay' && scope === 'repository' && !!selectedRepository
   });
 
@@ -247,27 +263,39 @@ export function FlowWorkbench() {
     return currentItems.map(item => normalizeWorkflowItem(item, appMode, appMode === 'demo' ? demoPipeline?.referenceDate : undefined));
   }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime, demoPipeline?.referenceDate]);
 
-  const items = useMemo(() => scope === 'repository' && !selectedRepository ? [] : filterWorkflowItems(classifiedItems, { search, activeOnly, stage: filterStage, statusFilter, repositoryId: isRepo ? selectedRepository?.id : undefined }), [classifiedItems, search, activeOnly, filterStage, statusFilter, scope, isRepo, selectedRepository]);
-
-  // Compare final state to detect missed events
-  const isMismatchPartial = useMemo(() => {
-    if (mode !== 'replay' || scope !== 'repository' || cursorTime < rangeEnd) return false;
-    for (let i = 0; i < baseItems.length; i++) {
-      const base = baseItems[i];
-      const replayed = items[i];
-      if (base && replayed && (base.stage !== replayed.stage || base.status !== replayed.status)) {
-        return true;
-      }
-    }
-    return false;
-  }, [mode, scope, cursorTime, rangeEnd, baseItems, items]);
-
-  const displayPartial = replayStatus === 'partial' || isMismatchPartial;
+  const rangeFilteredItems = useMemo(() => {
+    if (timeRange !== 'custom' || !flowState.customRangeStart || !flowState.customRangeEnd) return classifiedItems;
+    const start = new Date(`${flowState.customRangeStart}T00:00:00`).getTime();
+    const end = new Date(`${flowState.customRangeEnd}T23:59:59.999`).getTime();
+    return classifiedItems.filter(item => { const updated = new Date(item.updatedAt).getTime(); return updated >= start && updated <= end; });
+  }, [classifiedItems, flowState.customRangeEnd, flowState.customRangeStart, timeRange]);
+  const repositoryOptions = useMemo(() => Array.from(new Map(classifiedItems.map(item => [item.repositoryId, item.repositoryName])).entries()).sort((a, b) => a[1].localeCompare(b[1])), [classifiedItems]);
+  const items = useMemo(() => {
+    const scoped = rangeFilteredItems.filter(item => {
+      if (scope === 'repository' && !selectedRepository) return false;
+      if (isAccount && accountRepositoryFilter !== 'all' && item.repositoryId !== accountRepositoryFilter) return false;
+      const reason = item.inclusionReason?.toLowerCase() ?? '';
+      if (involvementFilter === 'authored' && !reason.includes('authored')) return false;
+      if (involvementFilter === 'assigned' && !reason.includes('assigned')) return false;
+      if (involvementFilter === 'review_requested' && !reason.includes('review requested')) return false;
+      if (involvementFilter === 'mentioned' && !reason.includes('mention')) return false;
+      if (involvementFilter === 'participating' && !reason.includes('reviewed') && !reason.includes('participat')) return false;
+      if (actorFilter === 'humans' && item.actorClassification !== 'human' && item.actorClassification !== 'unknown') return false;
+      if (actorFilter === 'bots' && !['dependabot', 'renovate', 'other_bot'].includes(item.actorClassification ?? 'unknown')) return false;
+      if (actorFilter === 'dependabot' && item.actorClassification !== 'dependabot') return false;
+      if (actorFilter === 'renovate' && item.actorClassification !== 'renovate') return false;
+      return true;
+    });
+    return filterWorkflowItems(scoped, { search, activeOnly, stage: filterStage, statusFilter, repositoryId: isRepo ? selectedRepository?.id : undefined });
+  }, [accountRepositoryFilter, activeOnly, actorFilter, filterStage, involvementFilter, isAccount, isRepo, rangeFilteredItems, scope, search, selectedRepository, statusFilter]);
 
   // Clear selected item when scope or dataset changes
   useEffect(() => {
     setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
-  }, [scope, selectedRepository?.id, mode, activeTabId, setFlowState]);
+  }, [scope, selectedRepository?.id, activeTabId, setFlowState]);
+  useEffect(() => {
+    if (selectedItemId && !items.some(item => item.id === selectedItemId)) setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
+  }, [activeTabId, items, selectedItemId, setFlowState]);
 
   useEffect(() => {
     const clearTransientFilters = (event: KeyboardEvent) => {
@@ -351,24 +379,13 @@ export function FlowWorkbench() {
     ? repoOpenPrs.error || repoOpenIssues.error || repoMergedPrs.error || repoReleases.error
     : accAuthoredPrs.error || accReviewReqPrs.error || accReviewedPrs.error || accAuthoredIssues.error || accAssignedIssues.error || accMergedPrs.error;
 
-  const prsLoaded = baseItems.filter(i => i.type === 'pull_request').length;
-  const issuesLoaded = baseItems.filter(i => i.type === 'issue').length;
-  const releasesLoaded = baseItems.filter(i => i.type === 'release').length;
-
-  const timelineEventsLoaded = replayEvents.filter(e => !['CheckSuiteEvent', 'release_published'].includes(e.type)).length;
-  const checkEventsLoaded = replayEvents.filter(e => e.type === 'CheckSuiteEvent').length;
-  const publicationEventsLoaded = replayEvents.filter(e => e.type === 'release_published').length;
-
   const isLoading = appMode === 'demo' ? demoLoading : liveLoading;
   const error = appMode === 'demo' ? demoError : liveError;
 
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
-      <div className="flow-header" style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-        <label className="flow-field">Scope<select aria-label="Flow scope" value={scope} onChange={(e) => setFlowState(activeTabId, { scope: e.target.value as 'account' | 'repository', filterStage: undefined })}>
-            <option value="account">Account Flow</option>
-            <option value="repository">Repository Flow</option>
-          </select></label>
+      <div className="flow-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <label className="flow-field">Scope<Select ariaLabel="Flow scope" value={scope} onChange={value => setFlowState(activeTabId, { scope: value as 'account' | 'repository', filterStage: undefined })} options={[{ value: 'account', label: 'Account Flow' }, { value: 'repository', label: 'Repository Flow' }]} /></label>
 
         {scope === 'repository' && (
           <RepositorySelector 
@@ -376,82 +393,20 @@ export function FlowWorkbench() {
             onSelect={(repo) => setFlowState(activeTabId, { selectedRepository: repo })}
           />
         )}
-        <label className="flow-field">Range<select aria-label="Flow time range" value={timeRange} onChange={(e) => setFlowState(activeTabId, { timeRange: e.target.value as typeof timeRange })}><option value="24h">24 hours</option><option value="7d">7 days</option><option value="30d">30 days</option></select></label>
+        {scope === 'account' && <label className="flow-field">Repositories<Select ariaLabel="Account Flow repository" searchable value={accountRepositoryFilter} onChange={value => setFlowState(activeTabId, { accountRepositoryFilter: value })} options={[{ value: 'all', label: 'All repositories' }, ...repositoryOptions.map(([id, label]) => ({ value: id, label }))]} /></label>}
+        <label className="flow-field">Range<Select ariaLabel="Flow time range" value={timeRange} onChange={value => setFlowState(activeTabId, { timeRange: value as typeof timeRange })} options={[{ value: '24h', label: '24 hours' }, { value: '7d', label: '7 days' }, { value: '30d', label: '30 days' }, { value: 'custom', label: 'Custom range' }]} /></label>
+        {timeRange === 'custom' && <><label className="flow-field">Start<input aria-label="Flow range start" type="date" max={flowState.customRangeEnd} value={flowState.customRangeStart ?? ''} onChange={event => setFlowState(activeTabId, { customRangeStart: event.target.value })} /></label><label className="flow-field">End<input aria-label="Flow range end" type="date" min={flowState.customRangeStart} value={flowState.customRangeEnd ?? ''} onChange={event => setFlowState(activeTabId, { customRangeEnd: event.target.value })} /></label></>}
         <label className="flow-toggle"><input aria-label="Active items only" type="checkbox" checked={activeOnly} onChange={event => setFlowState(activeTabId, { activeOnly: event.target.checked })} /> Active only</label>
         <label className="flow-toggle"><input aria-label="Hide empty stages" type="checkbox" checked={hideEmptyStages} onChange={event => setFlowState(activeTabId, { hideEmptyStages: event.target.checked })} /> Hide empty</label>
-        <label className="flow-field flow-search">Search<input aria-label="Search Flow" value={search} onChange={event => setFlowState(activeTabId, { search: event.target.value })} placeholder="Title, repo, author, label..." /></label>
-        <label className="flow-field">Stage<select aria-label="Flow stage filter" value={filterStage ?? ''} onChange={event => setFlowState(activeTabId, { filterStage: (event.target.value || undefined) as FlowItem['stage'] | undefined })}><option value="">All stages</option>{WORKFLOW_STAGES.map(stage => <option key={stage.id} value={stage.id}>{stage.label}</option>)}</select></label>
-        <label className="flow-field">Filter<select aria-label="Flow status filter" value={statusFilter} onChange={event => setFlowState(activeTabId, { statusFilter: event.target.value as typeof statusFilter })}><option value="all">All states</option><option value="attention">Needs attention</option><option value="waiting_review">Waiting review</option><option value="failing">Failing checks</option><option value="merged">Recently merged</option></select></label>
-        
-        <div className="mode-selector" style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-          <button 
-            className={mode === 'live' ? 'active' : ''} 
-            onClick={() => setFlowState(activeTabId, { mode: 'live' })}
-            style={{ fontWeight: mode === 'live' ? 'bold' : 'normal' }}
-          >
-            Live
-          </button>
-          <button 
-            className={mode === 'replay' ? 'active' : ''} 
-            onClick={() => setFlowState(activeTabId, { mode: 'replay' })}
-            style={{ fontWeight: mode === 'replay' ? 'bold' : 'normal' }}
-          >
-            Replay
-          </button>
-        </div>
+        <label className="flow-field flow-search">Search<input aria-label="Search Flow" value={search} onChange={event => setFlowState(activeTabId, { search: event.target.value })} placeholder={'repo:, author:, label:, title:"…", checks:, review:, stage:, #37'} /></label>
+        <label className="flow-field">Stage<Select ariaLabel="Flow stage filter" value={filterStage ?? ''} onChange={value => setFlowState(activeTabId, { filterStage: (value || undefined) as FlowItem['stage'] | undefined })} options={[{ value: '', label: 'All stages' }, ...WORKFLOW_STAGES.map(stage => ({ value: stage.id, label: stage.label }))]} /></label>
+        <label className="flow-field">View<Select ariaLabel="Flow view" value={statusFilter} onChange={value => setFlowState(activeTabId, { statusFilter: value as typeof statusFilter })} options={[{ value: 'all', label: 'All work' }, { value: 'attention', label: 'Needs attention' }, { value: 'waiting_review', label: scope === 'account' ? 'Reviews requested from me' : 'Review requested' }, { value: 'failing', label: 'Failing checks' }, { value: 'merged', label: 'Recently merged' }]} /></label>
+        {scope === 'account' && <label className="flow-field">Involvement<Select ariaLabel="Flow involvement" value={involvementFilter} onChange={value => setFlowState(activeTabId, { involvementFilter: value as typeof involvementFilter })} options={[{ value: 'all', label: 'All activity' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'authored', label: 'Authored by me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participating' }]} /></label>}
+        <label className="flow-field">Actor<Select ariaLabel="Flow actor" value={actorFilter} onChange={value => setFlowState(activeTabId, { actorFilter: value as typeof actorFilter })} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'humans', label: 'Humans only' }, { value: 'bots', label: 'Bots only' }, { value: 'dependabot', label: 'Dependabot' }, { value: 'renovate', label: 'Renovate' }]} /></label>
+        <span className="flow-freshness" title="Flow shows the latest completed cached query snapshot.">Synced snapshot · {items.length} results</span>
       </div>
       
       <div className="flow-content" style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
-        {mode === 'replay' && scope === 'repository' && selectedRepository && (
-          <div className="replay-controls-container" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-            <div className="replay-controls" style={{ padding: '12px', background: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <button onClick={() => setFlowState(activeTabId, { isPlaying: !isPlaying })} style={{ padding: '6px 12px', borderRadius: '4px', background: isPlaying ? 'var(--status-danger-bg)' : 'var(--accent)', color: isPlaying ? 'var(--status-danger-fg)' : 'var(--text-on-accent)', border: 'none', cursor: 'pointer' }}>
-                {isPlaying ? 'Pause' : 'Play'}
-              </button>
-              <select value={playbackSpeed} onChange={(e) => setFlowState(activeTabId, { playbackSpeed: parseFloat(e.target.value) })}>
-                <option value="0.5">0.5x Speed</option>
-                <option value="1">1x Speed</option>
-                <option value="2">2x Speed</option>
-                <option value="4">4x Speed</option>
-              </select>
-              <select value={timeRange} onChange={(e) => setFlowState(activeTabId, { timeRange: e.target.value as any })}>
-                <option value="24h">Last 24 Hours</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-              </select>
-              <input 
-                type="range" 
-                min={rangeStart} 
-                max={rangeEnd} 
-                value={cursorTime}
-                onChange={(e) => setFlowState(activeTabId, { cursorTime: parseInt(e.target.value, 10) })}
-                style={{ flex: 1 }}
-              />
-              <span style={{ fontSize: '12px', fontFamily: 'monospace' }}>
-                {new Date(cursorTime).toLocaleString()}
-              </span>
-            </div>
-            
-            <div className="replay-summary" style={{ padding: '8px 12px', background: displayPartial ? 'var(--status-warning-bg)' : 'var(--surface)', color: displayPartial ? 'var(--status-warning-fg)' : undefined, borderRadius: '8px', border: displayPartial ? '1px solid color-mix(in srgb, currentColor 24%, transparent)' : '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <span><strong>Range:</strong> {new Date(rangeStart).toLocaleString()} - {new Date(rangeEnd).toLocaleString()}</span>
-                {replayStatus === 'loading' && <span style={{ color: 'var(--text-muted)' }}>Loading history...</span>}
-                {isReplayRefreshing && <span style={{ color: 'var(--text-muted)' }}>Refreshing...</span>}
-                {displayPartial && <span style={{ fontWeight: 'bold' }} title={replayCompleteness.reasons.join(', ')}>Partial History</span>}
-                {replayError && <span style={{ color: 'var(--status-danger-fg)', background: 'var(--status-danger-bg)', borderRadius: '4px', padding: '2px 6px' }}>{replayError.message}</span>}
-              </div>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', color: 'var(--text-secondary)' }}>
-                <span>{issuesLoaded} issues</span>
-                <span>{prsLoaded} PRs</span>
-                <span>{releasesLoaded} releases</span>
-                <span style={{ marginLeft: '16px' }}>{timelineEventsLoaded} events</span>
-                <span>{checkEventsLoaded} checks</span>
-                <span>{publicationEventsLoaded} publications</span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {scope === 'repository' && !selectedRepository ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
             <h2>Select a Repository</h2>
@@ -482,6 +437,7 @@ export function FlowWorkbench() {
                 onOpenItem={(item) => { const target = resolveEntityTabTarget(item, appMode); if (target) openBrowserTab(target.id, target.kind, target.title, target.url, false, true); }}
                 sourceControls={sourceControls}
                 hideEmptyStages={hideEmptyStages}
+                focusedStage={filterStage}
               />
             )}
           </div>

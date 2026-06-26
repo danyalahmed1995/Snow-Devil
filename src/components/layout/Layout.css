@@ -42,3 +42,4 @@
   z-index: 10;
   overflow: hidden;
 }
+.layout-inspector-resizer{position:absolute;inset:0 auto 0 -4px;width:8px;cursor:col-resize;z-index:2}.layout-inspector-resizer:hover,.layout-inspector-resizer:focus-visible{background:color-mix(in srgb,var(--accent) 25%,transparent)}

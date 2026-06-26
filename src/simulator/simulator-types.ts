@@ -179,3 +179,38 @@ export type SimulatorLoadState =
   | "ready_partial"
   | "refreshing"
   | "error";
+
+export type SimulatorFailureCategory =
+  | "authentication"
+  | "rate_limit"
+  | "network"
+  | "partial_source"
+  | "invalid_response"
+  | "cache_incompatible"
+  | "normalization_failed"
+  | "replay_construction_failed"
+  | "unknown";
+
+export interface SimulatorSourceFailure {
+  sourceId: string;
+  label: string;
+  category: SimulatorFailureCategory;
+  message: string;
+  retryable: boolean;
+  occurredAt: string;
+}
+
+export interface SimulatorLoadDetails {
+  sourceFailures: SimulatorSourceFailure[];
+  loadedSources: number;
+  totalSources: number;
+  cached: boolean;
+  stale: boolean;
+  cacheRange?: {
+    since: string;
+    until: string;
+    eventCount: number;
+  };
+  refreshError?: SimulatorSourceFailure;
+  cacheError?: SimulatorSourceFailure;
+}
