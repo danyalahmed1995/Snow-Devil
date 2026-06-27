@@ -4,6 +4,8 @@
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-v19-%2361DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-black?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![CI](https://github.com/martian7777/Snow-Devil/actions/workflows/ci.yml/badge.svg)](https://github.com/martian7777/Snow-Devil/actions/workflows/ci.yml)
+[![Release](https://github.com/martian7777/Snow-Devil/actions/workflows/release.yml/badge.svg)](https://github.com/martian7777/Snow-Devil/actions/workflows/release.yml)
 
 **Snow-Devil** is a premium, developer-first desktop Hub designed to streamline GitHub workflow visualization and team collaboration. Inspired by the philosophy of **Mainline.dev**, Snow-Devil acts as a single pane of glass for your active pull requests, issues, and team workspaces.
 
@@ -143,6 +145,25 @@ Snow-Devil includes both unit tests and end-to-end integration tests:
   ```bash
   pnpm lint
   ```
+
+---
+
+## 🔄 CI/CD Pipeline
+
+The project uses GitHub Actions to automate code quality checks and application delivery.
+
+### 🧪 Continuous Integration (CI)
+Every pull request or commit pushed to the main branches (`main` or `master`) triggers the CI workflow (`.github/workflows/ci.yml`), which performs the following tasks:
+- **Frontend Checks**: Automatically sets up Node.js, runs `pnpm install`, lints the codebase (`pnpm lint`), and runs unit tests (`pnpm test`).
+- **Rust Backend Checks**: Automatically sets up the Rust stable toolchain, installs target-specific dependencies, checks formatting (`cargo fmt`), runs compiler validation (`cargo check`), and validates code quality using Clippy (`cargo clippy`).
+
+### 📦 Continuous Delivery (CD)
+When a release tag matching `v*` (e.g., `v1.0.0`) is pushed, the CD workflow (`.github/workflows/release.yml`) builds native binaries for all three major platforms:
+- **Windows**: Produces `.msi` installers and setup files.
+- **macOS**: Produces `.dmg` packages and application bundles.
+- **Linux**: Produces `.deb` and AppImage packages.
+
+All compiled artifacts are uploaded automatically to a new **draft release** on GitHub, making distribution and updates seamless.
 
 ---
 
