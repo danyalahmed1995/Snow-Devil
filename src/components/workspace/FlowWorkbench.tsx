@@ -95,7 +95,10 @@ export function FlowWorkbench() {
   const accMergedPrs = useInfiniteSource({ scope, mode, timeRange, sourceType: 'merged_prs', pageSize: 50, enabled: isAccount });
 
   // Flatten and Map
-  const repoOpts = isRepo ? { assertRepoId: selectedRepository?.id, repoNameWithOwner: selectedRepository?.nameWithOwner } : undefined;
+  const repoOpts = useMemo(
+    () => (isRepo ? { assertRepoId: selectedRepository?.id, repoNameWithOwner: selectedRepository?.nameWithOwner } : undefined),
+    [isRepo, selectedRepository?.id, selectedRepository?.nameWithOwner],
+  );
   
   const { items: rawRepoOpenPrs, exactTotal: repoOpenPrsTotal } = useMemo(() => flattenSourcePages(repoOpenPrs.data, 'pull_request', repoOpts), [repoOpenPrs.data, repoOpts]);
   const { items: rawRepoOpenIssues, exactTotal: repoOpenIssuesTotal } = useMemo(() => flattenSourcePages(repoOpenIssues.data, 'issue', repoOpts), [repoOpenIssues.data, repoOpts]);
@@ -240,11 +243,13 @@ export function FlowWorkbench() {
                    timeRange === '7d' ? 7 * 24 * 60 * 60 * 1000 : 
                    30 * 24 * 60 * 60 * 1000;
     const newStart = now - offset;
-    
+    // Read the current cursor fresh so this effect doesn't re-run on every cursor tick.
+    const currentCursor = useFlowStore.getState().getTabState(activeTabId).cursorTime;
+
     setFlowState(activeTabId, {
       rangeStart: newStart,
       rangeEnd: now,
-      cursorTime: Math.max(newStart, Math.min(now, flowState.cursorTime)),
+      cursorTime: Math.max(newStart, Math.min(now, currentCursor)),
       isPlaying: false
     });
   }, [timeRange, mode, activeTabId, setFlowState]);

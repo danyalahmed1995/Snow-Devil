@@ -169,18 +169,19 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, source, countD
   const sentinelRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const { hasNextPage, isFetching, fetchNextPage } = source;
   useEffect(() => {
-    if (!sentinelRef.current || !source.hasNextPage || source.isFetching) return;
+    if (!sentinelRef.current || !hasNextPage || isFetching) return;
 
     const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && !source.isFetching) {
-        source.fetchNextPage();
+      if (entries[0].isIntersecting && !isFetching) {
+        fetchNextPage();
       }
     }, { rootMargin: '200px' }); // Load ahead by 200px
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [source.hasNextPage, source.isFetching, source.fetchNextPage]);
+  }, [hasNextPage, isFetching, fetchNextPage]);
 
   return (
     <div className="flow-workbench-lane">

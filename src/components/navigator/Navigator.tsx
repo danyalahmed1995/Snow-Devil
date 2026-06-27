@@ -1,6 +1,7 @@
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
+import { TeamTreeView } from './TeamTreeView';
 import './Navigator.css';
 
 export function Navigator() {
@@ -109,6 +110,7 @@ export function Navigator() {
             );
           })}
         </ul>
+        {session.status === 'connected' && <TeamTreeView />}
       </div>
     </div>
   );

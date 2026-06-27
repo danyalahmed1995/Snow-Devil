@@ -10,26 +10,26 @@ export function IssueView({ nodeId }: { nodeId: string }) {
 
   useEffect(() => {
     const parts = nodeId.split('/');
-    if (parts.length !== 3) {
-      setError("Invalid Issue ID format.");
-      setLoading(false);
-      return;
-    }
+    if (parts.length !== 3) return; // invalid id is handled during render
     const [owner, name, number] = parts;
 
-    setLoading(true);
-    invoke<any>('get_issue_details', { owner, name, number: parseInt(number, 10) })
-      .then((data) => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await invoke<any>('get_issue_details', { owner, name, number: parseInt(number, 10) });
         setIssue(data);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e.toString());
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    void load();
   }, [nodeId]);
 
+  if (nodeId.split('/').length !== 3) {
+    return <div style={{ padding: '32px', color: 'var(--error)' }}>Invalid Issue ID format.</div>;
+  }
   if (loading) return <div style={{ padding: '32px' }}>Loading Issue details...</div>;
   if (error) return <div style={{ padding: '32px', color: 'var(--error)' }}>{error}</div>;
   if (!issue) return <div style={{ padding: '32px' }}>Issue not found</div>;

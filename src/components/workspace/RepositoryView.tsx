@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -13,26 +13,33 @@ export function RepositoryView({ nodeId }: { nodeId: string }) {
   useEffect(() => {
     // nodeId is likely "nameWithOwner", e.g. "octocat/Hello-World"
     const [owner, name] = nodeId.split('/');
-    if (!owner || !name) {
-      setError("Invalid repository ID format. Expected owner/name.");
-      setLoading(false);
-      return;
-    }
+    if (!owner || !name) return; // invalid id is handled during render
 
-    setLoading(true);
-    setError(null);
-    invoke<any>('get_repo_overview', { owner, name })
-      .then((data) => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await invoke<any>('get_repo_overview', { owner, name });
         setRepo(data);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         console.error(e);
         setError(e.toString());
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    void load();
   }, [nodeId]);
+
+  const [idOwner, idName] = nodeId.split('/');
+  if (!idOwner || !idName) {
+    return (
+      <div className="repository-view" style={{ padding: '32px', height: '100%', color: 'var(--error)' }}>
+        <h2>Error Loading Repository</h2>
+        <p>Invalid repository ID format. Expected owner/name.</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -157,20 +164,21 @@ function RepoList({ type, owner, name }: { type: 'prs' | 'issues', owner: string
   const { openBrowserTab } = useTabsStore();
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     const command = type === 'prs' ? 'get_repo_prs' : 'get_repo_issues';
-    
-    invoke<any[]>(command, { owner, name })
-      .then((data) => {
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await invoke<any[]>(command, { owner, name });
         setItems(data || []);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e.toString());
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    void load();
   }, [type, owner, name]);
 
   const handleOpen = (item: any) => {
@@ -218,16 +226,17 @@ function FileBrowser({ owner, name, defaultBranch }: { owner: string, name: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPath = useCallback((path: string) => {
-    setLoading(true);
-    setError(null);
-    setFileContent(null);
-    
-    // expression format: branch:path
-    const expression = `${defaultBranch}:${path}`;
-    
-    invoke<any>('get_repo_tree', { owner, name, expression })
-      .then((data) => {
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      setFileContent(null);
+
+      // expression format: branch:path
+      const expression = `${defaultBranch}:${currentPath}`;
+
+      try {
+        const data = await invoke<any>('get_repo_tree', { owner, name, expression });
         if (data && data.entries) {
           setEntries(data.entries.sort((a: any, b: any) => {
             if (a.type === b.type) return a.name.localeCompare(b.name);
@@ -235,26 +244,21 @@ function FileBrowser({ owner, name, defaultBranch }: { owner: string, name: stri
           }));
         } else {
           // If no entries, it might be a file (blob). Let's fetch file.
-          return invoke<any>('get_repo_file', { owner, name, expression }).then((fileData) => {
-            if (fileData && typeof fileData.text === 'string') {
-               setFileContent(fileData.text);
-            } else {
-               setError("Unable to read file content. It might be binary.");
-            }
-          });
+          const fileData = await invoke<any>('get_repo_file', { owner, name, expression });
+          if (fileData && typeof fileData.text === 'string') {
+            setFileContent(fileData.text);
+          } else {
+            setError("Unable to read file content. It might be binary.");
+          }
         }
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e.toString());
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
-  }, [owner, name, defaultBranch]);
-
-  useEffect(() => {
-    fetchPath(currentPath);
-  }, [currentPath, fetchPath]);
+      }
+    };
+    void load();
+  }, [currentPath, owner, name, defaultBranch]);
 
   const handleEntryClick = (entry: any) => {
     setCurrentPath(entry.path);
