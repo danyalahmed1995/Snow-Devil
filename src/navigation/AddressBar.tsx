@@ -7,7 +7,7 @@
  * - Escape → restore to current URL.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTabsStore } from '../stores/tabs-store';
 import { isBrowserTab } from '../browser/browser-tabs';
 import { parseAddressBarInput, tabIdForUrl, titleForGithubUrl, classifyGithubUrl } from '../browser/browser-url';
@@ -24,16 +24,13 @@ export function AddressBar() {
   const activeBrowserTab = activeTab && isBrowserTab(activeTab) ? activeTab : null;
 
   const currentUrl = activeBrowserTab?.currentUrl ?? '';
+  // While focused the user edits `inputValue`; while not focused we always show the
+  // active tab's current URL (so external navigations are reflected without an effect).
   const [inputValue, setInputValue] = useState(currentUrl);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync input with active tab's URL when it changes externally
-  useEffect(() => {
-    if (!isFocused) {
-      setInputValue(currentUrl);
-    }
-  }, [currentUrl, isFocused]);
+  const displayValue = isFocused ? inputValue : currentUrl;
 
   const login =
     session.status === 'connected' ? session.account.login : undefined;
@@ -85,18 +82,17 @@ export function AddressBar() {
       <input
         ref={inputRef}
         type="text"
-        value={inputValue}
+        value={displayValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => {
+          // Seed the editable value from the current URL, then select for easy replacement.
+          setInputValue(currentUrl);
           setIsFocused(true);
-          // Select all on focus for easy replacement
           setTimeout(() => inputRef.current?.select(), 0);
         }}
         onBlur={() => {
           setIsFocused(false);
-          // Restore to current URL if user didn't submit
-          setInputValue(currentUrl);
         }}
         placeholder={placeholder}
         aria-label="Address bar"

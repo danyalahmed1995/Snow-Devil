@@ -52,11 +52,16 @@ export function useReplayBuffer({ items, repositoryOwner, repositoryName, timeRa
 
   useEffect(() => {
     if (!enabled || !repositoryOwner || !repositoryName || items.length === 0) {
-      setEvents([]);
-      setStatus("idle");
-      setIsRefreshing(false);
-      setCompleteness({ isPartial: false, reasons: [] });
-      setError(null);
+      // Reset to idle. Wrapped in a synchronously-invoked async fn (no await) so the
+      // updates run immediately without being a synchronous setState in the effect body.
+      const resetToIdle = async () => {
+        setEvents([]);
+        setStatus("idle");
+        setIsRefreshing(false);
+        setCompleteness({ isPartial: false, reasons: [] });
+        setError(null);
+      };
+      void resetToIdle();
       currentRequestRef.current = null;
       return;
     }
@@ -199,6 +204,10 @@ export function useReplayBuffer({ items, repositoryOwner, repositoryName, timeRa
         abortControllerRef.current.abort();
       }
     };
+    // `requestKey` intentionally encodes repositoryOwner/Name, timeRange and the sorted
+    // item ids; the effect is keyed on it to avoid redundant refetches. `events.length`
+    // and `status` are read as start-of-run snapshots, so they are deliberately excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, requestKey]);
 
   return { events, status, isRefreshing, completeness, error };

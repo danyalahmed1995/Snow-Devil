@@ -5,32 +5,33 @@ import { AsyncViewState } from '../../types';
 
 export function ListView({ type }: { type: string }) {
   const [state, setState] = useState<AsyncViewState<any[]>>({ status: 'loading' });
+  // Bumping this re-runs the fetch effect (used by the Retry button).
+  const [reloadKey, setReloadKey] = useState(0);
   const { openBrowserTab } = useTabsStore();
 
-  const fetchData = () => {
-    setState({ status: 'loading' });
-    let command = '';
-    if (type === 'repositories') command = 'get_viewer_repositories';
-    else if (type === 'pullRequests') command = 'get_viewer_pull_requests';
-    else if (type === 'issues') command = 'get_viewer_issues';
-    else if (type === 'organizations') {
-      setState({ status: 'empty' });
-      return;
-    }
-
-    if (command) {
-      invoke<any[]>(command)
-        .then(data => {
-          if (!data || data.length === 0) setState({ status: 'empty' });
-          else setState({ status: 'success', data });
-        })
-        .catch(e => setState({ status: 'error', message: e.toString(), retryable: true }));
-    }
-  };
-
   useEffect(() => {
-    fetchData();
-  }, [type]);
+    const load = async () => {
+      setState({ status: 'loading' });
+      let command = '';
+      if (type === 'repositories') command = 'get_viewer_repositories';
+      else if (type === 'pullRequests') command = 'get_viewer_pull_requests';
+      else if (type === 'issues') command = 'get_viewer_issues';
+      else if (type === 'organizations') {
+        setState({ status: 'empty' });
+        return;
+      }
+
+      if (!command) return;
+      try {
+        const data = await invoke<any[]>(command);
+        if (!data || data.length === 0) setState({ status: 'empty' });
+        else setState({ status: 'success', data });
+      } catch (e: any) {
+        setState({ status: 'error', message: e.toString(), retryable: true });
+      }
+    };
+    void load();
+  }, [type, reloadKey]);
 
   const handleOpenItem = (item: any) => {
     if (type === 'repositories') {
@@ -71,7 +72,7 @@ export function ListView({ type }: { type: string }) {
       {state.status === 'error' && (
         <div style={{ color: 'var(--error)' }}>
           <p>Error: {state.message}</p>
-          {state.retryable && <button onClick={() => fetchData()}>Retry</button>}
+          {state.retryable && <button onClick={() => setReloadKey(k => k + 1)}>Retry</button>}
         </div>
       )}
       {state.status === 'empty' && <p>No items found.</p>}

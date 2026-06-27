@@ -10,26 +10,26 @@ export function PullRequestView({ nodeId }: { nodeId: string }) {
 
   useEffect(() => {
     const parts = nodeId.split('/');
-    if (parts.length !== 3) {
-      setError("Invalid PR ID format.");
-      setLoading(false);
-      return;
-    }
+    if (parts.length !== 3) return; // invalid id is handled during render
     const [owner, name, number] = parts;
 
-    setLoading(true);
-    invoke<any>('get_pr_details', { owner, name, number: parseInt(number, 10) })
-      .then((data) => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await invoke<any>('get_pr_details', { owner, name, number: parseInt(number, 10) });
         setPr(data);
-      })
-      .catch((e) => {
+      } catch (e: any) {
         setError(e.toString());
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    void load();
   }, [nodeId]);
 
+  if (nodeId.split('/').length !== 3) {
+    return <div style={{ padding: '32px', color: 'var(--error)' }}>Invalid PR ID format.</div>;
+  }
   if (loading) return <div style={{ padding: '32px' }}>Loading PR details...</div>;
   if (error) return <div style={{ padding: '32px', color: 'var(--error)' }}>{error}</div>;
   if (!pr) return <div style={{ padding: '32px' }}>PR not found</div>;

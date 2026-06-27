@@ -33,13 +33,10 @@ export function RepositorySelector({ selectedRepo, onSelect }: RepositorySelecto
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (selectedRepo && !isOpen) {
-      setQuery(selectedRepo.nameWithOwner);
-    }
-  }, [selectedRepo, isOpen]);
+  // Note: when the dropdown is closed the input shows `selectedRepo.nameWithOwner`
+  // directly (see `value` below), so no effect is needed to sync `query`.
 
-  const filteredRepos = repos.filter(r => 
+  const filteredRepos = repos.filter(r =>
     r.name.toLowerCase().includes(query.toLowerCase())
   ).slice(0, 50); // limit to 50
 

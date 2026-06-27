@@ -107,4 +107,12 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     pinned: false,
     closable: true,
   },
+  {
+    label: 'Teamwork',
+    tabId: 'native:teamwork',
+    family: 'native',
+    nativeKind: 'teamwork',
+    pinned: false,
+    closable: true,
+  },
 ];

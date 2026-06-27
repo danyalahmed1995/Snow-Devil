@@ -8,6 +8,7 @@
 import { useTabsStore, isNativeTab, isBrowserTab } from '../../stores/tabs-store';
 import { Dashboard } from './Dashboard';
 import { FlowWorkbench } from './FlowWorkbench';
+import { TeamworkView } from './TeamworkView';
 import { BrowserViewport } from '../../browser/BrowserViewport';
 import { browserHideAll } from '../../browser/browser-commands';
 import { useEffect } from 'react';
@@ -39,6 +40,7 @@ export function WorkspaceContent() {
       <div className="workspace-content">
         {activeTab.kind === 'home' && <Dashboard />}
         {activeTab.kind === 'flow' && <FlowWorkbench />}
+        {activeTab.kind === 'teamwork' && <TeamworkView />}
         {activeTab.kind === 'settings' && (
           <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>
             Settings (coming soon)

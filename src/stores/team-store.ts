@@ -56,10 +56,14 @@ interface TeamState {
   // Data
   organizations: Organization[];
   memberActivities: Record<string, MemberActivity>; // keyed by login
+  // Org-wide activity for the Teamwork dashboard, keyed by orgLogin -> login.
+  orgActivities: Record<string, Record<string, MemberActivity>>;
 
   // UI state
   isLoadingOrgs: boolean;
   loadingMembers: Set<string>;
+  loadingOrgActivity: Set<string>; // keyed by orgLogin
+  orgActivityFetchedAt: Record<string, number>; // keyed by orgLogin
   expandedOrgs: Set<string>;
   expandedMembers: Set<string>;
   teamsExpanded: boolean;
@@ -67,6 +71,7 @@ interface TeamState {
   // Actions
   fetchOrganizations: () => Promise<void>;
   fetchMemberActivity: (login: string) => Promise<void>;
+  fetchOrgActivity: (orgLogin: string, force?: boolean) => Promise<void>;
   toggleOrgExpanded: (orgId: string) => void;
   toggleMemberExpanded: (login: string) => void;
   toggleTeamsExpanded: () => void;
@@ -116,12 +121,26 @@ function mapIssue(node: any): MemberIssue {
 
 // --- Store -----------------------------------------------------------------
 
+// Build an empty activity record for a member, used as the per-login accumulator
+// when deriving org-wide activity from the batched org search payload.
+function emptyActivity(): MemberActivity {
+  return {
+    openPrs: [],
+    reviewRequestedPrs: [],
+    assignedIssues: [],
+    lastFetchedAt: Date.now(),
+  };
+}
+
 export const useTeamStore = create<TeamState>((set, get) => ({
   organizations: [],
   memberActivities: {},
+  orgActivities: {},
 
   isLoadingOrgs: false,
   loadingMembers: new Set<string>(),
+  loadingOrgActivity: new Set<string>(),
+  orgActivityFetchedAt: {},
   expandedOrgs: new Set<string>(),
   expandedMembers: new Set<string>(),
   teamsExpanded: false,
@@ -190,6 +209,66 @@ export const useTeamStore = create<TeamState>((set, get) => ({
         const nextLoading = new Set(prev.loadingMembers);
         nextLoading.delete(login);
         return { loadingMembers: nextLoading };
+      });
+    }
+  },
+
+  fetchOrgActivity: async (orgLogin: string, force = false) => {
+    const { loadingOrgActivity, orgActivityFetchedAt } = get();
+
+    // 5-minute cache: skip refetch if data is still fresh (unless forced).
+    const fetchedAt = orgActivityFetchedAt[orgLogin];
+    if (!force && fetchedAt && Date.now() - fetchedAt < ACTIVITY_CACHE_MS) return;
+    if (loadingOrgActivity.has(orgLogin)) return;
+
+    set((prev) => ({
+      loadingOrgActivity: new Set(prev.loadingOrgActivity).add(orgLogin),
+    }));
+    try {
+      const data = await invoke<any>('get_org_activity', { orgLogin });
+      const prNodes: any[] = data?.search?.nodes ?? [];
+      const issueNodes: any[] = data?.issues?.nodes ?? [];
+
+      const byLogin: Record<string, MemberActivity> = {};
+      const ensure = (login: string): MemberActivity | null => {
+        if (!login) return null;
+        if (!byLogin[login]) byLogin[login] = emptyActivity();
+        return byLogin[login];
+      };
+
+      // Authored PRs land on the author; review-requested PRs land on each reviewer.
+      for (const node of prNodes) {
+        const pr = mapPR(node);
+        ensure(pr.author.login)?.openPrs.push(pr);
+        for (const reviewer of pr.reviewers) {
+          if (reviewer.login === pr.author.login) continue;
+          ensure(reviewer.login)?.reviewRequestedPrs.push(pr);
+        }
+      }
+
+      // Issues land on each assignee.
+      for (const node of issueNodes) {
+        const issue = mapIssue(node);
+        for (const assignee of issue.assignees) {
+          ensure(assignee.login)?.assignedIssues.push(issue);
+        }
+      }
+
+      set((prev) => {
+        const nextLoading = new Set(prev.loadingOrgActivity);
+        nextLoading.delete(orgLogin);
+        return {
+          orgActivities: { ...prev.orgActivities, [orgLogin]: byLogin },
+          orgActivityFetchedAt: { ...prev.orgActivityFetchedAt, [orgLogin]: Date.now() },
+          loadingOrgActivity: nextLoading,
+        };
+      });
+    } catch (e) {
+      console.error(`Failed to fetch org activity for ${orgLogin}:`, e);
+      set((prev) => {
+        const nextLoading = new Set(prev.loadingOrgActivity);
+        nextLoading.delete(orgLogin);
+        return { loadingOrgActivity: nextLoading };
       });
     }
   },
