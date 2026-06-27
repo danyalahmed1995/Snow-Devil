@@ -3,3 +3,4 @@ pub mod db;
 pub mod repo;
 pub mod sync;
 pub mod flow;
+pub mod team;

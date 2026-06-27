@@ -53,6 +53,9 @@ pub fn run() {
             commands::flow::get_account_home_summary,
             commands::flow::get_source_page,
             commands::flow::get_item_timeline,
+            commands::team::get_viewer_organizations,
+            commands::team::get_member_activity,
+            commands::team::get_org_activity,
             // Browser commands
             browser::commands::browser_create,
             browser::commands::browser_activate,

@@ -2,7 +2,7 @@ use crate::auth::secure_store::get_token;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 
