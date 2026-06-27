@@ -34,7 +34,7 @@ function useResolvedFlowItem(selectedItemId?: string): FlowItem | undefined {
     }
 
     const homeQueries = queryClient.getQueriesData<any>({ queryKey: ['homeSummary'] });
-    for (const [_, data] of homeQueries) {
+    for (const [, data] of homeQueries) {
       if (!data) continue;
       if (data.previews) {
         for (const stageId of Object.keys(data.previews)) {

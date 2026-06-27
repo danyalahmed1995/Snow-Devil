@@ -57,7 +57,7 @@ export function Dashboard() {
     );
   };
 
-  const handleOpenWorkbenchStage = (_stage: FlowStage) => {
+  const handleOpenWorkbenchStage = () => {
     setTabState('native:flow', { scope: 'account' }); // Optionally pre-select stage if supported later
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
@@ -101,7 +101,7 @@ export function Dashboard() {
 
                 return (
                   <div key={stage.id} className="home-flow-preview-lane">
-                    <div className="flow-stage-header" style={{ cursor: 'pointer' }} onClick={() => handleOpenWorkbenchStage(stage.id)}>
+                    <div className="flow-stage-header" style={{ cursor: 'pointer' }} onClick={() => handleOpenWorkbenchStage()}>
                       <h4>{stage.label}</h4>
                       <span className="flow-stage-count" title={exactTotal !== undefined ? 'Exact total' : 'Partial total'}>
                         {countDisplay}
@@ -120,7 +120,7 @@ export function Dashboard() {
                       {stageItems.length >= 5 && (
                         <button 
                           className="more-button"
-                          onClick={() => handleOpenWorkbenchStage(stage.id)}
+                          onClick={() => handleOpenWorkbenchStage()}
                           style={{
                             width: '100%', padding: '8px', background: 'transparent',
                             border: '1px dashed var(--border)', borderRadius: '6px',

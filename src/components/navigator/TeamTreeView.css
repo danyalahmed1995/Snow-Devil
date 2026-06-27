@@ -1,0 +1,184 @@
+.team-tree {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+.team-tree-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.team-tree-header:hover {
+  background: var(--surface-hover);
+}
+
+.team-tree-title {
+  flex: 1;
+}
+
+.team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.team-node {
+  list-style: none;
+}
+
+.team-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.team-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px 6px 0;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  min-width: 0;
+}
+
+.team-item:hover {
+  background: var(--surface-hover);
+}
+
+/* Chevron — rotates from ▶ to ▼ when expanded */
+.team-chevron {
+  display: inline-block;
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  transform: rotate(0deg);
+  width: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.team-chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.team-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+}
+
+.team-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.team-summary {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding-left: 6px;
+}
+
+/* Leaf rows (PRs and issues) */
+.team-leaf {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.team-leaf-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.team-leaf-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  color: var(--text-primary);
+}
+
+.team-leaf-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Co-collaborator chips */
+.team-collab-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 16px 4px 0;
+}
+
+.team-collab-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.team-collab-chips {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.team-collab-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-left: -6px;
+  border: 2px solid var(--bg-primary);
+  background: var(--bg-secondary);
+}
+
+.team-collab-chip:first-child {
+  margin-left: 0;
+}
+
+.team-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 4px;
+  padding-bottom: 6px;
+  font-style: italic;
+}
+
+/* Spinner */
+.team-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: team-spin 0.7s linear infinite;
+}
+
+@keyframes team-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
