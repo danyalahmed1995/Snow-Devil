@@ -21,6 +21,9 @@ describe('workflow Inspector', () => {
 
   it('explains classification and renders metadata plus stage history', () => {
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: 'Timeline' }));
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('Why it\'s here')).toBeInTheDocument();
     expect(screen.getByText('Waiting for 1 requested reviewer.')).toBeInTheDocument();
     expect(screen.getByText('feature/workflow')).toBeInTheDocument();
@@ -31,6 +34,7 @@ describe('workflow Inspector', () => {
   it('provides internal, external, and copy actions with feedback', async () => {
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
     expect(screen.getByRole('button', { name: 'Open in Tab' })).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toHaveClass('inspector-footer');
     fireEvent.click(screen.getByRole('button', { name: 'Open in Default Browser' }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
     await waitFor(() => expect(screen.getByText('Link copied')).toBeInTheDocument());

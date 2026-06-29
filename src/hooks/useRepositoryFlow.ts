@@ -11,8 +11,9 @@ export function useRepositoryFlow({ owner, name, enabled }: UseRepositoryFlowPar
   return useQuery({
     queryKey: ['repositoryFlow', owner, name],
     queryFn: async () => {
-      const data = await invoke('get_repository_flow', { owner, name });
-      return data;
+      const request = (sourceType: 'open_prs' | 'open_issues' | 'merged_prs') => invoke<any>('get_source_page', { req: { scope: 'repository', sourceType, repositoryOwner: owner, repositoryName: name, pageSize: 100, cursor: null } });
+      const [open, issues, merged] = await Promise.all([request('open_prs'), request('open_issues'), request('merged_prs')]);
+      return { pullRequests: open?.pullRequests, issues: issues?.issues, mergedPrs: merged?.pullRequests };
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     refetchOnWindowFocus: false,

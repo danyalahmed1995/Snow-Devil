@@ -98,3 +98,10 @@ pub async fn execute_rest(endpoint: String) -> Result<Value, String> {
         .await
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn search_repository(owner: String, name: String, query: String, page: u32, per_page: u32) -> Result<Value, String> {
+    crate::github::repo_api::search_repository(&owner, &name, &query, page, per_page)
+        .await
+        .map_err(|e| e.to_string())
+}

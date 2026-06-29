@@ -23,6 +23,7 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
 
     let query = r#"
         fragment ActorFields on Actor {
+            __typename
             login
             avatarUrl
         }
@@ -37,7 +38,7 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
             closedAt
             state
             author { ...ActorFields }
-            repository { id name nameWithOwner owner { login } }
+            repository { id name nameWithOwner owner { login } viewerPermission isFork }
             labels(first: 5) { nodes { name color } }
             assignees(first: 10) { nodes { login avatarUrl } }
             comments { totalCount }
@@ -55,7 +56,8 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
             state
             isDraft
             author { ...ActorFields }
-            repository { id name nameWithOwner owner { login } }
+            repository { id name nameWithOwner owner { login } viewerPermission isFork }
+            headRepository { nameWithOwner owner { login } isFork }
             labels(first: 5) { nodes { name color } }
             baseRefName
             headRefName
@@ -67,26 +69,32 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
             commits(last: 1) { totalCount nodes { commit { statusCheckRollup { state } } } }
         }
 
-        query {
-            authoredPrs: search(query: "is:open is:pr author:@me", type: ISSUE, first: 5) {
+        query($recentlyMerged: String!, $incoming: String!) {
+            authoredPrs: search(query: "is:open is:pr author:@me", type: ISSUE, first: 50) {
                 issueCount
                 nodes {
                     ... on PullRequest { ...PullRequestFields }
                 }
             }
-            reviewRequestedPrs: search(query: "is:open is:pr review-requested:@me", type: ISSUE, first: 5) {
+            reviewRequestedPrs: search(query: "is:open is:pr review-requested:@me", type: ISSUE, first: 50) {
                 issueCount
                 nodes {
                     ... on PullRequest { ...PullRequestFields }
                 }
             }
-            assignedIssues: search(query: "is:open is:issue assignee:@me", type: ISSUE, first: 5) {
+            assignedIssues: search(query: "is:open is:issue assignee:@me", type: ISSUE, first: 50) {
                 issueCount
                 nodes {
                     ... on Issue { ...IssueFields }
                 }
             }
-            mergedPrs: search(query: "is:pr is:merged author:@me sort:updated-desc", type: ISSUE, first: 5) {
+            mergedPrs: search(query: $recentlyMerged, type: ISSUE, first: 50) {
+                issueCount
+                nodes {
+                    ... on PullRequest { ...PullRequestFields }
+                }
+            }
+            incomingPrs: search(query: $incoming, type: ISSUE, first: 50) {
                 issueCount
                 nodes {
                     ... on PullRequest { ...PullRequestFields }
@@ -95,11 +103,17 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
         }
     "#;
 
+    let cutoff = (chrono::Utc::now() - chrono::Duration::days(7)).format("%Y-%m-%d").to_string();
+    let variables = json!({
+        "recentlyMerged": format!("is:pr is:merged author:@me merged:>={cutoff} sort:updated-desc"),
+        "incoming": "is:open is:pr user:@me -author:@me sort:updated-desc"
+    });
+
     let res = client
         .post(GRAPHQL_URL)
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
-        .json(&json!({ "query": query }))
+        .json(&json!({ "query": query, "variables": variables }))
         .send()
         .await?;
 
@@ -149,11 +163,12 @@ pub async fn fetch_source_page(
     } else if req.scope == "repository" {
         let q = match req.source_type.as_str() {
             "open_prs" => r#"
-            fragment ActorFields on Actor { login avatarUrl }
+            fragment ActorFields on Actor { __typename login avatarUrl }
             fragment PullRequestFields on PullRequest {
                 __typename id number title url createdAt updatedAt closedAt mergedAt state isDraft
                 author { ...ActorFields }
-                repository { id name nameWithOwner owner { login } }
+                repository { id name nameWithOwner owner { login } viewerPermission isFork }
+                headRepository { nameWithOwner owner { login } isFork }
                 labels(first: 5) { nodes { name color } }
                 baseRefName headRefName
                 assignees(first: 10) { nodes { login avatarUrl } }
@@ -174,11 +189,12 @@ pub async fn fetch_source_page(
             }
             "#.to_string(),
             "merged_prs" => r#"
-            fragment ActorFields on Actor { login avatarUrl }
+            fragment ActorFields on Actor { __typename login avatarUrl }
             fragment PullRequestFields on PullRequest {
                 __typename id number title url createdAt updatedAt closedAt mergedAt state isDraft
                 author { ...ActorFields }
-                repository { id name nameWithOwner owner { login } }
+                repository { id name nameWithOwner owner { login } viewerPermission isFork }
+                headRepository { nameWithOwner owner { login } isFork }
                 labels(first: 5) { nodes { name color } }
                 baseRefName headRefName
                 assignees(first: 10) { nodes { login avatarUrl } }
@@ -199,11 +215,11 @@ pub async fn fetch_source_page(
             }
             "#.to_string(),
             "open_issues" => r#"
-            fragment ActorFields on Actor { login avatarUrl }
+            fragment ActorFields on Actor { __typename login avatarUrl }
             fragment IssueFields on Issue {
                 __typename id number title url createdAt updatedAt closedAt state
                 author { ...ActorFields }
-                repository { id name nameWithOwner owner { login } }
+                repository { id name nameWithOwner owner { login } viewerPermission isFork }
                 labels(first: 5) { nodes { name color } }
                 assignees(first: 10) { nodes { login avatarUrl } }
                 comments { totalCount }
@@ -258,12 +274,12 @@ pub async fn fetch_source_page(
 
         (
             r#"
-            fragment ActorFields on Actor { login avatarUrl }
+            fragment ActorFields on Actor { __typename login avatarUrl }
             fragment IssueFields on Issue {
                 __typename
                 id number title url createdAt updatedAt closedAt state
                 author { ...ActorFields }
-                repository { id name nameWithOwner owner { login } }
+                repository { id name nameWithOwner owner { login } viewerPermission isFork }
                 labels(first: 5) { nodes { name color } }
                 assignees(first: 10) { nodes { login avatarUrl } }
                 comments { totalCount }
@@ -272,7 +288,8 @@ pub async fn fetch_source_page(
                 __typename
                 id number title url createdAt updatedAt closedAt mergedAt state isDraft
                 author { ...ActorFields }
-                repository { id name nameWithOwner owner { login } }
+                repository { id name nameWithOwner owner { login } viewerPermission isFork }
+                headRepository { nameWithOwner owner { login } isFork }
                 labels(first: 5) { nodes { name color } }
                 baseRefName headRefName
                 assignees(first: 10) { nodes { login avatarUrl } }

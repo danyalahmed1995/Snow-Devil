@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { formatHistoryCutoff } from '../../../lib/history-date';
 
 export function clampTooltipPosition(cursorX: number, tooltipWidth: number, trackWidth: number, inset = 4): number {
   if (!Number.isFinite(cursorX) || !Number.isFinite(tooltipWidth) || !Number.isFinite(trackWidth)) return inset;
@@ -6,7 +7,7 @@ export function clampTooltipPosition(cursorX: number, tooltipWidth: number, trac
   return Math.max(inset, Math.min(maxLeft, cursorX - tooltipWidth / 2));
 }
 
-export function SimulatorTimeline({ since, until, cursor, onCursorChange, isPlaying }: { since: string; until: string; cursor: string; onCursorChange: (cursor: string) => void; isPlaying: boolean }) {
+export function SimulatorTimeline({ since, until, cursor, onCursorChange, isPlaying, timeZone }: { since: string; until: string; cursor: string; onCursorChange: (cursor: string) => void; isPlaying: boolean; timeZone: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -16,7 +17,7 @@ export function SimulatorTimeline({ since, until, cursor, onCursorChange, isPlay
   const duration = Math.max(1, end - start);
   const percent = Math.max(0, Math.min(100, ((new Date(cursor).getTime() - start) / duration) * 100));
   const labels = Array.from({ length: 7 }, (_, index) => new Date(start + duration * index / 6));
-  const label = `${new Date(cursor).toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${new Date(cursor).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+  const label = formatHistoryCutoff(cursor, timeZone);
   const measureTooltip = useCallback(() => {
     const track = trackRef.current;
     const tooltip = tooltipRef.current;
@@ -46,6 +47,6 @@ export function SimulatorTimeline({ since, until, cursor, onCursorChange, isPlay
       <span className="simulator-timeline__cursor" style={{ left: `${percent}%`, transition: isPlaying || dragging ? "none" : undefined }} />
       <b ref={tooltipRef} className="simulator-timeline__tooltip" style={{ left: tooltipLeft }}>{label}</b>
     </div>
-    <div className="simulator-timeline__labels">{labels.map((label, index) => <span key={index}>{label.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>)}</div>
+    <div className="simulator-timeline__labels">{labels.map((label, index) => <span key={index}>{label.toLocaleDateString(undefined, { timeZone, month: "short", day: "numeric" })}</span>)}</div>
   </div>;
 }

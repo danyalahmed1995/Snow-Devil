@@ -40,6 +40,10 @@ export interface DeliveryEntity {
   confidence?: EvidenceConfidence;
   missingEvidence?: string[];
   linkedEntityId?: string;
+  workflowId?: string;
+  workflowPath?: string;
+  runId?: string;
+  viewerRelationship?: import('../lib/product-model').ViewerRelationship;
 }
 
 export interface DeliveryEvent {
@@ -52,6 +56,22 @@ export interface DeliveryEvent {
   actor?: string;
   directPush?: boolean;
   sourceCompleteness: 'complete' | 'partial' | 'unknown';
+  checkRunId?: string;
+  checkName?: string;
+  requiredCheck?: boolean;
+}
+
+export interface CheckTimingSample {
+  checkRunId:string;
+  entityId:string;
+  repositoryId:string;
+  name:string;
+  startedAt:string;
+  completedAt:string;
+  conclusion:'success'|'failure'|'cancelled'|'skipped';
+  durationHours:number;
+  required?:boolean;
+  confidence:'exact';
 }
 
 export interface DeliveryRelationship {
@@ -86,6 +106,10 @@ export interface AnalyticsRepository {
   releaseMatching: boolean;
   deploymentMatching: boolean;
   capabilityNote?: string;
+  viewerPermission?: import('../lib/product-model').RepositoryPermission;
+  ownerLogin?: string;
+  template?: boolean;
+  empty?: boolean;
 }
 
 export interface AnalyticsDataset {
@@ -123,6 +147,7 @@ export interface AnalyticsSettings {
   includeForks: boolean;
   includePrivate: boolean;
   includeBots: boolean;
+  analyticsIncludeBots: boolean;
   includeDependabot: boolean;
   includeRenovate: boolean;
   includeOtherBots: boolean;
@@ -196,6 +221,9 @@ export interface InventoryItem {
   firstFailureAt?: string;
   latestFailureAt?: string;
   missingEvidence?: string[];
+  latestRunStatus?: string;
+  resolutionRule?: string;
+  canonicalKey?: string;
 }
 
 export interface LeadTimeSample {
@@ -235,4 +263,22 @@ export interface AnalyticsInspectable {
   coverage?: string;
   relatedEntityIds?: string[];
   timeline?: Array<{ label: string; occurredAt: string; confidence: LineageConfidence }>;
+  lineage?: MetricLineage;
+}
+
+export interface MetricLineage {
+  formula:string;
+  numerator:string;
+  denominator:string;
+  includedEntityTypes:string[];
+  excludedEntityTypes:string[];
+  repositoriesIncluded:string[];
+  failedOrSkipped:string[];
+  coverageStart?:string;
+  coverageEnd?:string;
+  sampleCount:number;
+  excludedOrIncompleteCount:number;
+  timeBasis:'business'|'calendar'|'event timestamp'|'mixed';
+  confidence:LineageConfidence;
+  evidenceSources:string[];
 }

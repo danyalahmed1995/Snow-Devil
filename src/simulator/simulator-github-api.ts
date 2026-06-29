@@ -6,6 +6,7 @@ import {
   AccountInclusionReason,
   SimulatorSourceFailure,
   SimulatorFailureCategory,
+  SimulatorSourceStatus,
 } from "./simulator-types";
 import { SimulatorSafeError, retryableSimulatorCategory, safeSimulatorExplanation, sanitizedDiagnostic, toSimulatorFailure } from "./simulator-errors";
 
@@ -48,10 +49,23 @@ export async function fetchRepositoryActivity(
                 id
                 number
                 title
+                url
                 createdAt
+                updatedAt
+                state
+                isDraft
                 mergedAt
                 closedAt
-                author { login, avatarUrl }
+                author { __typename login, avatarUrl }
+                baseRefName
+                headRefName
+                headRepository { nameWithOwner isFork owner { login } }
+                isCrossRepository
+                mergeable
+                reviewDecision
+                reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
+                assignees(first: 20) { nodes { login } }
+                commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
                 timelineItems(first: 80, since: "${since}") {
                   nodes {
                     __typename
@@ -78,6 +92,8 @@ export async function fetchRepositoryActivity(
         if (!pr || !pr.number || !pr.title) continue; // Reject malformed
 
         const subjectId = `pull_request-${pr.number}`;
+        const snapshotAt = pr.createdAt >= since ? pr.createdAt : since;
+        const currentAt = until;
         const baseEvent = {
           source: "github-graphql",
           repositoryId: repoId,
@@ -90,15 +106,28 @@ export async function fetchRepositoryActivity(
           sourceCompleteness: (prs.pageInfo.hasNextPage && pageCount === 4 ? "partial" : "complete") as "partial" | "complete",
         };
 
-        if (pr.createdAt >= since && pr.createdAt <= until) {
+        if (pr.state === 'OPEN' || pr.createdAt >= since && pr.createdAt <= until) {
           events.push({
             ...baseEvent,
-            id: `${subjectId}:opened`,
-            occurredAt: pr.createdAt,
+            id: `${subjectId}:current-open`,
+            source: 'github-current-state',
+            occurredAt: snapshotAt,
             actor: pr.author,
             eventType: "opened",
-            metadata: { nativeOrDerived: "derived" },
+            metadata: { nativeOrDerived: "current_snapshot", url: pr.url, draft: pr.isDraft, actualCreatedAt: pr.createdAt, actualUpdatedAt: pr.updatedAt, baseRefName: pr.baseRefName, headRefName: pr.headRefName, baseRepository: repoId, headRepository: pr.headRepository?.nameWithOwner, headIsFork: pr.headRepository?.isFork, isCrossRepository: pr.isCrossRepository, mergeable: pr.mergeable },
           });
+        }
+
+        if (pr.state === 'OPEN') {
+          events.push({ ...baseEvent, id: `${subjectId}:current-reopened`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'reopened', metadata: { nativeOrDerived: 'current_snapshot', actualCreatedAt: pr.createdAt, actualUpdatedAt: pr.updatedAt, url: pr.url, baseRefName: pr.baseRefName, headRefName: pr.headRefName } });
+          if (pr.isDraft) events.push({ ...baseEvent, id: `${subjectId}:current-draft`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'converted_to_draft', metadata: { nativeOrDerived: 'current_snapshot' } });
+          else if (pr.reviewDecision === 'CHANGES_REQUESTED') events.push({ ...baseEvent, id: `${subjectId}:current-changes`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'changes_requested', metadata: { nativeOrDerived: 'current_snapshot' } });
+          else if (pr.reviewDecision === 'APPROVED') events.push({ ...baseEvent, id: `${subjectId}:current-approved`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'approved', metadata: { nativeOrDerived: 'current_snapshot' } });
+          else if (pr.reviewRequests?.nodes?.length) events.push({ ...baseEvent, id: `${subjectId}:current-review-requested`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'review_requested', metadata: { nativeOrDerived: 'current_snapshot', requestedReviewers: pr.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) } });
+          const checkState = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
+          const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
+          if (checkEvent) events.push({ ...baseEvent, id: `${subjectId}:current-${checkEvent}`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: checkEvent, metadata: { nativeOrDerived: 'current_snapshot', checkState } });
+          for (const assignee of pr.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...baseEvent, id: `${subjectId}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'assigned', metadata: { nativeOrDerived: 'current_snapshot', assignee: assignee.login } });
         }
 
         if (pr.timelineItems?.nodes) {
@@ -157,9 +186,13 @@ export async function fetchRepositoryActivity(
                 id
                 number
                 title
+                url
                 createdAt
+                updatedAt
+                state
                 closedAt
-                author { login, avatarUrl }
+                author { __typename login, avatarUrl }
+                assignees(first: 20) { nodes { login } }
                 timelineItems(first: 80, since: "${since}") {
                   nodes {
                     __typename
@@ -197,15 +230,20 @@ export async function fetchRepositoryActivity(
           sourceCompleteness: (issues.pageInfo.hasNextPage && pageCount === 4 ? "partial" : "complete") as "partial" | "complete",
         };
 
-        if (issue.createdAt >= since && issue.createdAt <= until) {
+        if (issue.state === 'OPEN' || issue.createdAt >= since && issue.createdAt <= until) {
           events.push({
             ...baseEvent,
-            id: `${subjectId}:opened`,
-            occurredAt: issue.createdAt,
+            id: `${subjectId}:current-open`,
+            source: 'github-current-state',
+            occurredAt: issue.createdAt >= since ? issue.createdAt : since,
             actor: issue.author,
             eventType: "opened",
-            metadata: { nativeOrDerived: "derived" },
+            metadata: { nativeOrDerived: "current_snapshot", url: issue.url, actualCreatedAt: issue.createdAt, actualUpdatedAt: issue.updatedAt },
           });
+        }
+        if (issue.state === 'OPEN') {
+          events.push({ ...baseEvent, id: `${subjectId}:current-reopened`, source: 'github-current-state', occurredAt: until, actor: issue.author, eventType: 'reopened', metadata: { nativeOrDerived: 'current_snapshot', url: issue.url, actualCreatedAt: issue.createdAt, actualUpdatedAt: issue.updatedAt } });
+          for (const assignee of issue.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...baseEvent, id: `${subjectId}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: until, actor: issue.author, eventType: 'assigned', metadata: { nativeOrDerived: 'current_snapshot', assignee: assignee.login } });
         }
 
         if (issue.timelineItems?.nodes) {
@@ -331,6 +369,7 @@ export interface AccountActivityResult {
   sourceFailures: SimulatorSourceFailure[];
   loadedSources: number;
   totalSources: number;
+  sourceStatuses?: SimulatorSourceStatus[];
 }
 
 export interface AccountActivitySource {
@@ -338,17 +377,24 @@ export interface AccountActivitySource {
   label: string;
   reason: AccountInclusionReason;
   query: (login: string, sinceDate: string, untilDate: string) => string;
+  fallbackQueries?: (login: string, sinceDate: string, untilDate: string) => string[];
   maxPages?: number;
+  currentState?: boolean;
+  purpose?: string;
+  affectedData?: string;
 }
 
 const ACCOUNT_SOURCE_PAGE_LIMIT = 2;
 
 export const ACCOUNT_ACTIVITY_SOURCES: AccountActivitySource[] = [
-  { id: "authored", label: "Authored issues and pull requests", reason: "authored_by_you", query: (login, sinceDate, untilDate) => `author:${login} updated:${sinceDate}..${untilDate}` },
-  { id: "assigned", label: "Assigned issues and pull requests", reason: "assigned_to_you", query: (login, sinceDate, untilDate) => `assignee:${login} updated:${sinceDate}..${untilDate}` },
-  { id: "review-requested", label: "Review requests", reason: "review_requested_from_you", query: (login, sinceDate, untilDate) => `review-requested:${login} type:pr updated:${sinceDate}..${untilDate}` },
-  { id: "reviewed", label: "Reviewed pull requests", reason: "reviewed_by_you", query: (login, sinceDate, untilDate) => `reviewed-by:${login} type:pr updated:${sinceDate}..${untilDate}` },
-  { id: "commented", label: "Commented issues and pull requests", reason: "commented_on_by_you", query: (login, sinceDate, untilDate) => `commenter:${login} updated:${sinceDate}..${untilDate}` },
+  { id: "authored", label: "Authored history", purpose: "PRs and issues authored by the viewer and updated inside the replay window.", affectedData: "Authored lifecycle events and cumulative authored totals", reason: "authored_by_you", query: (login, sinceDate, untilDate) => `author:${login} updated:${sinceDate}..${untilDate}`, fallbackQueries: (login, sinceDate, untilDate) => [`is:pr author:${login} updated:${sinceDate}..${untilDate}`, `is:issue author:${login} updated:${sinceDate}..${untilDate}`] },
+  { id: "assigned", label: "Assigned history", purpose: "Issues and PRs assigned to the viewer across personal and organization repositories.", affectedData: "Assignment lifecycle events", reason: "assigned_to_you", query: (login, sinceDate, untilDate) => `assignee:${login} updated:${sinceDate}..${untilDate}` },
+  { id: "review-requested", label: "Review request history", purpose: "Pull requests requesting review from the viewer.", affectedData: "Review-request lifecycle events", reason: "review_requested_from_you", query: (login, sinceDate, untilDate) => `review-requested:${login} type:pr updated:${sinceDate}..${untilDate}` },
+  { id: "reviewed", label: "Reviewed pull requests", purpose: "Pull requests reviewed by the viewer.", affectedData: "Review submissions", reason: "reviewed_by_you", query: (login, sinceDate, untilDate) => `reviewed-by:${login} type:pr updated:${sinceDate}..${untilDate}` },
+  { id: "commented", label: "Commented work", purpose: "Issues and pull requests with viewer participation evidence.", affectedData: "Lower-priority participation events and issue/PR involvement", reason: "commented_on_by_you", query: (login, sinceDate, untilDate) => `commenter:${login} updated:${sinceDate}..${untilDate}`, fallbackQueries: (login, sinceDate, untilDate) => [`is:pr commenter:${login} updated:${sinceDate}..${untilDate}`, `is:issue commenter:${login} updated:${sinceDate}..${untilDate}`] },
+  { id: "current-authored", label: "Current authored work", purpose: "Authoritative current open PR and issue assertions, including work older than the replay range.", affectedData: "Today active authored work and existing-at-start baselines", reason: "authored_by_you", currentState: true, maxPages: 4, query: login => `is:open author:${login}`, fallbackQueries: login => [`is:open is:pr author:${login}`, `is:open is:issue author:${login}`] },
+  { id: "current-assigned-issues", label: "Current assigned issues", purpose: "Authoritative open issues assigned to the viewer account-wide, including organization repositories.", affectedData: "Current assigned issues and baselines", reason: "assigned_to_you", currentState: true, maxPages: 4, query: login => `is:open is:issue assignee:${login}` },
+  { id: "current-review-requests", label: "Current review requests", purpose: "Authoritative open pull requests currently requesting the viewer's review.", affectedData: "Current review responsibilities", reason: "review_requested_from_you", currentState: true, maxPages: 4, query: login => `is:open is:pr review-requested:${login}` },
 ];
 
 const ACCOUNT_SEARCH_QUERY = `
@@ -362,9 +408,16 @@ const ACCOUNT_SEARCH_QUERY = `
           title
           url
           createdAt
+          updatedAt
+          state
+          isDraft
           mergedAt
           closedAt
+          reviewDecision
           author { login, avatarUrl }
+          assignees(first: 20) { nodes { login } }
+          reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
+          commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
           repository { nameWithOwner, owner { login }, name }
           timelineItems(first: 80, since: $since) {
             nodes {
@@ -386,8 +439,11 @@ const ACCOUNT_SEARCH_QUERY = `
           title
           url
           createdAt
+          updatedAt
+          state
           closedAt
           author { login, avatarUrl }
+          assignees(first: 20) { nodes { login } }
           repository { nameWithOwner, owner { login }, name }
           timelineItems(first: 80, since: $since) {
             nodes {
@@ -478,6 +534,19 @@ function accountEventsForNode(
     });
   }
 
+  const existedAtReplayStart = node.createdAt < since && (!node.closedAt || node.closedAt >= since) && (!node.mergedAt || node.mergedAt >= since);
+  if (existedAtReplayStart) {
+    events.push({
+      ...base,
+      id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:baseline`,
+      occurredAt: since,
+      actor: node.author,
+      eventType: 'opened',
+      metadata: { ...base.baseMetadata, baseline: true, baselineLabel: 'Existing at replay start', actualCreatedAt: node.createdAt, actualUpdatedAt: since },
+      inclusionReason: base.inclusionReason,
+    });
+  }
+
   for (const item of node.timelineItems?.nodes ?? []) {
     if (!item.createdAt || item.createdAt < since || item.createdAt > until) continue;
     let evtType: SimulatorEventType | null = null;
@@ -530,13 +599,25 @@ function accountEventsForNode(
     }
   }
 
+
+  if (source.currentState && String(node.state).toUpperCase() === 'OPEN') {
+    const currentMetadata = { ...base.baseMetadata, currentSnapshot: true, actualCreatedAt: node.createdAt, actualUpdatedAt: node.updatedAt };
+    events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-open`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'reopened', metadata: currentMetadata, inclusionReason: base.inclusionReason });
+    if (base.subjectType === 'pull_request' && node.isDraft) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-draft`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'converted_to_draft', metadata: currentMetadata, inclusionReason: base.inclusionReason });
+    if (base.subjectType === 'pull_request' && node.reviewDecision === 'CHANGES_REQUESTED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-changes`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'changes_requested', metadata: currentMetadata, inclusionReason: base.inclusionReason });
+    else if (base.subjectType === 'pull_request' && node.reviewDecision === 'APPROVED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-approved`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'approved', metadata: currentMetadata, inclusionReason: base.inclusionReason });
+    else if (base.subjectType === 'pull_request' && node.reviewRequests?.nodes?.length) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-review-requested`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'review_requested', metadata: { ...currentMetadata, requestedReviewers: node.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) }, inclusionReason: base.inclusionReason });
+    const checkState = node.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
+    const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
+    if (checkEvent) events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-${checkEvent}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: checkEvent, metadata: { ...currentMetadata, checkState }, inclusionReason: base.inclusionReason });
+    for (const assignee of node.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'assigned', metadata: { ...currentMetadata, assignee: assignee.login }, inclusionReason: assignee.login === login ? 'assigned_to_you' : base.inclusionReason });
+  }
+
   return events;
 }
 
-async function fetchAccountSource(login: string, source: AccountActivitySource, since: string, until: string): Promise<SimulatorEvent[]> {
+async function fetchAccountQuery(login: string, source: AccountActivitySource, since: string, until: string, query: string): Promise<{ events: SimulatorEvent[]; partial: boolean }> {
   const events: SimulatorEvent[] = [];
-  const safeLogin = assertSafeLogin(login);
-  const query = source.query(safeLogin, dateOnly(since), dateOnly(until));
   const maxPages = source.maxPages ?? ACCOUNT_SOURCE_PAGE_LIMIT;
   let hasNextPage = true;
   let cursor: string | null = null;
@@ -559,7 +640,31 @@ async function fetchAccountSource(login: string, source: AccountActivitySource, 
     cursor = searchData.pageInfo.endCursor ?? null;
   }
 
-  return capped ? events.map(event => ({ ...event, sourceCompleteness: "partial" })) : events;
+  return { events: capped ? events.map(event => ({ ...event, sourceCompleteness: "partial" })) : events, partial: capped };
+}
+
+async function fetchAccountSource(login: string, source: AccountActivitySource, since: string, until: string): Promise<{ events: SimulatorEvent[]; partial: boolean; message?: string }> {
+  const safeLogin = assertSafeLogin(login);
+  const sinceDate = dateOnly(since);
+  const untilDate = dateOnly(until);
+  try {
+    return await fetchAccountQuery(login, source, since, until, source.query(safeLogin, sinceDate, untilDate));
+  } catch (cause) {
+    const failure = toSimulatorFailure(cause, source.id, source.label, 'unknown');
+    const fallbacks = source.fallbackQueries?.(safeLogin, sinceDate, untilDate) ?? [];
+    if (failure.category !== 'invalid_response' || fallbacks.length === 0) throw cause;
+    const settled = await Promise.allSettled(fallbacks.map(query => fetchAccountQuery(login, source, since, until, query)));
+    const successful = settled.filter((result): result is PromiseFulfilledResult<{ events: SimulatorEvent[]; partial: boolean }> => result.status === 'fulfilled');
+    if (successful.length === 0) throw settled.find(result => result.status === 'rejected')?.reason ?? cause;
+    const events = new Map<string, SimulatorEvent>();
+    successful.flatMap(result => result.value.events).forEach(event => events.set(event.id, event));
+    const partial = successful.length !== settled.length || successful.some(result => result.value.partial);
+    return {
+      events: [...events.values()],
+      partial,
+      message: partial ? 'Loaded usable results through split queries; one or more fallback slices remain incomplete.' : 'Loaded through split issue and pull-request queries after the broad query was unsupported.',
+    };
+  }
 }
 
 export async function fetchAccountActivityWithCoverage(
@@ -570,20 +675,25 @@ export async function fetchAccountActivityWithCoverage(
 ): Promise<AccountActivityResult> {
   const settled = await Promise.allSettled(sources.map(async source => ({
     source,
-    events: await fetchAccountSource(login, source, since, until),
+    result: await fetchAccountSource(login, source, since, until),
   })));
   const events: SimulatorEvent[] = [];
   const sourceFailures: SimulatorSourceFailure[] = [];
+  const sourceStatuses: SimulatorSourceStatus[] = [];
   let loadedSources = 0;
+  const attemptedAt = new Date().toISOString();
 
   for (let index = 0; index < settled.length; index++) {
     const result = settled[index];
     const source = sources[index];
     if (result.status === "fulfilled") {
       loadedSources++;
-      events.push(...result.value.events);
+      events.push(...result.value.result.events);
+      sourceStatuses.push({ sourceId: source.id, label: source.label, purpose: source.purpose ?? source.label, affectedData: source.affectedData ?? 'Account history', status: result.value.result.partial ? 'partial' : 'loaded', message: result.value.result.message, retryable: result.value.result.partial, lastAttemptAt: attemptedAt });
     } else {
-      sourceFailures.push(toSimulatorFailure(result.reason, source.id, source.label, "partial_source"));
+      const failure = toSimulatorFailure(result.reason, source.id, source.label, "partial_source");
+      sourceFailures.push(failure);
+      sourceStatuses.push({ sourceId: source.id, label: source.label, purpose: source.purpose ?? source.label, affectedData: source.affectedData ?? 'Account history', status: failure.retryable ? 'failed' : 'unsupported', category: failure.category, message: failure.message, retryable: failure.retryable, lastAttemptAt: attemptedAt });
       if (import.meta.env.DEV) {
         console.debug("[Simulator] Account source failed", { sourceId: source.id, ...sanitizedDiagnostic(result.reason) });
       }
@@ -605,5 +715,6 @@ export async function fetchAccountActivityWithCoverage(
     sourceFailures,
     loadedSources,
     totalSources: sources.length,
+    sourceStatuses,
   };
 }

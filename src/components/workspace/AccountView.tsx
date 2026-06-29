@@ -1,9 +1,11 @@
 import { useAuthStore } from '../../stores/auth-store';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import './Workspace.css';
+import { useAccountRepositories } from '../../hooks/useAccountContext';
 
 export function AccountView() {
   const { session, checkAuthStatus } = useAuthStore();
+  const repositories = useAccountRepositories();
 
   if (session.status === 'checking') {
     return (
@@ -75,8 +77,8 @@ export function AccountView() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-        <StatCard title="Repositories" count={account.repositories?.totalCount || 0} />
-        <StatCard title="Organizations" count={account.organizations?.totalCount || 0} />
+        <StatCard title="Accessible Repositories" count={repositories.data?.length ?? account.repositories?.totalCount ?? 0} />
+        <StatCard title="Active Organizations" count={account.organizations?.status === 'unavailable' ? 'Unavailable' : account.organizations?.status === 'partial' ? `${account.organizations.totalCount}+` : account.organizations?.totalCount ?? 0} detail={account.organizations?.message} />
         <StatCard title="Open Pull Requests" count={account.pullRequests?.totalCount || 0} />
         <StatCard title="Assigned Issues" count={account.issues?.totalCount || 0} />
       </div>
@@ -84,11 +86,12 @@ export function AccountView() {
   );
 }
 
-function StatCard({ title, count }: { title: string, count: number | string }) {
+function StatCard({ title, count, detail }: { title: string, count: number | string, detail?: string }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '24px' }}>
       <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>{title}</div>
       <div style={{ fontSize: '32px', fontWeight: 'bold' }}>{count}</div>
+      {detail && <small style={{ color: 'var(--text-muted)' }}>{detail}</small>}
     </div>
   );
 }

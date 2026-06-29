@@ -57,6 +57,7 @@ export function demoFile(path: string): RepositoryFile | undefined {
 }
 
 export const demoPullRequest = {
+  baseRefName: 'main', headRefName: 'feat/native-browser',
   title: 'Add native repository explorer and command palette', state: 'OPEN', author: { login: 'snowdevil-demo' }, createdAt: '2026-02-13T10:00:00Z', reviewDecision: 'REVIEW_REQUIRED',
   body: 'Connects workflow context to source navigation through typed native tabs.',
   diff: `diff --git a/src/app/App.tsx b/src/app/App.tsx\nindex 312a..82bc 100644\n--- a/src/app/App.tsx\n+++ b/src/app/App.tsx\n@@ -1,4 +1,6 @@\n import { Layout } from './Layout';\n+import { CommandPalette } from '../palette/CommandPalette';\n \n export default function App() {\n-  return <Layout />;\n+  return <><Layout /><CommandPalette /></>;\n }\ndiff --git a/src/styles/tokens.css b/src/styles/tokens.css\nindex b42d..ad91 100644\n--- a/src/styles/tokens.css\n+++ b/src/styles/tokens.css\n@@ -1,3 +1,4 @@\n :root {\n-  --bg-primary: #0d1117;\n+  --bg-primary: #080d14;\n+  --accent: #3b8ef3;\n }\n`,

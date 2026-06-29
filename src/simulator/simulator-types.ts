@@ -170,6 +170,8 @@ export interface SimulatorEntityState {
   lastEventId?: string;
   inclusionReason?: AccountInclusionReason;
   sourceCompleteness?: SimulatorEvent["sourceCompleteness"];
+  baselineAtReplayStart?: boolean;
+  baselineLabel?: string;
 }
 
 export type SimulatorLoadState =
@@ -200,8 +202,23 @@ export interface SimulatorSourceFailure {
   occurredAt: string;
 }
 
+export interface SimulatorSourceStatus {
+  sourceId: string;
+  label: string;
+  purpose: string;
+  affectedData: string;
+  status: 'loaded' | 'partial' | 'failed' | 'skipped' | 'unsupported';
+  category?: SimulatorFailureCategory;
+  message?: string;
+  retryable: boolean;
+  lastAttemptAt?: string;
+}
+
+export type HistoricalDepth = 'full_available' | 'retention_bounded' | 'api_bounded' | 'current_only' | 'partial_events';
+
 export interface SimulatorLoadDetails {
   sourceFailures: SimulatorSourceFailure[];
+  sourceStatuses?: SimulatorSourceStatus[];
   loadedSources: number;
   totalSources: number;
   cached: boolean;
@@ -213,4 +230,6 @@ export interface SimulatorLoadDetails {
   };
   refreshError?: SimulatorSourceFailure;
   cacheError?: SimulatorSourceFailure;
+  historicalDepth?: HistoricalDepth;
+  historicalDepthMessage?: string;
 }

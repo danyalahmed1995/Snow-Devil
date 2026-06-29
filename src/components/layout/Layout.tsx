@@ -9,6 +9,7 @@ import { Inspector } from '../inspector/Inspector';
 import { useEffect } from 'react';
 import { isNativeTab } from '../../browser/browser-tabs';
 import { useFlowStore } from '../../stores/flow-store';
+import { X } from 'lucide-react';
 
 export function Layout() {
   const { isNavigatorOpen, navigatorWidth, isInspectorOpen, inspectorWidth, setInspectorWidth, setInspectorOpen } = useLayoutStore();
@@ -43,6 +44,7 @@ export function Layout() {
         
         {showInspector && (
           <aside className="layout-inspector glass-panel" style={{ width: inspectorWidth }}>
+            <button className="layout-inspector-close" aria-label="Close Inspector" title="Close Inspector" onClick={() => setInspectorOpen(false)}><X size={15}/></button>
             <div className="layout-inspector-resizer" role="separator" aria-label="Resize inspector" aria-orientation="vertical" onPointerDown={event => {
               const startX = event.clientX;
               const startWidth = inspectorWidth;

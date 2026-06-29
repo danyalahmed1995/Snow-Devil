@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useTabsStore } from './tabs-store';
+import { normalizeRestoredActiveTabId, normalizeRestoredTabs, useTabsStore } from './tabs-store';
 
 describe('tabs-store migration', () => {
   beforeEach(() => {
@@ -36,26 +36,45 @@ describe('tabs-store migration', () => {
   });
 
   it('sanitizes malformed version 5 restored tabs instead of trusting persisted state', async () => {
-    localStorage.setItem('github-graph-browser-tabs', JSON.stringify({
-      state: {
-        tabs: [
+    const rawTabs = [
           null,
           { id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: true, pinned: false },
           { id: 'native:bad-repo', family: 'native', kind: 'repositoryExplorer', title: 'Broken repo', context: { type: 'repository', repository: 42 } },
           { id: 'native:flow', family: 'native', kind: 'flow', title: 'Repository Flow', closable: true, pinned: false },
-        ],
-        activeTabId: 'native:bad-repo',
-        navigationGeneration: 1,
-        closedTabs: [{ id: 'bad' }],
-      },
-      version: 5,
-    }));
+        ];
+    const tabs = normalizeRestoredTabs(rawTabs);
+    expect(tabs.map(tab => tab.id)).toEqual(['native:home', 'native:flow']);
+    expect(normalizeRestoredActiveTabId(rawTabs, 'native:bad-repo', tabs)).toBe('native:home');
+    expect(tabs.find(tab => tab.id === 'native:home')).toMatchObject({ pinned: true, closable: false });
+  });
 
-    await useTabsStore.persist.rehydrate();
+  it('canonicalizes and deduplicates restored fixed-page tabs', async () => {
+    const rawTabs = [
+          { id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 },
+          { id: 'legacy-account-history', family: 'native', kind: 'accountSimulator', title: 'Account Simulator', closable: true, pinned: false, createdAt: 2, lastActivatedAt: 2 },
+          { id: 'native:account-simulator', family: 'native', kind: 'accountSimulator', title: 'Account History', closable: true, pinned: false, createdAt: 3, lastActivatedAt: 4 },
+        ];
+    const tabs = normalizeRestoredTabs(rawTabs);
+    expect(tabs.filter(tab => tab.kind === 'accountSimulator')).toHaveLength(1);
+    expect(tabs.find(tab => tab.kind === 'accountSimulator')).toMatchObject({ id: 'native:account-simulator', title: 'Account History' });
+    expect(normalizeRestoredActiveTabId(rawTabs, 'legacy-account-history', tabs)).toBe('native:account-simulator');
+  });
 
+  it('activates an existing canonical fixed page without creating a duplicate', () => {
+    useTabsStore.setState({ tabs: [{ id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 }], activeTabId: 'native:home' });
+    useTabsStore.getState().openNativeTab('temporary-flow-id', 'flow', 'Flow');
+    useTabsStore.getState().openNativeTab('another-flow-id', 'flow', 'Flow');
     const state = useTabsStore.getState();
-    expect(state.tabs.map(tab => tab.id)).toEqual(['native:home', 'native:flow']);
-    expect(state.activeTabId).toBe('native:home');
-    expect(state.tabs.find(tab => tab.id === 'native:home')).toMatchObject({ pinned: true, closable: false });
+    expect(state.activeTabId).toBe('native:flow');
+    expect(state.tabs.filter(tab => tab.kind === 'flow')).toHaveLength(1);
+  });
+
+  it('keeps saved Flow views distinct from the fixed Flow singleton', () => {
+    useTabsStore.setState({ tabs: [{ id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 }], activeTabId: 'native:home' });
+    useTabsStore.getState().openNativeTab('native:flow', 'flow', 'Flow');
+    useTabsStore.getState().openNativeTab('native:saved-view:one', 'flow', 'Qualification view');
+    const state = useTabsStore.getState();
+    expect(state.activeTabId).toBe('native:saved-view:one');
+    expect(state.tabs.filter(tab => tab.kind === 'flow')).toHaveLength(2);
   });
 });

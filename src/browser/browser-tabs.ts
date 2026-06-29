@@ -24,11 +24,15 @@ export type NativeTabKind =
   | "accountSimulator"
   | "repositorySimulator"
   | "repositoryExplorer"
-  | "pullRequestDiff";
+  | "pullRequestDiff"
+  | "notifications"
+  | "organizations"
+  | "evidenceGraph";
 
 export type NativeTabContext =
   | { type: "repository"; repository: string; ref?: string; path?: string }
-  | { type: "pullRequest"; repository: string; number: number };
+  | { type: "pullRequest"; repository: string; number: number }
+  | { type: "evidenceGraph"; rootId?: string; repository?: string };
 
 /** A tab backed by a built-in React view. */
 export type NativeTab = {
@@ -66,6 +70,9 @@ export type BrowserTab = {
   currentUrl: string;
   history: string[];
   historyIndex: number;
+  isLoading?: boolean;
+  error?: string;
+  parentTabId?: string;
   lifecycle: BrowserLifecycle;
   pinned: boolean;
   closable: boolean;

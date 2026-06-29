@@ -30,6 +30,8 @@ export interface TabFlowState {
   involvementFilter: 'all' | 'assigned' | 'authored' | 'review_requested' | 'mentioned' | 'participating';
   actorFilter: 'everyone' | 'humans' | 'bots' | 'dependabot' | 'renovate';
   accountRepositoryFilter: string;
+  sortOrder: 'newest' | 'oldest' | 'repository' | 'attention';
+  sourceContext?: string;
 }
 
 const DEFAULT_FLOW_STATE: TabFlowState = {
@@ -48,6 +50,7 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
   involvementFilter: 'all',
   actorFilter: 'everyone',
   accountRepositoryFilter: 'all',
+  sortOrder: 'newest',
 };
 
 interface FlowStore {

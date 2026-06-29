@@ -63,6 +63,7 @@ describe('account simulator source collection', () => {
     const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [source('authored'), source('assigned', 'assigned_to_you')]);
     expect(result.loadedSources).toBe(2);
     expect(result.sourceFailures).toHaveLength(0);
+    expect(result.sourceStatuses?.every(status => status.status === 'loaded')).toBe(true);
     expect(result.events.map(event => event.subjectId)).toEqual(['octo/repo:issue-1']);
   });
 
@@ -96,6 +97,23 @@ describe('account simulator source collection', () => {
       .rejects.toMatchObject({ category: 'invalid_response' });
   });
 
+  it('falls back to split issue and pull-request searches when a broad source query is unsupported', async () => {
+    mockedInvoke.mockImplementation(async (cmd, args: any) => {
+      const query = String(invokePayload(cmd, args).variables?.query);
+      if (query === 'author:octo') return { errors: [{ message: 'Unsupported broad query' }] };
+      return page([node({ id: query.includes('is:pr') ? 'pr-node' : 'issue-node', number: query.includes('is:pr') ? 2 : 1, mergedAt: query.includes('is:pr') ? null : undefined })]);
+    });
+    const fallbackSource: AccountActivitySource = {
+      ...source('authored'),
+      query: login => `author:${login}`,
+      fallbackQueries: login => [`is:pr author:${login}`, `is:issue author:${login}`],
+    };
+    const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [fallbackSource]);
+    expect(result.loadedSources).toBe(1);
+    expect(result.sourceFailures).toHaveLength(0);
+    expect(result.sourceStatuses?.[0]).toMatchObject({ status: 'loaded', message: expect.stringContaining('split issue and pull-request queries') });
+  });
+
   it('treats malformed source nodes as source-local normalization failures', async () => {
     mockedInvoke.mockImplementation(async (cmd, args: any) => String(invokePayload(cmd, args).variables?.query).startsWith('broken:')
       ? page([node({ repository: null })])
@@ -103,6 +121,24 @@ describe('account simulator source collection', () => {
     const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [source('authored'), source('broken')]);
     expect(result.loadedSources).toBe(1);
     expect(result.sourceFailures[0]).toMatchObject({ sourceId: 'broken', category: 'normalization_failed' });
+  });
+
+  it('adds replay-start baselines and applies current assertions only at the latest cursor', async () => {
+    mockedInvoke.mockResolvedValue(page([node({ createdAt: '2025-01-01T00:00:00Z', updatedAt: '2026-06-30T00:00:00Z', state: 'OPEN', assignees: { nodes: [{ login: 'octo' }] } })]));
+    const currentSource = { ...source('current-assigned', 'assigned_to_you'), currentState: true };
+    const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [currentSource]);
+    expect(result.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ eventType: 'opened', occurredAt: '2026-06-01T00:00:00Z', metadata: expect.objectContaining({ baselineLabel: 'Existing at replay start' }) }),
+      expect.objectContaining({ eventType: 'reopened', occurredAt: '2026-06-30T00:00:00Z', source: 'github-current-state' }),
+    ]));
+    expect(result.events.filter(event => event.occurredAt < '2026-06-30T00:00:00Z').some(event => event.metadata.currentSnapshot)).toBe(false);
+  });
+
+  it('includes assigned organization issues without owner filtering', async () => {
+    mockedInvoke.mockResolvedValue(page([node({ repository: { nameWithOwner: 'Sonicallysquad/App', owner: { login: 'Sonicallysquad' }, name: 'App' }, state: 'OPEN', assignees: { nodes: [{ login: 'octo' }] } })]));
+    const assigned = { ...source('current-assigned-issues', 'assigned_to_you'), currentState: true, query: (login: string) => `is:open is:issue assignee:${login}` };
+    const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [assigned]);
+    expect(result.events).toEqual(expect.arrayContaining([expect.objectContaining({ repositoryId: 'Sonicallysquad/App', inclusionReason: 'assigned_to_you' })]));
   });
 });
 
@@ -194,5 +230,20 @@ describe('repository simulator compatibility', () => {
     });
     const events = await fetchRepositoryActivity('octo', 'repo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z');
     expect(events).toEqual([expect.objectContaining({ repositoryId: 'octo/repo', subjectId: 'pull_request-7', eventType: 'opened' })]);
+  });
+
+  it('keeps an older current incoming fork PR despite partial replay history', async () => {
+    mockedInvoke.mockImplementation(async (cmd, args: any) => {
+      const query = String(invokePayload(cmd, args).query);
+      if (query.includes('pullRequests')) return { data: { repository: { pullRequests: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [{ id: 'pr2', number: 2, title: 'Incoming work', url: 'https://github.com/octo/repo/pull/2', createdAt: '2025-01-01T00:00:00Z', updatedAt: '2026-06-27T00:00:00Z', state: 'OPEN', isDraft: false, mergedAt: null, closedAt: null, author: { login: 'contributor', avatarUrl: '' }, baseRefName: 'main', headRefName: 'feature', headRepository: { nameWithOwner: 'contributor/repo', isFork: true, owner: { login: 'contributor' } }, reviewDecision: null, reviewRequests: { nodes: [] }, assignees: { nodes: [] }, commits: { nodes: [] }, timelineItems: { nodes: [] } }] } } } };
+      if (query.includes('issues')) return { data: { repository: { issues: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } } };
+      if (query.includes('releases')) return { data: { repository: { releases: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] } } } };
+      return page([]);
+    });
+    const events = await fetchRepositoryActivity('octo', 'repo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z');
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ subjectId: 'pull_request-2', eventType: 'opened', source: 'github-current-state' }),
+      expect.objectContaining({ subjectId: 'pull_request-2', eventType: 'reopened', source: 'github-current-state' }),
+    ]));
   });
 });

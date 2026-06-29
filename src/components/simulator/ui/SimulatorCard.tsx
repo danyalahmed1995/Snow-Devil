@@ -13,6 +13,7 @@ export function SimulatorCard({ entity, isSelected, onClick }: { entity: Simulat
       <span className="simulator-card__title" title={formatEntityTitle(entity)}>{formatEntityTitle(entity)}</span>
       <span className="simulator-card__repository" title={entity.repositoryId}>{entity.repositoryId}</span>
       <span className="simulator-card__date">{new Date(entity.updatedAt || entity.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+      {entity.baselineAtReplayStart && <span className="simulator-state simulator-state--review">{entity.baselineLabel ?? 'Existing at history start'}</span>}
       <span className="simulator-card__meta">
         {entity.author?.avatarUrl ? <img src={entity.author.avatarUrl} alt="" title={entity.author.login} /> : entity.author?.login ? <span className="simulator-avatar" title={entity.author.login}>{entity.author.login[0].toUpperCase()}</span> : null}
         {entity.commitCount > 0 && <span><GitCommitHorizontal size={12} />{entity.commitCount}</span>}

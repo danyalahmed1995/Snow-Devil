@@ -33,6 +33,7 @@ export function FlowCard({ item, isSelected, onClick, onOpen, variant = 'workben
       </div>
       
       <div className="flow-card-title" title={item.title}>{item.title}</div>
+      {item.inclusionReason && <div className="flow-card-relationship" title={item.viewerRelationship?.explanation}>{item.inclusionReason}</div>}
       
       <div className="flow-card-footer">
         {item.author && (

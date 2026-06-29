@@ -6,9 +6,9 @@ import type { AnalyticsSettings, RepositoryHealth } from '../../analytics/types'
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useFlowStore } from '../../stores/flow-store';
-import { useTabsStore } from '../../stores/tabs-store';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard, StatusPill, useAnalyticsTabRefresh } from './AnalyticsShared';
 import { Select } from '../ui/Select';
+import { useCurrentTabId } from '../workspace/TabInstanceContext';
 
 type HealthSortKey = 'repository' | 'status' | 'openBranches' | 'branchesOverThreshold' | 'oldestActiveHours' | 'integrationsPerWeek' | 'directPushes' | 'p50BranchHours' | 'p90BranchHours';
 
@@ -24,7 +24,7 @@ export function CIHealthPage() {
   const analytics = useAnalyticsData();
   useAnalyticsTabRefresh(analytics.refetch);
   const settings = useAnalyticsSettingsStore(state => state.settings);
-  const activeTabId = useTabsStore(state => state.activeTabId);
+  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
   const [repositoryId, setRepositoryId] = useState('all');
@@ -87,7 +87,7 @@ export function CIHealthPage() {
   useEffect(() => {
     if (selectedId?.startsWith('ci:') && !visibleRows.some(row => `ci:${row.repository.id}` === selectedId)) setTabState(activeTabId, { selectedAnalyticsEntity: undefined });
   }, [activeTabId, selectedId, setTabState, visibleRows]);
-  const inspectMetric = (title: string, value: string | number, definition: string, sampleCount = rows.length) => setTabState(activeTabId, { selectedAnalyticsEntity: { id: `ci:metric:${title}`, kind: 'ci_health', title, state: String(value), reason: definition, definition, sampleCount, coverage: dataset?.partial ? 'partial' : 'complete', confidence: dataset?.partial ? 'partial' : 'exact' } });
+  const inspectMetric = (title: string, value: string | number, definition: string, sampleCount = rows.length) => setTabState(activeTabId, { selectedAnalyticsEntity: { id: `ci:metric:${title}`, kind: 'ci_health', title, state: String(value), reason: definition, definition, sampleCount, coverage: dataset?.partial ? 'partial' : 'complete', confidence: dataset?.partial ? 'partial' : 'exact', lineage:{formula:definition,numerator:String(value),denominator:`${sampleCount} qualifying samples`,includedEntityTypes:['branch','default-branch integration'],excludedEntityTypes:['unsupported repositories','bot-only evidence excluded by settings'],repositoriesIncluded:rows.map(row=>row.repository.nameWithOwner),failedOrSkipped:dataset?.partialReasons??[],coverageStart:rangeStart,coverageEnd:dataset?.referenceDate,sampleCount,excludedOrIncompleteCount:rows.filter(row=>row.coverage!=='complete').length,timeBasis:title.includes('Lifetime')||title.includes('Threshold')?'business':'event timestamp',confidence:dataset?.partial?'partial':'exact',evidenceSources:['GitHub branch refs','pull-request merges','default-branch push observations']} } });
 
   return <AnalyticsPage title="CI Health Monitor" description="Track integration health and branch lifetime across your repositories" demo={analytics.mode === 'demo'} controls={<>
     <label>Repository<Select ariaLabel="CI repository scope" searchable value={repositoryId} onChange={setRepositoryId} options={[{ value: 'all', label: 'All included repositories' }, ...rows.map(row => ({ value: row.repository.id, label: row.repository.nameWithOwner }))]} /></label>

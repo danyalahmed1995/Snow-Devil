@@ -7,10 +7,11 @@ import {
   PanelRightClose,
   PanelRightOpen,
   LogOut,
-  Globe,
   Copy,
   ExternalLink,
   RotateCcw,
+  Snowflake,
+  Bell,
 } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
 import { useModeStore } from '../../stores/mode-store';
@@ -18,14 +19,15 @@ import { BrowserToolbar } from '../../browser/BrowserToolbar';
 import { AddressBar } from '../../navigation/AddressBar';
 import { resetLocalAppData } from '../../services/reset-local-app-data';
 import './TopBar.css';
-import { AppearanceMenu } from '../theme/AppearanceMenu';
 import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
+import { activeNotifications, effectiveUnread, useNotificationStore } from '../../stores/notification-store';
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
-  const { isAuthenticated, checkAuthStatus, disconnect } = useAuthStore();
+  const { isAuthenticated, checkAuthStatus, session } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const { mode, exitDemo, resetDemo } = useModeStore();
+  const notificationRecords=useNotificationStore(state=>state.records);const notificationRead=useNotificationStore(state=>state.localRead);const notificationSnoozed=useNotificationStore(state=>state.snoozedUntil);const unreadNotifications=activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
 
   const activeTabId = useTabsStore(s => s.activeTabId);
   const tabs = useTabsStore(s => s.tabs);
@@ -56,11 +58,11 @@ export function TopBar() {
           <button className="icon-button" onClick={toggleNavigator} aria-label="Toggle Navigator" title="Toggle Navigator">
             <Menu size={18} />
           </button>
-          <BrowserToolbar activeTab={activeBrowserTab} />
           <div className="app-title">
-            <Globe size={16} />
+            <span className="app-mark"><Snowflake size={17} /></span>
             <span>Snow Devil</span>
           </div>
+          <BrowserToolbar activeTab={activeBrowserTab} />
         </div>
         
         <div className="top-bar-center">
@@ -94,12 +96,12 @@ export function TopBar() {
             {mode === 'demo' ? (
               <>
                 <span className="demo-mode-badge">Demo Mode</span>
-                <button className="auth-btn" onClick={resetDemo}>Reset Demo</button>
+                <button className="icon-button" aria-label="Reset demo" title="Reset demo" onClick={resetDemo}><RotateCcw size={16}/></button>
                 <button className="icon-button" onClick={exitDemo} title="Exit Demo"><LogOut size={16} /></button>
               </>
-            ) : isAuthenticated ? (
-              <button className="icon-button" onClick={disconnect} title="Disconnect">
-                <LogOut size={16} />
+            ) : isAuthenticated && session.status === 'connected' ? (
+              <button className="topbar-account" onClick={() => useTabsStore.getState().openBrowserTab('github:profile','profile',session.account.login,`https://github.com/${session.account.login}`,false,true)} title="Open account" aria-label={`Open ${session.account.login} account`}>
+                <img src={session.account.avatarUrl} alt="" />
               </button>
             ) : (
               <button className="auth-btn" onClick={() => setShowAuthModal(true)}>
@@ -108,7 +110,7 @@ export function TopBar() {
             )}
           </div>
           <div className="divider" />
-          <AppearanceMenu />
+          <button className="icon-button topbar-notifications" aria-label={`Open notifications${unreadNotifications?` (${unreadNotifications} unread)`:''}`} title="Notifications" onClick={()=>useTabsStore.getState().openNativeTab('native:notifications','notifications','Notifications',false,true)}><Bell size={17}/>{unreadNotifications>0&&<span>{Math.min(99,unreadNotifications)}</span>}</button>
           <button className="icon-button" onClick={toggleInspector} aria-label={isInspectorOpen ? 'Close Inspector' : 'Open Inspector'} title={isInspectorOpen ? 'Close Inspector' : 'Open Inspector'}>
             {isInspectorOpen ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
           </button>

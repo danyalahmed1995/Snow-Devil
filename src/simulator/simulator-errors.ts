@@ -52,7 +52,7 @@ export function safeSimulatorTitle(category: SimulatorFailureCategory): string {
     case "authentication": return "Authentication required";
     case "rate_limit": return "GitHub rate limit reached";
     case "network": return "Offline or unreachable";
-    case "partial_source": return "Partial simulator history";
+    case "partial_source": return "Partial history data";
     case "invalid_response": return "Invalid GitHub response";
     case "cache_incompatible": return "Cached history needs rebuilding";
     case "normalization_failed": return "Simulator normalization failed";

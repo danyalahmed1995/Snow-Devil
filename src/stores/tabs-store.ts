@@ -51,7 +51,41 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'repositorySimulator',
   'repositoryExplorer',
   'pullRequestDiff',
+  'notifications',
+  'organizations',
+  'evidenceGraph',
 ]);
+
+export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
+  home: 'native:home',
+  flow: 'native:flow',
+  ciHealth: 'native:ci-health',
+  inventory: 'native:inventory',
+  flowAnalytics: 'native:flow-analytics',
+  personalFocus: 'native:personal-focus',
+  accountSimulator: 'native:account-simulator',
+  repositorySimulator: 'native:repository-simulator',
+  settings: 'native:settings',
+  notifications: 'native:notifications',
+  organizations: 'native:organizations',
+};
+
+export function fixedNativeTabId(kind: NativeTabKind): string | undefined {
+  return FIXED_NATIVE_TAB_IDS[kind];
+}
+
+export function isFixedNativeKind(kind: NativeTabKind): boolean {
+  return Boolean(fixedNativeTabId(kind));
+}
+
+function canonicalFixedTabId(id: string, kind: NativeTabKind): string | undefined {
+  if (id.startsWith('native:saved-view:')) return undefined;
+  return fixedNativeTabId(kind);
+}
+
+export function isFixedNativeTab(tab: NativeTab): boolean {
+  return fixedNativeTabId(tab.kind) === tab.id;
+}
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object';
@@ -85,8 +119,9 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
   }
   if (tab.family === 'native') {
     const kind = NATIVE_KINDS.has(tab.kind as NativeTabKind) ? tab.kind as NativeTabKind : 'home';
+    const canonicalId = canonicalFixedTabId(safeString(tab.id), kind);
     const normalized: NativeTab = {
-      id: safeString(tab.id, `native:${kind}`),
+      id: canonicalId ?? safeString(tab.id, `native:${kind}`),
       family: 'native',
       kind,
       title: safeString(tab.title, kind === 'home' ? 'Home' : 'Workspace'),
@@ -98,6 +133,7 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
     };
     if (normalized.kind === 'repositoryExplorer' && normalized.context?.type !== 'repository') return undefined;
     if (normalized.kind === 'pullRequestDiff' && normalized.context?.type !== 'pullRequest') return undefined;
+    if (normalized.kind === 'evidenceGraph' && normalized.context?.type !== 'evidenceGraph') normalized.context = { type: 'evidenceGraph' };
     return normalized;
   }
   if (tab.family === 'browser') {
@@ -112,6 +148,9 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
       currentUrl,
       history: Array.isArray(tab.history) && tab.history.every(item => typeof item === 'string') ? tab.history : [currentUrl],
       historyIndex: typeof tab.historyIndex === 'number' ? tab.historyIndex : 0,
+      isLoading: false,
+      error: typeof tab.error === 'string' ? tab.error : undefined,
+      parentTabId: typeof tab.parentTabId === 'string' ? tab.parentTabId : undefined,
       lifecycle: 'uninitialized',
       pinned: typeof tab.pinned === 'boolean' ? tab.pinned : false,
       closable: typeof tab.closable === 'boolean' ? tab.closable : true,
@@ -129,12 +168,27 @@ function normalizeKnownTab(tab: WorkspaceTab): WorkspaceTab {
   if (tab.id === 'github:profile' && isBrowserTab(tab)) {
     return { ...tab, pinned: false, closable: true };
   }
+  if (isNativeTab(tab) && tab.kind === 'accountSimulator') return { ...tab, title: 'Account History' };
+  if (isNativeTab(tab) && tab.kind === 'repositorySimulator') return { ...tab, title: 'Repository History' };
   return tab;
 }
 
-function normalizeRestoredTabs(tabs: unknown): WorkspaceTab[] {
+export function normalizeRestoredTabs(tabs: unknown): WorkspaceTab[] {
   const normalized = (Array.isArray(tabs) ? tabs : []).map(normalizeTab).filter((tab): tab is WorkspaceTab => !!tab).map(normalizeKnownTab);
-  return normalized.some(tab => tab.id === DEFAULT_HOME.id) ? normalized : [{ ...DEFAULT_HOME, createdAt: Date.now(), lastActivatedAt: Date.now() }, ...normalized];
+  const deduplicated = new Map<string, WorkspaceTab>();
+  for (const tab of normalized) {
+    const previous = deduplicated.get(tab.id);
+    if (!previous || tab.lastActivatedAt > previous.lastActivatedAt) deduplicated.set(tab.id, tab);
+  }
+  const values = [...deduplicated.values()].sort((left, right) => left.createdAt - right.createdAt);
+  return values.some(tab => tab.id === DEFAULT_HOME.id) ? values : [{ ...DEFAULT_HOME, createdAt: Date.now(), lastActivatedAt: Date.now() }, ...values];
+}
+
+export function normalizeRestoredActiveTabId(rawTabs: unknown, activeTabId: unknown, tabs: WorkspaceTab[]): string {
+  if (typeof activeTabId !== 'string' || !Array.isArray(rawTabs)) return 'native:home';
+  const raw = rawTabs.find(tab => isObject(tab) && tab.id === activeTabId);
+  const normalized = normalizeTab(raw);
+  return normalized && tabs.some(tab => tab.id === normalized.id) ? normalized.id : 'native:home';
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +219,7 @@ interface TabsState {
     url: string,
     pinned?: boolean,
     closable?: boolean,
+    parentTabId?: string,
   ) => void;
 
   /** Close a tab by ID (no-op for unclosable tabs). */
@@ -191,6 +246,8 @@ interface TabsState {
 
   /** Update the display title for a browser tab. */
   updateBrowserTabTitle: (id: string, title: string) => void;
+  updateBrowserTabLoading: (id: string, isLoading: boolean) => void;
+  updateBrowserTabError: (id: string, error?: string) => void;
 
   /** Update the lifecycle state for a browser tab. */
   updateBrowserTabLifecycle: (id: string, lifecycle: BrowserTab['lifecycle']) => void;
@@ -233,6 +290,9 @@ function migrateLegacyTabs(raw: unknown): { tabs: WorkspaceTab[]; activeTabId: s
   const alreadyMigrated = oldTabs.length > 0 && 'family' in oldTabs[0];
   if (alreadyMigrated) {
     if (activeTabId === 'system:dashboard') activeTabId = 'native:home';
+    const restoredActive = oldTabs.find(tab => tab.id === activeTabId);
+    const normalizedActive = normalizeTab(restoredActive);
+    if (normalizedActive) activeTabId = normalizedActive.id;
     const tabs = normalizeRestoredTabs(oldTabs as unknown as WorkspaceTab[]);
     if (!tabs.some(t => t.id === activeTabId)) activeTabId = 'native:home';
     return { tabs, activeTabId };
@@ -293,13 +353,14 @@ export const useTabsStore = create<TabsState>()(
       // ---------------------------------------------------------------
       openNativeTab: (id, kind, title, pinned = false, closable = true, context) => {
         const { tabs } = get();
-        const existing = tabs.find(t => t.id === id);
+        const canonicalId = canonicalFixedTabId(id, kind) ?? id;
+        const existing = tabs.find(t => t.id === canonicalId);
         const now = Date.now();
 
         if (existing) {
           set({
-            activeTabId: id,
-            tabs: tabs.map(t => t.id === id
+            activeTabId: existing.id,
+            tabs: tabs.map(t => t.id === existing.id
               ? { ...t, ...(t.family === 'native' && context ? { context } : {}), lastActivatedAt: now }
               : t),
           });
@@ -307,7 +368,7 @@ export const useTabsStore = create<TabsState>()(
         }
 
         const newTab: NativeTab = {
-          id,
+          id: canonicalId,
           family: 'native',
           kind,
           title,
@@ -318,11 +379,11 @@ export const useTabsStore = create<TabsState>()(
           context,
         };
 
-        set({ tabs: [...tabs, newTab], activeTabId: id });
+        set({ tabs: [...tabs, newTab], activeTabId: canonicalId });
       },
 
       // ---------------------------------------------------------------
-      openBrowserTab: (id, kind, title, url, pinned = false, closable = true) => {
+      openBrowserTab: (id, kind, title, url, pinned = false, closable = true, parentTabId) => {
         const { tabs, activeTabId, navigationGeneration } = get();
         const canonical = normalizeGithubUrl(url) ?? url;
         const existing = tabs.find(t => t.id === id || isBrowserTab(t) && (normalizeGithubUrl(t.canonicalUrl ?? t.currentUrl) ?? t.canonicalUrl ?? t.currentUrl) === canonical);
@@ -350,6 +411,8 @@ export const useTabsStore = create<TabsState>()(
           currentUrl: canonical,
           history: [canonical],
           historyIndex: 0,
+          isLoading: true,
+          parentTabId,
           lifecycle: "uninitialized",
           pinned,
           closable,
@@ -376,7 +439,9 @@ export const useTabsStore = create<TabsState>()(
 
         if (activeTabId === id) {
           const index = tabs.findIndex(t => t.id === id);
-          if (index > 0) {
+          if (isBrowserTab(tabToClose) && tabToClose.parentTabId && newTabs.some(tab => tab.id === tabToClose.parentTabId)) {
+            newActiveId = tabToClose.parentTabId;
+          } else if (index > 0) {
             newActiveId = tabs[index - 1].id;
           } else if (newTabs.length > 0) {
             newActiveId = newTabs[0].id;
@@ -458,6 +523,7 @@ export const useTabsStore = create<TabsState>()(
                 currentUrl: url,
                 history: newHistory,
                 historyIndex: newIndex,
+                error: undefined,
               };
             }
             return t;
@@ -525,6 +591,9 @@ export const useTabsStore = create<TabsState>()(
           ),
         });
       },
+
+      updateBrowserTabLoading: (id, isLoading) => set({ tabs: get().tabs.map(tab => tab.id === id && isBrowserTab(tab) ? { ...tab, isLoading } : tab) }),
+      updateBrowserTabError: (id, error) => set({ tabs: get().tabs.map(tab => tab.id === id && isBrowserTab(tab) ? { ...tab, error, isLoading: error ? false : tab.isLoading } : tab) }),
 
       updateBrowserTabLifecycle: (id, lifecycle) => {
         set({
@@ -629,11 +698,12 @@ export const useTabsStore = create<TabsState>()(
         if (!persisted || typeof persisted !== 'object') return current;
         const state = persisted as Partial<TabsState>;
         const tabs = normalizeRestoredTabs(state.tabs);
+        const canonicalActiveId = normalizeRestoredActiveTabId(state.tabs, state.activeTabId, tabs);
         return {
           ...current,
           ...state,
           tabs,
-          activeTabId: tabs.some(tab => tab.id === state.activeTabId) ? state.activeTabId! : 'native:home',
+          activeTabId: tabs.some(tab => tab.id === canonicalActiveId) ? canonicalActiveId! : 'native:home',
           closedTabs: normalizeRestoredTabs(state.closedTabs ?? []).filter(tab => tab.id !== 'native:home'),
           navigationGeneration: typeof state.navigationGeneration === 'number' ? state.navigationGeneration : current.navigationGeneration,
         };

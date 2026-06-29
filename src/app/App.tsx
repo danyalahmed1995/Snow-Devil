@@ -3,12 +3,13 @@ import { queryClient } from './providers';
 import { Layout } from '../components/layout/Layout';
 import { useEffect } from 'react';
 import { useTabsStore } from '../stores/tabs-store';
-import { onBrowserNavigation, onBrowserOpenEntity } from '../browser/browser-events';
+import { onBrowserError, onBrowserLoadFinished, onBrowserLoadStarted, onBrowserNavigation, onBrowserOpenEntity, onBrowserTitle } from '../browser/browser-events';
 import { classifyGithubUrl, tabIdForUrl, titleForGithubUrl } from '../browser/browser-url';
 import '../styles/globals.css';
 import { CommandPalette } from '../components/palette/CommandPalette';
 import { ThemeProvider } from '../components/theme/ThemeProvider';
 import { AppErrorBoundary } from '../components/error/AppErrorBoundary';
+import { ActiveBrowserRuntimeSync } from '../browser/ActiveBrowserRuntimeSync';
 
 function BrowserEventOrchestrator() {
   useEffect(() => {
@@ -24,12 +25,20 @@ function BrowserEventOrchestrator() {
       const kind = classifyGithubUrl(event.url);
       const newTabId = tabIdForUrl(event.url); // Use semantic tab ID without login (login isn't needed for entities)
       const title = titleForGithubUrl(event.url);
-      openBrowserTab(newTabId, kind, title, event.url, false, true);
+      openBrowserTab(newTabId, kind, title, event.url, false, true, event.tabId);
     });
+    const unlistenTitle = onBrowserTitle(event => useTabsStore.getState().updateBrowserTabTitle(event.tabId, event.title));
+    const unlistenError = onBrowserError(event => useTabsStore.getState().updateBrowserTabError(event.tabId, event.error));
+    const unlistenStarted = onBrowserLoadStarted(event => { const state = useTabsStore.getState(); state.updateBrowserTabError(event.tabId, undefined); state.updateBrowserTabLoading(event.tabId, true); });
+    const unlistenFinished = onBrowserLoadFinished(event => useTabsStore.getState().updateBrowserTabLoading(event.tabId, false));
 
     return () => {
       unlistenNav.then(u => u());
       unlistenEntity.then(u => u());
+      unlistenTitle.then(u => u());
+      unlistenError.then(u => u());
+      unlistenStarted.then(u => u());
+      unlistenFinished.then(u => u());
     };
   }, []);
 
@@ -40,6 +49,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserEventOrchestrator />
+      <ActiveBrowserRuntimeSync />
       <ThemeProvider />
       <AppErrorBoundary>
         <Layout />

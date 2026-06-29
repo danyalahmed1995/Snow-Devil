@@ -1,16 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg-primary: #080d14;
-  --bg-secondary: #0d141e;
-  --bg-tertiary: #131d29;
-  --bg-elevated: #111a25;
-  --surface: #111a25;
-  --surface-panel: #0d1620;
-  --surface-nested: #0a111a;
-  --surface-glass: rgba(13, 21, 31, 0.78);
-  --surface-glass-strong: rgba(10, 17, 26, 0.92);
-  --surface-hover: rgba(89, 154, 224, 0.10);
-  --surface-selected: rgba(47, 129, 247, 0.16);
+  --bg-primary: #07101d;
+  --bg-secondary: #0a1626;
+  --bg-tertiary: #10213a;
+  --bg-elevated: #12243d;
+  --surface: #0d1b2e;
+  --surface-panel: #0a1728;
+  --surface-nested: #071321;
+  --surface-glass: rgba(12, 27, 47, 0.88);
+  --surface-glass-strong: rgba(8, 20, 35, 0.96);
+  --surface-hover: rgba(91, 145, 255, 0.11);
+  --surface-selected: rgba(57, 120, 255, 0.22);
 
   --border-subtle: rgba(174, 204, 235, 0.09);
   --border-standard: rgba(174, 204, 235, 0.15);
@@ -19,9 +19,9 @@
   --border: var(--border-standard);
   --border-color: var(--border-standard);
 
-  --text-primary: #e6edf3;
-  --text-secondary: #9eacba;
-  --text-muted: #718091;
+  --text-primary: #f1f6ff;
+  --text-secondary: #b4c3d9;
+  --text-muted: #7f91aa;
   --text-disabled: color-mix(in srgb, var(--text-muted) 64%, transparent);
   --text-on-accent: #ffffff;
   --text-on-success: #ffffff;
@@ -29,10 +29,10 @@
   --text-on-danger: #ffffff;
   --text: var(--text-primary);
 
-  --accent: #3b8ef3;
+  --accent: #3978ff;
   --accent-primary: var(--accent);
   --accent-color: var(--accent);
-  --accent-hover: #65a8f8;
+  --accent-hover: #5d91ff;
   --primary: var(--accent);
   --success: #3fb950;
   --success-color: var(--success);
@@ -109,4 +109,61 @@
   --pipeline-review: #b392f0;
   --pipeline-checks: #d6a84b;
   --pipeline-delivery: #3fb950;
+
+  /* Canonical composition tokens shared by every native surface. */
+  --surface-app: #06101d;
+  --surface-shell: rgba(8, 20, 36, 0.94);
+  --surface-topbar: rgba(12, 28, 49, 0.88);
+  --surface-sidebar: rgba(11, 27, 47, 0.9);
+  --surface-tabstrip: rgba(11, 26, 45, 0.9);
+  --surface-content: #071321;
+  --surface-card: rgba(17, 37, 64, 0.84);
+  --surface-card-nested: rgba(8, 22, 39, 0.82);
+  --surface-inspector: rgba(10, 24, 42, 0.94);
+  --surface-popover: rgba(12, 28, 49, 0.98);
+  --surface-modal: rgba(9, 23, 40, 0.98);
+  --surface-active: rgba(58, 119, 255, 0.2);
+  --accent-active: #4380ff;
+  --neutral: #8ea1bb;
+  --divider: rgba(158, 191, 232, 0.1);
+  --acrylic-tint: 12, 29, 51;
+  --acrylic-opacity: 0.88;
+  --acrylic-blur: 18px;
+  --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  --outer-shadow: 0 18px 48px rgba(0, 5, 16, 0.34);
+  --selected-glow: 0 0 0 1px rgba(94, 148, 255, 0.35), 0 8px 24px rgba(24, 80, 190, 0.18);
+  --popover-shadow: 0 24px 64px rgba(0, 4, 14, 0.58);
+  --type-product: 15px;
+  --type-page-title: clamp(22px, 1.55vw, 27px);
+  --type-page-subtitle: 12px;
+  --type-section-title: 14px;
+  --type-card-title: 12px;
+  --type-metric: 25px;
+  --type-body: 12px;
+  --type-meta: 10px;
+  --type-label: 10px;
+  --type-badge: 10px;
+  --type-code: 11px;
+  --type-button: 11px;
+  --app-gutter: 7px;
+  --sidebar-width: 232px;
+  --inspector-width: 334px;
+  --inspector-min-width: 280px;
+  --inspector-max-width: 520px;
+  --card-padding: 14px;
+  --control-height: 34px;
+  --list-row-height: 42px;
+  --tab-height: 34px;
+  --section-gap: 16px;
+  --panel-gap: 12px;
+  --compact-gap: 7px;
+  --radius-standard: 8px;
+  --radius-card: 12px;
+  --radius-popover: 12px;
+  --radius-button: 7px;
+  --motion-hover: 120ms;
+  --motion-selection: 160ms;
+  --motion-inspector: 180ms;
+  --motion-tab: 140ms;
+  --motion-menu: 150ms;
 }

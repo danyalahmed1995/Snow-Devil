@@ -88,4 +88,25 @@ describe('FlowPipeline', () => {
     expect(container.querySelectorAll('.flow-workbench-lane')).toHaveLength(1);
     expect(screen.getByText('Issues')).toBeInTheDocument();
   });
+
+  it('switches a selected stage to the dedicated focused grid contract', () => {
+    const { container } = render(<FlowPipeline items={Array.from({ length: 5 }, (_, index) => flowItem(index + 1))} sourceControls={sources} focusedStage="issues" resetKey="focused-issues" />);
+    expect(container.querySelector('.flow-lane-scroller')).toHaveClass('flow-lane-scroller--focused');
+    expect(container.querySelector('.flow-workbench-pipeline')).toHaveClass('flow-workbench-pipeline--focused');
+    expect(container.querySelectorAll('.flow-workbench-lane')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /issue #/i })).toHaveLength(5);
+  });
+
+  it('keeps the focused scroll owner stable while cards append and across remounts', () => {
+    const { container, unmount } = render(<FlowPipeline items={Array.from({ length: 8 }, (_, index) => flowItem(index + 1))} sourceControls={sources} focusedStage="issues" resetKey="focused-scroll" />);
+    const scroller = container.querySelector<HTMLElement>('.flow-lane-scroller--focused')!;
+    expect(scroller).toHaveAttribute('tabindex', '0');
+    scroller.scrollTop = 180;
+    fireEvent.scroll(scroller);
+    fireEvent.click(screen.getByRole('button', { name: 'Show 3 more' }));
+    expect(scroller.scrollTop).toBe(180);
+    unmount();
+    const restored = render(<FlowPipeline items={Array.from({ length: 8 }, (_, index) => flowItem(index + 1))} sourceControls={sources} focusedStage="issues" resetKey="focused-scroll" />).container.querySelector<HTMLElement>('.flow-lane-scroller--focused')!;
+    expect(restored.scrollTop).toBe(180);
+  });
 });

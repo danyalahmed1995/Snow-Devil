@@ -6,3 +6,4 @@ pub mod sync;
 pub mod flow;
 pub mod simulator;
 pub mod analytics;
+pub mod diagnostics;

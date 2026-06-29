@@ -58,7 +58,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
   { label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native', nativeKind: 'flowAnalytics', pinned: false, closable: true },
   { label: 'Personal Focus', tabId: 'native:personal-focus', family: 'native', nativeKind: 'personalFocus', pinned: false, closable: true },
   {
-    label: 'Account Simulator',
+    label: 'Account History',
     tabId: 'native:account-simulator',
     family: 'native',
     nativeKind: 'accountSimulator',
@@ -66,7 +66,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     closable: true,
   },
   {
-    label: 'Repository Simulator',
+    label: 'Repository History',
     tabId: 'native:repository-simulator',
     family: 'native',
     nativeKind: 'repositorySimulator',
@@ -78,6 +78,6 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
   { label: 'Repositories', tabId: 'github:repositories', family: 'browser', browserKind: 'repositories', urlTemplate: (login) => `https://github.com/${login}?tab=repositories`, pinned: false, closable: true },
   { label: 'Pull requests', tabId: 'github:pull-requests', family: 'browser', browserKind: 'pullRequests', urlTemplate: () => 'https://github.com/pulls', pinned: false, closable: true },
   { label: 'Issues', tabId: 'github:issues', family: 'browser', browserKind: 'issues', urlTemplate: () => 'https://github.com/issues', pinned: false, closable: true },
-  { label: 'Notifications', tabId: 'github:notifications', family: 'browser', browserKind: 'notifications', urlTemplate: () => 'https://github.com/notifications', pinned: false, closable: true },
-  { label: 'Organizations', tabId: 'github:organizations', family: 'browser', browserKind: 'organizations', urlTemplate: () => 'https://github.com/settings/organizations', pinned: false, closable: true },
+  { label: 'Notifications', tabId: 'native:notifications', family: 'native', nativeKind: 'notifications', pinned: false, closable: true },
+  { label: 'Organizations', tabId: 'native:organizations', family: 'native', nativeKind: 'organizations', pinned: false, closable: true },
 ];

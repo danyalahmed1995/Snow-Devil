@@ -9,6 +9,7 @@ export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   includeForks: false,
   includePrivate: true,
   includeBots: false,
+  analyticsIncludeBots: false,
   includeDependabot: false,
   includeRenovate: false,
   includeOtherBots: false,
@@ -51,7 +52,7 @@ export const useAnalyticsSettingsStore = create<AnalyticsSettingsStore>()(persis
   resetSettings: () => set({ settings: DEFAULT_ANALYTICS_SETTINGS }),
 }), {
   name: 'snow-devil-analytics-settings',
-  version: 1,
+  version: 2,
   merge: (persisted, current) => {
     const saved = persisted as Partial<AnalyticsSettingsStore>;
     const savedSettings = saved.settings ?? DEFAULT_ANALYTICS_SETTINGS;
@@ -61,6 +62,7 @@ export const useAnalyticsSettingsStore = create<AnalyticsSettingsStore>()(persis
       settings: {
         ...DEFAULT_ANALYTICS_SETTINGS,
         ...savedSettings,
+        analyticsIncludeBots: savedSettings.analyticsIncludeBots ?? savedSettings.includeBots ?? false,
         inventoryThresholds: { ...DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds, ...savedSettings.inventoryThresholds },
         repositoryOverrides: savedSettings.repositoryOverrides ?? {},
       },

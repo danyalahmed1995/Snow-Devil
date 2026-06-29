@@ -1,24 +1,21 @@
 import type { SimulatorEntityState, SimulatorEvent } from "../../../simulator/simulator-types";
+import { deriveSimulatorMetrics } from '../../../simulator/simulator-metrics';
 
-export function SimulatorMetrics({ entities, events }: { entities: SimulatorEntityState[]; events: SimulatorEvent[] }) {
-  const prs = entities.filter(entity => entity.subjectType === "pull_request");
-  const issues = entities.filter(entity => entity.subjectType === "issue");
-  const merged = prs.filter(entity => entity.mergedAt);
-  const mergeDurations = merged.filter(entity => entity.createdAt && entity.mergedAt).map(entity => new Date(entity.mergedAt!).getTime() - new Date(entity.createdAt).getTime());
-  const avgMerge = mergeDurations.length ? `${(mergeDurations.reduce((sum, duration) => sum + duration, 0) / mergeDurations.length / 86400000).toFixed(1)}d` : "-";
+export function SimulatorMetrics({ entities, events, partialSourceCount = 0 }: { entities: SimulatorEntityState[]; events: SimulatorEvent[]; partialSourceCount?: number }) {
+  const values = deriveSimulatorMetrics(entities, events, partialSourceCount);
   const metrics = [
-    ["Open issues", issues.filter(entity => entity.status === "open").length],
-    ["Active PRs", prs.filter(entity => entity.status === "open").length],
-    ["Merged PRs", merged.length],
-    ["Time to merge", avgMerge],
-    ["Failed checks", prs.filter(entity => entity.checkState === "failure").length],
-    ["Checks passed", prs.filter(entity => entity.checkState === "success").length],
-    ["Review requested", prs.filter(entity => entity.reviewState === "requested").length],
-    ["Changes requested", prs.filter(entity => entity.reviewState === "changes_requested").length],
-    ["Releases", entities.filter(entity => entity.subjectType === "release").length],
-    ["Deployments", entities.filter(entity => entity.stage === "deployed").length],
-    ["Events", events.length],
-    ["Partial sources", events.filter(event => event.sourceCompleteness === "partial").length],
+    ["Open issues", values.openIssues],
+    ["Active PRs", values.activePullRequests],
+    ["Merged PRs", values.mergedPullRequests],
+    ["Time to merge", values.averageMerge],
+    ["Failed checks", values.failedChecks],
+    ["Checks passed", values.checksPassed],
+    ["Review requested", values.reviewRequested],
+    ["Changes requested", values.changesRequested],
+    ["Releases", values.releases],
+    ["Deployments", values.deployments],
+    ["Events", values.events],
+    ["Partial sources", values.partialSources],
   ];
-  return <section className="simulator-panel simulator-metrics"><header className="simulator-panel__header"><h3>Metrics <span>(current cursor)</span></h3></header><div className="simulator-metrics__grid">{metrics.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div></section>;
+  return <section className="simulator-panel simulator-metrics"><header className="simulator-panel__header"><h3>Metrics <span>(selected date)</span></h3></header><div className="simulator-metrics__grid">{metrics.map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div></section>;
 }

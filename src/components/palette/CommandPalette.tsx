@@ -13,7 +13,7 @@ type PaletteMode = 'search' | 'files' | 'commands';
 interface PaletteResult extends RankableResult { group: string; path?: string; number?: number; url?: string; command?: () => void; route?: { id: string; kind: NativeTabKind; title: string } }
 
 const ROUTES: PaletteResult[] = [
-  ['home','Home','home'],['flow','Flow','flow'],['ci-health','CI Health','ciHealth'],['inventory','Delivery Inventory','inventory'],['flow-analytics','Flow Analytics','flowAnalytics'],['personal-focus','Personal Focus','personalFocus'],['account-simulator','Account Simulator','accountSimulator'],['repository-simulator','Repository Simulator','repositorySimulator'],['settings','Settings','settings'],
+  ['home','Home','home'],['flow','Flow','flow'],['ci-health','CI Health','ciHealth'],['inventory','Delivery Inventory','inventory'],['flow-analytics','Flow Analytics','flowAnalytics'],['personal-focus','Personal Focus','personalFocus'],['account-simulator','Account History','accountSimulator'],['repository-simulator','Repository History','repositorySimulator'],['settings','Settings','settings'],
 ].map(([id,title,kind]) => ({ id:`command:${id}`, type:'command', group:'Commands', title:`Go to ${title}`, source:'local', route:{id:`native:${id}`,kind:kind as NativeTabKind,title} }));
 
 const DEMO_RESULTS: PaletteResult[] = [
@@ -81,6 +81,7 @@ export function CommandPalette() {
     return [
       { id:'command:explorer',type:'command',group:'Commands',title:'Open repository explorer',source:'local',command:() => openRepository('nova-labs/snow-devil', false) },
       { id:'command:inspector',type:'command',group:'Commands',title:'Toggle Inspector',source:'local',command:() => useLayoutStore.getState().toggleInspector() },
+      { id:'command:evidence-graph',type:'command',group:'Commands',title:'Open lifecycle evidence graph',subtitle:'Bounded synchronized evidence',source:'local',command:() => tabs.openNativeTab('native:evidence-graph','evidenceGraph','Evidence Graph',false,true,{type:'evidenceGraph'}) },
       { id:'command:close-tab',type:'command',group:'Commands',title:'Close current tab',source:'local',command:() => tabs.closeTab(tabs.activeTabId) },
       ...(mode === 'demo' ? [
         { id:'command:reset-demo',type:'command',group:'Commands',title:'Reset Demo',source:'local' as const,command:modeState.resetDemo },

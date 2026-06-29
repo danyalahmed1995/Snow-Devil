@@ -319,6 +319,8 @@ pub async fn fetch_pr_details(
                     author { login }
                     createdAt
                     reviewDecision
+                    baseRefName
+                    headRefName
                     commits(last: 1) {
                         nodes {
                             commit {
@@ -459,4 +461,40 @@ pub async fn execute_rest(
 
     let json_res: serde_json::Value = res.json().await?;
     Ok(json_res)
+}
+
+pub async fn search_repository(
+    owner: &str,
+    name: &str,
+    query: &str,
+    page: u32,
+    per_page: u32,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let bounded_page = page.max(1);
+    let bounded_per_page = per_page.clamp(1, 100);
+    let repository_qualifier = format!("repo:{}/{}", owner, name);
+    let effective_query = if query.contains(&repository_qualifier) {
+        query.to_string()
+    } else {
+        format!("{} {}", query, repository_qualifier)
+    };
+    let mut url = url::Url::parse(&format!("{}/search/code", REST_URL))?;
+    url.query_pairs_mut()
+        .append_pair("q", &effective_query)
+        .append_pair("page", &bounded_page.to_string())
+        .append_pair("per_page", &bounded_per_page.to_string());
+    let response = Client::new()
+        .get(url)
+        .bearer_auth(&token)
+        .header("User-Agent", "snow-devil")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?;
+    let status = response.status();
+    if !status.is_success() {
+        let message = response.text().await.unwrap_or_default();
+        return Err(format!("GitHub repository search failed ({}): {}", status, message).into());
+    }
+    Ok(response.json().await?)
 }

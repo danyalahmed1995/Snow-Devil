@@ -8,6 +8,7 @@ import type {
   AnalyticsSettings,
   CiStatus,
   DeliveryEntity,
+  DeliveryEvent,
   InventoryItem,
   InventoryType,
   LeadTimeMetric,
@@ -134,33 +135,42 @@ function inventoryCandidate(entity: DeliveryEntity, repository: AnalyticsReposit
 export function inventoryItems(dataset: AnalyticsDataset, settings: AnalyticsSettings): InventoryItem[] {
   const repositoryMap = new Map(includedRepositories(dataset, settings).map(repository => [repository.id, repository]));
   const calendar = calendarFromSettings(settings);
-  const aggregate = new Map<string, DeliveryEntity>();
+  const aggregate = new Map<string, { canonicalKey: string; entity: DeliveryEntity; checkObservedAt: string; evidenceEntityIds: Set<string> }>();
   dataset.entities.forEach(entity => {
     const linked = entity.type === 'workflow_run' || entity.type === 'check_run'
       ? dataset.entities.find(candidate => candidate.repositoryId === entity.repositoryId && candidate.type === 'pull_request' && entity.branchName && candidate.branchName === entity.branchName)
       : undefined;
     const target = linked ?? entity;
-    const identity = uniqueWorkItemIdentity({ ...target, linkedEntityId: linked?.id });
+    const stableWorkflowIdentity = entity.workflowId ?? entity.workflowPath ?? entity.title.toLowerCase();
+    const identity = linked ? uniqueWorkItemIdentity(target)
+      : entity.type === 'workflow_run' || entity.type === 'check_run'
+        ? `${entity.repositoryId}:automation:${stableWorkflowIdentity}:${entity.branchName ?? 'unlinked'}`
+        : uniqueWorkItemIdentity(target);
     const current = aggregate.get(identity);
     if (!current) {
-      aggregate.set(identity, { ...target, evidence: [...(target.evidence ?? []), ...(linked && linked.id !== entity.id ? entity.evidence ?? [] : [])], checkState: entity.checkState === 'failure' ? 'failure' : target.checkState });
+      aggregate.set(identity, { canonicalKey: identity, entity: { ...target, workflowId: entity.workflowId ?? target.workflowId, workflowPath: entity.workflowPath ?? target.workflowPath, runId: undefined, evidence: [...(target.evidence ?? []), ...(linked && linked.id !== entity.id ? entity.evidence ?? [] : [])], checkState: entity.checkState ?? target.checkState }, checkObservedAt: entity.checkState ? entity.updatedAt : target.updatedAt, evidenceEntityIds: new Set([entity.id]) });
       return;
     }
-    aggregate.set(identity, {
-      ...current,
-      updatedAt: current.updatedAt > entity.updatedAt ? current.updatedAt : entity.updatedAt,
-      checkState: current.checkState === 'failure' || entity.checkState === 'failure' ? 'failure' : current.checkState ?? entity.checkState,
-      evidence: [...new Set([...(current.evidence ?? []), ...(entity.evidence ?? [])])],
-      sourceCompleteness: current.sourceCompleteness === 'complete' && entity.sourceCompleteness === 'complete' ? 'complete' : 'partial',
-    });
+    if (linked) current.evidenceEntityIds.delete(target.id);
+    current.evidenceEntityIds.add(entity.id);
+    const checkIsNewer = Boolean(entity.checkState) && entity.updatedAt >= current.checkObservedAt;
+    aggregate.set(identity, { ...current, checkObservedAt: checkIsNewer ? entity.updatedAt : current.checkObservedAt, entity: {
+      ...current.entity,
+      updatedAt: current.entity.updatedAt > entity.updatedAt ? current.entity.updatedAt : entity.updatedAt,
+      checkState: checkIsNewer ? entity.checkState : current.entity.checkState,
+      evidence: [...new Set([...(current.entity.evidence ?? []), ...(entity.evidence ?? [])])],
+      sourceCompleteness: current.entity.sourceCompleteness === 'complete' && entity.sourceCompleteness === 'complete' ? 'complete' : 'partial',
+    } });
   });
-  return [...aggregate.values()].flatMap(entity => {
+  return [...aggregate.values()].flatMap(group => {
+    const entity = group.entity;
     const baseRepository = repositoryMap.get(entity.repositoryId);
     const actor = entity.actorClassification ?? classifyActor(entity.author, entity.isBot);
     if (!baseRepository || !isActorIncluded(actor, { includeBots: settings.includeBots, includeDependabot: settings.includeDependabot, includeRenovate: settings.includeRenovate })) return [];
     const effective = effectiveRepositorySettings(settings, baseRepository.id);
     const repository = { ...baseRepository, releaseMatching: effective.releaseMatching ?? baseRepository.releaseMatching, deploymentMatching: effective.deploymentMatching ?? baseRepository.deploymentMatching };
     const thresholds = effective.inventoryThresholds;
+    if (entity.type === 'branch' && (entity.state === 'closed' || dataset.branches.some(branch => branch.repositoryId === entity.repositoryId && branch.name === entity.branchName && branch.deletedAt))) return [];
     const ageBusinessDays = businessDaysBetween(entity.updatedAt, dataset.referenceDate, calendar);
     if ((entity.type === 'branch' || entity.isDraft) && ageBusinessDays < thresholds.staleDays) return [];
     const activity = classifyActivity(entity, { referenceTime: dataset.referenceDate, activeWindowDays: Math.max(30, thresholds.staleDays * 3), agingDays: thresholds.agingDays, staleDays: thresholds.staleDays });
@@ -170,9 +180,9 @@ export function inventoryItems(dataset: AnalyticsDataset, settings: AnalyticsSet
     const relationshipIds = dataset.relationships
       .filter(relationship => relationship.sourceId === entity.id || relationship.targetId === entity.id)
       .map(relationship => relationship.sourceId === entity.id ? relationship.targetId : relationship.sourceId);
-    const failures = dataset.events.filter(event => event.entityId === entity.id && ['check_failed', 'workflow_failed'].includes(event.type));
+    const failures = dataset.events.filter(event => group.evidenceEntityIds.has(event.entityId) && ['check_failed', 'workflow_failed'].includes(event.type));
     return [{
-      id: `inventory:${entity.id}:${candidate.type}`,
+      id: `inventory:${group.canonicalKey}:${candidate.type}`,
       entity,
       repository,
       type: candidate.type,
@@ -185,10 +195,13 @@ export function inventoryItems(dataset: AnalyticsDataset, settings: AnalyticsSet
       confidence: confidenceFromEvidence({ completeness: entity.sourceCompleteness, linked: entity.type === 'workflow_run' || entity.type === 'check_run' ? false : undefined }),
       entityType: entity.type,
       inventoryReason: candidate.reason,
-      evidenceCount: entity.evidence?.length ?? 0,
+      evidenceCount: group.evidenceEntityIds.size,
       firstFailureAt: failures[0]?.occurredAt,
       latestFailureAt: failures[failures.length - 1]?.occurredAt,
       missingEvidence: entity.missingEvidence,
+      latestRunStatus: entity.checkState,
+      resolutionRule: entity.type === 'workflow_run' || entity.type === 'check_run' ? 'A newer successful run for the same workflow and branch resolves this condition.' : 'Newer canonical lifecycle evidence resolves this condition.',
+      canonicalKey: group.canonicalKey,
     } satisfies InventoryItem];
   }).sort((a, b) => b.ageBusinessDays - a.ageBusinessDays);
 }
@@ -269,25 +282,45 @@ export interface FlowSnapshot {
   released: number;
 }
 
-function stageAt(entity: DeliveryEntity, timestamp: number): keyof Omit<FlowSnapshot, 'date'> | null {
-  if (new Date(entity.createdAt).getTime() > timestamp) return null;
-  if (entity.deployedAt && new Date(entity.deployedAt).getTime() <= timestamp) return 'deployed';
-  if (entity.releasedAt && new Date(entity.releasedAt).getTime() <= timestamp) return 'released';
-  if (entity.mergedAt && new Date(entity.mergedAt).getTime() <= timestamp) return 'merged';
-  if (entity.checkState && ['queued', 'running', 'failure'].includes(entity.checkState) && new Date(entity.updatedAt).getTime() <= timestamp) return 'checks';
-  if (entity.firstReviewAt && new Date(entity.firstReviewAt).getTime() <= timestamp) return 'review';
-  if (entity.prOpenedAt && new Date(entity.prOpenedAt).getTime() <= timestamp) return entity.reviewState === 'approved' && entity.checkState === 'success' ? 'ready' : 'pullRequests';
-  if (entity.firstCommitAt && new Date(entity.firstCommitAt).getTime() <= timestamp) return 'coding';
-  return 'issues';
+function eventStage(type: DeliveryEvent['type']): keyof Omit<FlowSnapshot, 'date'> | null {
+  if (type === 'opened') return 'pullRequests';
+  if (type === 'committed' || type === 'converted_to_draft') return 'coding';
+  if (['review_requested', 'review_submitted', 'approved', 'changes_requested'].includes(type)) return type === 'approved' ? 'ready' : 'review';
+  if (type.startsWith('check_') || type.startsWith('workflow_')) return type.endsWith('succeeded') ? null : 'checks';
+  if (type === 'merged') return 'merged';
+  if (type === 'released') return 'released';
+  if (type === 'deployment_succeeded') return 'deployed';
+  return null;
+}
+
+function stageAt(entity: DeliveryEntity, entityIds: Set<string>, events: DeliveryEvent[], timestamp: number, createdAt: string): keyof Omit<FlowSnapshot, 'date'> | null {
+  if (new Date(createdAt).getTime() > timestamp) return null;
+  let stage: keyof Omit<FlowSnapshot, 'date'> = entity.type === 'issue' ? 'issues' : entity.firstCommitAt && new Date(entity.firstCommitAt).getTime() <= timestamp ? 'coding' : 'pullRequests';
+  const history = events.filter(event => entityIds.has(event.entityId) && new Date(event.occurredAt).getTime() <= timestamp).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  for (const event of history) {
+    const explicit = event.stage === 'pull_requests' ? 'pullRequests' : event.stage && event.stage !== 'closed' ? event.stage as keyof Omit<FlowSnapshot, 'date'> : undefined;
+    const next = explicit ?? eventStage(event.type);
+    if (next) stage = next;
+  }
+  return stage;
 }
 
 export function cumulativeFlow(dataset: AnalyticsDataset, rangeDays: number, repositoryId?: string): FlowSnapshot[] {
   const end = new Date(dataset.referenceDate).getTime();
+  const linkedIssueToPr = new Map(dataset.relationships.filter(relationship => relationship.kind === 'implemented_by').map(relationship => [relationship.sourceId, relationship.targetId]));
+  const work = dataset.entities.filter(entity => ['issue', 'pull_request'].includes(entity.type) && (!repositoryId || entity.repositoryId === repositoryId)).flatMap(entity => linkedIssueToPr.has(entity.id) ? [] : [{ entity, entityIds: new Set([entity.id]), createdAt: entity.createdAt }]);
+  for (const [issueId, prId] of linkedIssueToPr) {
+    const issue = dataset.entities.find(entity => entity.id === issueId);
+    const pr = dataset.entities.find(entity => entity.id === prId);
+    if (!pr || repositoryId && pr.repositoryId !== repositoryId) continue;
+    const existing = work.find(item => item.entity.id === pr.id);
+    if (existing) { existing.entityIds.add(issueId); if (issue && issue.createdAt < existing.createdAt) existing.createdAt = issue.createdAt; }
+  }
   return Array.from({ length: rangeDays }, (_, index) => {
     const timestamp = end - (rangeDays - index - 1) * DAY;
     const snapshot: FlowSnapshot = { date: new Date(timestamp).toISOString().slice(0, 10), issues: 0, coding: 0, pullRequests: 0, review: 0, checks: 0, ready: 0, merged: 0, deployed: 0, released: 0 };
-    dataset.entities.filter(entity => entity.type === 'pull_request' && (!repositoryId || entity.repositoryId === repositoryId)).forEach(entity => {
-      const stage = stageAt(entity, timestamp);
+    work.forEach(({ entity, entityIds, createdAt }) => {
+      const stage = stageAt(entity, entityIds, dataset.events, timestamp, createdAt);
       if (stage) snapshot[stage] += 1;
     });
     return snapshot;
@@ -314,7 +347,7 @@ export function inventoryInspectable(dataset: AnalyticsDataset, item: InventoryI
     occurredAt: item.lastActivityAt,
     reason: item.blockingReason,
     confidence: item.confidence,
-    evidence: item.entity.evidence,
+    evidence: [...(item.entity.evidence ?? []), `Canonical key: ${item.canonicalKey}`, `Evidence records: ${item.evidenceCount}`, `Latest run status: ${item.latestRunStatus ?? 'unavailable'}`, `Resolution rule: ${item.resolutionRule ?? 'Newer canonical evidence supersedes this condition.'}`],
     missingEvidence: item.missingEvidence,
     relatedEntityIds: item.relatedEntityIds,
     sampleCount: item.evidenceCount,

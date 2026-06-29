@@ -7,6 +7,7 @@ import { useModeStore } from '../../stores/mode-store';
 import homePipeline from '../../../public/demo-data/account/home-pipeline.json';
 import manifest from '../../../public/demo-data/manifest.json';
 import { invoke } from '@tauri-apps/api/core';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock the Tauri invoke command
 vi.mock('@tauri-apps/api/core', () => ({
@@ -38,6 +39,10 @@ vi.mock('../../hooks/useReplayBuffer', () => ({
 }));
 
 describe('FlowWorkbench', () => {
+  const renderWorkbench = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(<QueryClientProvider client={client}><FlowWorkbench /></QueryClientProvider>);
+  };
   const choose = (label: string, option: string) => {
     fireEvent.click(screen.getByLabelText(label));
     fireEvent.click(screen.getByRole('option', { name: option }));
@@ -53,12 +58,12 @@ describe('FlowWorkbench', () => {
   });
 
   it('shows account flow by default', () => {
-    render(<FlowWorkbench />);
+    renderWorkbench();
     expect(screen.getByText('Account Flow')).toBeInTheDocument();
   });
 
   it('renders repository selector and empty state when repository scope is selected without a repo', () => {
-    render(<FlowWorkbench />);
+    renderWorkbench();
     choose('Flow scope', 'Repository Flow');
     
     expect(screen.getByText('Select a Repository')).toBeInTheDocument();
@@ -66,7 +71,7 @@ describe('FlowWorkbench', () => {
   });
 
   it('does not dispatch repository flow request until repository is selected', () => {
-    render(<FlowWorkbench />);
+    renderWorkbench();
     choose('Flow scope', 'Repository Flow');
     
     // We mocked useRepositoryFlow to check `enabled`. 
@@ -76,7 +81,7 @@ describe('FlowWorkbench', () => {
 
   it('clears stale selection when scope changes', async () => {
     useFlowStore.getState().setTabState('test-tab', { scope: 'account', selectedItemId: 'stale-item' });
-    render(<FlowWorkbench />);
+    renderWorkbench();
     choose('Flow scope', 'Repository Flow');
     
     await waitFor(() => {
@@ -90,7 +95,7 @@ describe('FlowWorkbench', () => {
       filterStage: 'review',
       statusFilter: 'waiting_review',
     });
-    render(<FlowWorkbench />);
+    renderWorkbench();
     fireEvent.keyDown(window, { key: 'Escape' });
 
     const state = useFlowStore.getState().getTabState('test-tab');
@@ -106,7 +111,7 @@ describe('FlowWorkbench', () => {
       selectedRepository: { id: '1', nameWithOwner: 'owner/repo' }
     });
     
-    render(<FlowWorkbench />);
+    renderWorkbench();
     
     expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
     expect(screen.queryByText('Replay')).not.toBeInTheDocument();
@@ -115,7 +120,7 @@ describe('FlowWorkbench', () => {
 
   it('uses the production pipeline and cards in Demo Mode without live commands', async () => {
     useModeStore.setState({ mode: 'demo' });
-    render(<FlowWorkbench />);
+    renderWorkbench();
 
     await waitFor(() => expect(screen.getByTestId('flow-pipeline')).toBeInTheDocument());
     expect(screen.queryByText('Connected Activity Flow')).not.toBeInTheDocument();
@@ -129,7 +134,7 @@ describe('FlowWorkbench', () => {
 
   it('stores the selected production FlowItem for Inspector parity', async () => {
     useModeStore.setState({ mode: 'demo' });
-    render(<FlowWorkbench />);
+    renderWorkbench();
     await waitFor(() => expect(screen.getByText('Deployment rollback telemetry is missing for failed canary releases')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Deployment rollback telemetry is missing for failed canary releases'));
     const state = useFlowStore.getState().getTabState('test-tab');
@@ -143,7 +148,7 @@ describe('FlowWorkbench', () => {
       scope: 'repository',
       selectedRepository: { id: 'repo-ext', nameWithOwner: 'nova-labs/ext' },
     });
-    render(<FlowWorkbench />);
+    renderWorkbench();
     await waitFor(() => expect(screen.getAllByText('Cache invalidation after repository scope switching').length).toBeGreaterThan(0));
     expect(screen.queryByText('Deployment rollback telemetry is missing for failed canary releases')).not.toBeInTheDocument();
 

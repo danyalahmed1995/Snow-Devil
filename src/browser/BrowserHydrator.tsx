@@ -68,18 +68,18 @@ export function BrowserHydrator() {
           const name = repo?.nameWithOwner.split('/')[1];
 
           if (scope === 'repository' && owner && name) {
-            queryClient.invalidateQueries({ queryKey: ['infinite_source', 'open_prs', owner, name] });
+            queryClient.invalidateQueries({ queryKey: ['flow', 'repository'] });
             await queryClient.prefetchInfiniteQuery({
-              queryKey: ['infinite_source', 'open_prs', owner, name],
-              queryFn: () => invoke('get_repository_flow', { owner, name, sourceType: 'open_prs', cursor: null, limit: 50 }),
-              initialPageParam: null
+              queryKey: ['flow', 'repository', 'live', `${owner}/${name}`, 'open_prs', {}, flowState.timeRange],
+              queryFn: () => invoke('get_source_page', { req: { scope: 'repository', sourceType: 'open_prs', repositoryOwner: owner, repositoryName: name, cursor: null, pageSize: 50 } }),
+              initialPageParam: undefined
             });
           } else if (scope === 'account') {
-            queryClient.invalidateQueries({ queryKey: ['infinite_source', 'authored_prs'] });
+            queryClient.invalidateQueries({ queryKey: ['flow', 'account'] });
             await queryClient.prefetchInfiniteQuery({
-              queryKey: ['infinite_source', 'authored_prs'],
-              queryFn: () => invoke('get_account_flow', { sourceType: 'authored_prs', cursor: null, limit: 50 }),
-              initialPageParam: null
+              queryKey: ['flow', 'account', 'live', null, 'authored_prs', {}, flowState.timeRange],
+              queryFn: () => invoke('get_source_page', { req: { scope: 'account', sourceType: 'authored_prs', cursor: null, pageSize: 50 } }),
+              initialPageParam: undefined
             });
           }
         }

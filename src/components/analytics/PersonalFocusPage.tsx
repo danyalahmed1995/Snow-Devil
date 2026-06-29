@@ -3,17 +3,30 @@ import { AlertTriangle, Clock3, Star, X } from 'lucide-react';
 import { businessDaysBetween, calendarFromSettings } from '../../analytics/business-time';
 import { includedRepositories, normalWip, timelineForEntity } from '../../analytics/selectors';
 import { classifyActivity, classifyActor, classifyAttention, confidenceFromEvidence } from '../../lib/delivery-semantics';
+import { deriveViewerRelationship, type ViewerRelationship } from '../../lib/product-model';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { useModeStore } from '../../stores/mode-store';
 import { useFlowStore } from '../../stores/flow-store';
-import { useTabsStore } from '../../stores/tabs-store';
+import { useFocusPreferencesStore } from '../../stores/focus-preferences-store';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard, useAnalyticsTabRefresh } from './AnalyticsShared';
 import { Select } from '../ui/Select';
+import { useCurrentTabId } from '../workspace/TabInstanceContext';
+import { distinctReason, partitionCanonicalResponsibilities } from '../../analytics/personal-focus';
 
-type Involvement = 'all' | 'authored' | 'assigned' | 'review_requested' | 'mentioned' | 'participating';
+type Involvement = 'direct' | 'authored' | 'assigned' | 'review_requested' | 'mentioned' | 'participating';
 type ActorFilter = 'humans' | 'include_bots' | 'bots';
+
+const reasonLabel: Record<string, string> = {
+  failed_required_checks: 'Failed checks · Latest required run failed',
+  review_requested_from_you: 'Review requested · No review submitted',
+  changes_requested: 'Changes requested · Your response is needed',
+  merge_conflict: 'Merge conflict · Update the branch',
+  stale_blocker: 'Blocked · No meaningful response recently',
+  assigned_to_you: 'Assigned to you · Current response required',
+  mention_requiring_response: 'Mentioned · A response may be required',
+};
 
 export function PersonalFocusPage() {
   const analytics = useAnalyticsData();
@@ -22,75 +35,107 @@ export function PersonalFocusPage() {
   const updateSettings = useAnalyticsSettingsStore(state => state.updateSettings);
   const session = useAuthStore(state => state.session);
   const mode = useModeStore(state => state.mode);
-  const activeTabId = useTabsStore(state => state.activeTabId);
+  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
+  const preferences = useFocusPreferencesStore();
   const dataset = analytics.data;
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
   const [repositoryId, setRepositoryId] = useState('all');
-  const [involvement, setInvolvement] = useState<Involvement>('all');
+  const [involvement, setInvolvement] = useState<Involvement>('direct');
   const [actor, setActor] = useState<ActorFilter>('humans');
   const [windowChoice, setWindowChoice] = useState('30');
   const [customDays, setCustomDays] = useState(30);
   const [includeDormant, setIncludeDormant] = useState(false);
-  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  const [showRemembered, setShowRemembered] = useState(false);
+  const [preferenceNow] = useState(() => Date.now());
   const activityWindowDays = windowChoice === 'custom' ? customDays : Number(windowChoice);
   const repositories = useMemo(() => dataset ? includedRepositories(dataset, settings) : [], [dataset, settings]);
-  const repositoryIds = useMemo(() => new Set(repositories.map(repository => repository.id)), [repositories]);
+  const repositoryMap = useMemo(() => new Map(repositories.map(repository => [repository.id, repository])), [repositories]);
   const classified = useMemo(() => dataset ? dataset.entities.flatMap(entity => {
-    if (!repositoryIds.has(entity.repositoryId) || repositoryId !== 'all' && entity.repositoryId !== repositoryId) return [];
+    const repository = repositoryMap.get(entity.repositoryId);
+    if (!repository || repositoryId !== 'all' && entity.repositoryId !== repositoryId) return [];
     if (!['pull_request', 'issue', 'branch'].includes(entity.type) || !settings.includeDraftPullRequests && entity.isDraft) return [];
+    const relationship: ViewerRelationship = entity.viewerRelationship ?? deriveViewerRelationship({
+      viewerLogin: currentUser,
+      authorLogin: entity.author,
+      authorIsBot: entity.isBot,
+      assignees: entity.assignees,
+      requestedReviewers: entity.requestedReviewers,
+      mentions: entity.evidence?.filter(value => /mention/i.test(value)).map(() => currentUser),
+      baseRepository: { nameWithOwner: repository.nameWithOwner, ownerLogin: repository.ownerLogin, viewerPermission: repository.viewerPermission },
+    });
     const actorType = entity.actorClassification ?? classifyActor(entity.author, entity.isBot);
     const bot = ['dependabot', 'renovate', 'other_bot'].includes(actorType);
     if (actor === 'humans' && bot || actor === 'bots' && !bot) return [];
-    const relationship = entity.author === currentUser ? 'authored' : entity.assignees?.includes(currentUser) ? 'assigned' : entity.requestedReviewers?.includes(currentUser) ? 'review_requested' : 'participating';
-    if (involvement !== 'all' && involvement !== relationship && !(involvement === 'mentioned' && entity.evidence?.some(value => /mention/i.test(value)))) return [];
+    const involvementMatches = involvement === 'direct' ? relationship.directResponsibility
+      : involvement === 'authored' ? relationship.flags.includes('authored_by_viewer')
+      : involvement === 'assigned' ? relationship.flags.includes('assigned_to_viewer')
+      : involvement === 'review_requested' ? relationship.flags.includes('review_requested_from_viewer')
+      : involvement === 'mentioned' ? relationship.flags.includes('mentioned_viewer')
+      : relationship.flags.includes('viewer_participated');
+    if (!involvementMatches) return [];
     const activity = classifyActivity(entity, { referenceTime: dataset.referenceDate, activeWindowDays: activityWindowDays, agingDays: settings.inventoryThresholds.agingDays, staleDays: settings.inventoryThresholds.staleDays });
     if (activity === 'historical' || !includeDormant && activity === 'dormant') return [];
     const attention = classifyAttention(entity, currentUser, activity);
-    return [{ entity: { ...entity, actorClassification: actorType, activityClassification: activity, attentionReasons: attention.reasons }, activity, relationship, attention }];
-  }) : [], [activityWindowDays, actor, currentUser, dataset, includeDormant, involvement, repositoryId, repositoryIds, settings.includeDraftPullRequests, settings.inventoryThresholds.agingDays, settings.inventoryThresholds.staleDays]);
+    return [{ entity: { ...entity, actorClassification: actorType, activityClassification: activity, attentionReasons: attention.reasons, viewerRelationship: relationship }, activity, relationship, attention }];
+  }) : [], [activityWindowDays, actor, currentUser, dataset, includeDormant, involvement, repositoryId, repositoryMap, settings.includeDraftPullRequests, settings.inventoryThresholds.agingDays, settings.inventoryThresholds.staleDays]);
+
   const calendar = calendarFromSettings(settings);
   const withAge = classified.map(item => ({ ...item, age: dataset ? businessDaysBetween(item.entity.updatedAt, dataset.referenceDate, calendar) : 0 })).sort((a, b) => b.age - a.age);
-  const active = withAge.filter(item => item.activity !== 'dormant');
-  const dormant = withAge.filter(item => item.activity === 'dormant');
-  const actionRequired = active.filter(item => item.attention.needsAttention);
-  const reviewsRequested = active.filter(item => item.entity.requestedReviewers?.includes(currentUser));
-  const authoredAwaitingReview = active.filter(item => item.entity.author === currentUser && item.entity.reviewState === 'requested');
+  const remembered = withAge.filter(item => preferences.dismissed.includes(item.entity.id) || preferences.irrelevant.includes(item.entity.id) || (preferences.snoozedUntil[item.entity.id] ?? 0) > preferenceNow);
+  const visible = withAge.filter(item => !remembered.some(value => value.entity.id === item.entity.id));
+  const { doNow, waiting, gettingStale, dormant, canonical: responsibilities } = partitionCanonicalResponsibilities(visible, currentUser, includeDormant);
+  const reviewsRequested = responsibilities.filter(item => item.relationship.flags.includes('review_requested_from_viewer'));
+  const authoredAwaitingReview = waiting.filter(item => item.relationship.flags.includes('authored_by_viewer'));
   const usualWip = dataset ? normalWip(dataset) : 0;
-  const aboveNormal = active.length > Math.max(usualWip + 1, Math.ceil(usualWip * 1.35));
+  const aboveNormal = responsibilities.length > Math.max(usualWip + 1, Math.ceil(usualWip * 1.35));
   const p90Threshold = settings.inventoryThresholds.staleDays;
-  const recent = dataset?.events.filter(event => ['review_requested', 'commented', 'check_failed', 'workflow_failed', 'approved', 'changes_requested', 'merged', 'assigned', 'committed'].includes(event.type)).slice().reverse().slice(0, 8) ?? [];
-  const tipItem = actionRequired.find(item => !dismissed.has(item.entity.id)) ?? active.find(item => !dismissed.has(item.entity.id) && item.relationship === 'authored');
-  const selectEntity = (item: typeof withAge[number], reason?: string) => dataset && setTabState(activeTabId, { selectedAnalyticsEntity: { id: `focus:${item.entity.id}`, kind: 'personal_focus', title: item.entity.title, repositoryId: item.entity.repositoryId, number: item.entity.number, url: item.entity.url, state: item.activity, occurredAt: item.entity.updatedAt, reason: reason ?? `Included as ${item.relationship}; ${item.attention.reasons.join(', ') || 'recent meaningful activity'}.`, confidence: confidenceFromEvidence({ completeness: item.entity.sourceCompleteness }), evidence: [...(item.entity.evidence ?? []), `Relationship: ${item.relationship}`, `Activity: ${item.activity}`, `Checks: ${item.entity.checkState ?? 'unavailable'}`, `Review: ${item.entity.reviewState ?? 'unavailable'}`], timeline: timelineForEntity(dataset, item.entity.id), definition: 'Personal Focus includes recent, non-historical work with a current relationship to you.', coverage: dataset.partial ? 'partial' : 'complete' } });
+  const oldestResponsibility = [...responsibilities].sort((left, right) => right.age - left.age)[0];
+  const recent = useMemo(() => {
+    const aggregate = new Map<string, { type: string; repositoryId: string; date: string; count: number }>();
+    for (const event of dataset?.events ?? []) {
+      if (!['review_requested', 'commented', 'check_failed', 'workflow_failed', 'approved', 'changes_requested', 'merged', 'assigned', 'committed'].includes(event.type)) continue;
+      const date = event.occurredAt.slice(0, 10);
+      const key = `${event.repositoryId}:${event.type}:${date}`;
+      const current = aggregate.get(key);
+      aggregate.set(key, { type: event.type, repositoryId: event.repositoryId, date, count: (current?.count ?? 0) + 1 });
+    }
+    return [...aggregate.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  }, [dataset?.events]);
+  const tipItem = doNow[0] ?? responsibilities[0];
 
-  return <AnalyticsPage title="Personal Focus" description="Current personal work, actionable blockers, aging signals, and dormant items" demo={analytics.mode === 'demo'} controls={<>
+  const selectEntity = (item: typeof withAge[number], reason?: string) => dataset && setTabState(activeTabId, { selectedAnalyticsEntity: { id: `focus:${item.entity.id}`, kind: 'personal_focus', title: item.entity.title, repositoryId: item.entity.repositoryId, number: item.entity.number, url: item.entity.url, state: item.activity, occurredAt: item.entity.updatedAt, reason: reason ?? distinctReason([item.relationship.label, ...item.attention.reasons.map(value => reasonLabel[value] ?? value), item.attention.reasons.length ? undefined : item.relationship.explanation]), confidence: confidenceFromEvidence({ completeness: item.entity.sourceCompleteness }), evidence: [...(item.entity.evidence ?? []), `Relationship: ${item.relationship.label}`, `Activity: ${item.activity}`, `Checks: ${item.entity.checkState ?? 'unavailable'}`, `Review: ${item.entity.reviewState ?? 'unavailable'}`], timeline: timelineForEntity(dataset, item.entity.id), definition: 'Personal Focus defaults to current direct responsibility. Participation-only work appears only when explicitly selected.', coverage: dataset.partial ? 'partial' : 'complete' } });
+  const list = (items: typeof withAge, empty: string) => items.length ? <div className="analytics-list">{items.map(item => <button key={item.entity.id} type="button" onClick={() => selectEntity(item)}><span><strong>{item.entity.title}</strong><small>{distinctReason([item.attention.reasons.map(value => reasonLabel[value] ?? value.replace(/_/g, ' '))[0], item.relationship.label, item.entity.repositoryId])}</small></span><time>{Math.ceil(item.age)}d</time></button>)}</div> : <EmptyState kind="zero">{empty}</EmptyState>;
+
+  return <AnalyticsPage title="Personal Focus" description="What to do now, what is waiting on others, and what is becoming stale" demo={analytics.mode === 'demo'} controls={<>
     <label>Repository<Select ariaLabel="Focus repository" searchable value={repositoryId} onChange={setRepositoryId} options={[{ value: 'all', label: 'All repositories' }, ...repositories.map(repository => ({ value: repository.id, label: repository.nameWithOwner }))]} /></label>
-    <label>Involvement<Select ariaLabel="Focus involvement" value={involvement} onChange={value => setInvolvement(value as Involvement)} options={[{ value: 'all', label: 'All my work' }, { value: 'authored', label: 'Authored by me' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participating' }]} /></label>
+    <label>Responsibility<Select ariaLabel="Focus involvement" value={involvement} onChange={value => setInvolvement(value as Involvement)} options={[{ value: 'direct', label: 'Direct responsibility' }, { value: 'authored', label: 'Authored by me' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participation only' }]} /></label>
     <label>Activity window<Select ariaLabel="Focus activity window" value={windowChoice} onChange={setWindowChoice} options={[7, 30, 90].map(value => ({ value: String(value), label: `${value} days` })).concat([{ value: 'custom', label: 'Custom' }])} /></label>
     {windowChoice === 'custom' && <input aria-label="Custom focus activity days" type="number" min={1} max={365} value={customDays} onChange={event => setCustomDays(Math.max(1, Number(event.target.value)))} />}
-    <label>Actor<Select ariaLabel="Focus actor" value={actor} onChange={value => setActor(value as ActorFilter)} options={[{ value: 'humans', label: 'Humans only' }, { value: 'include_bots', label: 'Include bots' }, { value: 'bots', label: 'Bots only' }]} /></label>
+    <label>Author<Select ariaLabel="Focus actor" value={actor} onChange={value => setActor(value as ActorFilter)} options={[{ value: 'humans', label: 'Humans only' }, { value: 'include_bots', label: 'Include bots' }, { value: 'bots', label: 'Bots only' }]} /></label>
     <label><input type="checkbox" checked={includeDormant} onChange={event => setIncludeDormant(event.target.checked)} /> Include dormant</label>
     <RefreshButton refreshing={analytics.isFetching} onClick={() => void analytics.refetch()} />
   </>}>
     <AnalyticsState label="Personal Focus coverage" loading={analytics.isLoading} error={analytics.error} partialReasons={dataset?.partialReasons ?? []} onRetry={() => void analytics.refetch()} />
     {dataset && <>
       <MetricGrid>
-        <MetricCard label="Reviews requested from you" value={reviewsRequested.length} tone={reviewsRequested.length ? 'danger' : 'good'} detail="Current explicit review requests" />
-        <MetricCard label="Your PRs awaiting review" value={authoredAwaitingReview.length} detail="Authored by you" />
-        <MetricCard label="Oldest recently active item" value={active.length ? `${Math.ceil(active[0].age)}d` : 'None'} tone={active[0]?.age >= p90Threshold ? 'danger' : 'neutral'} detail={active[0]?.entity.title} />
-        <MetricCard label="Oldest review request for you" value={reviewsRequested.length ? `${Math.ceil(reviewsRequested[0].age)}d` : 'None'} tone="warning" />
-        <MetricCard label="Failed checks" value={active.filter(item => item.entity.checkState === 'failure').length} tone={active.some(item => item.entity.checkState === 'failure') ? 'danger' : 'good'} />
-        <MetricCard label="Older than your usual P90" value={active.filter(item => item.age >= p90Threshold).length} detail={`Threshold: ${p90Threshold} business days`} tone="warning" />
-        <MetricCard label="Current parallel WIP" value={active.length} detail={`Usual baseline: ${usualWip}`} tone={aboveNormal ? 'danger' : 'good'} />
+        <MetricCard label="Active responsibilities" value={responsibilities.length} detail={`Your usual workload: ${usualWip}`} tone={aboveNormal ? 'danger' : 'good'} />
+        <MetricCard label="Reviews requested from you" value={reviewsRequested.length} tone={reviewsRequested.length ? 'danger' : 'good'} detail="Current explicit requests" />
+        <MetricCard label="Your PRs awaiting review" value={authoredAwaitingReview.length} detail="Waiting on others" />
+        <MetricCard label="Oldest active responsibility" value={oldestResponsibility ? `${Math.ceil(oldestResponsibility.age)}d` : 'None'} tone={oldestResponsibility?.age >= p90Threshold ? 'danger' : 'neutral'} detail={oldestResponsibility?.entity.title} />
+        <MetricCard label="Failed checks" value={doNow.filter(item => item.entity.checkState === 'failure').length} tone={doNow.some(item => item.entity.checkState === 'failure') ? 'danger' : 'good'} />
+        <MetricCard label="Unusually old" value={responsibilities.filter(item => item.age >= p90Threshold).length} detail={`Your current threshold: ${p90Threshold} business days`} tone="warning" />
       </MetricGrid>
       <div className="analytics-focus-grid">
-        <SectionCard title="Action required">{actionRequired.length ? <div className="analytics-list">{actionRequired.slice(0, 7).map(item => <button key={item.entity.id} type="button" onClick={() => selectEntity(item)}><span><strong>{item.entity.title}</strong><small>{item.attention.reasons.join(' · ').replace(/_/g, ' ')}</small></span><time>{Math.ceil(item.age)}d</time></button>)}</div> : <EmptyState kind="zero">No current evidence-backed action is required.</EmptyState>}</SectionCard>
-        <SectionCard title="Current workload"><div className="analytics-wip-meter"><p><span>Genuinely active items</span><strong>{active.length}</strong></p><div className="analytics-wip-track"><span style={{ width: `${Math.min(100, active.length / Math.max(1, usualWip * 2) * 100)}%`, background: aboveNormal ? undefined : 'var(--success)' }} /></div><p><span>Your usual concurrent baseline</span><strong>{usualWip}</strong></p>{aboveNormal && <p style={{ color: 'var(--danger)' }}><AlertTriangle size={11} /> Current WIP is meaningfully above your historical norm.</p>}</div><div className="analytics-list">{active.slice(0, 6).map(item => <button key={item.entity.id} type="button" onClick={() => selectEntity(item)}><span><strong>{item.entity.title}</strong><small>{item.entity.repositoryId} · {item.entity.stage} · {item.relationship}</small></span><time>{Math.ceil(item.age)}d</time></button>)}</div></SectionCard>
-        <SectionCard title="Aging signals"><div className="analytics-list">{active.filter(item => ['aging', 'stale'].includes(item.activity)).slice(0, 7).map(item => <button key={item.entity.id} type="button" onClick={() => selectEntity(item, `${item.activity} after ${Math.ceil(item.age)} business days`)}><span><strong>{item.entity.title}</strong><small>{item.activity} · {item.entity.repositoryId}</small></span><time>{Math.ceil(item.age)}d</time></button>)}</div></SectionCard>
-        {includeDormant && <SectionCard title="Dormant work"><div className="analytics-list">{dormant.slice(0, 7).map(item => <button key={item.entity.id} type="button" onClick={() => selectEntity(item, 'Open, but outside the selected meaningful-activity window.')}><span><strong>{item.entity.title}</strong><small>No meaningful activity in {activityWindowDays} days</small></span><Clock3 size={13} /></button>)}</div></SectionCard>}
-        <SectionCard title="Recent meaningful activity"><div className="analytics-list">{recent.map(event => <div key={event.id} className="analytics-activity-row"><span><strong>{event.type.replace(/_/g, ' ')}</strong><small>{event.repositoryId}</small></span><time>{new Date(event.occurredAt).toLocaleDateString()}</time></div>)}</div></SectionCard>
+        <SectionCard title="Do now">{list(doNow, 'No current evidence-backed action is required.')}</SectionCard>
+        <SectionCard title="Waiting on others">{list(waiting, 'No direct responsibility is currently waiting on another party.')}</SectionCard>
+        <SectionCard title="Getting stale">{list(gettingStale, 'No current responsibility is unusually old.')}</SectionCard>
+        {includeDormant && <SectionCard title="Dormant work">{list(dormant, `No direct responsibility is outside the ${activityWindowDays}-day activity window.`)}</SectionCard>}
+        <SectionCard title="Recent meaningful activity"><div className="analytics-list">{recent.map(event => <div key={`${event.repositoryId}:${event.type}:${event.date}`} className="analytics-activity-row"><span><strong>{event.count > 1 ? `${event.count} ${event.type.replace(/_/g, ' ')} events` : event.type.replace(/_/g, ' ')}</strong><small>{event.repositoryId}</small></span><time>{new Date(`${event.date}T00:00:00Z`).toLocaleDateString()}</time></div>)}</div></SectionCard>
+        {remembered.length > 0 && <SectionCard title="Snoozed or dismissed" action={<button className="analytics-button" onClick={() => setShowRemembered(value => !value)}>{showRemembered ? 'Hide' : `Show ${remembered.length}`}</button>}>{showRemembered && <div className="analytics-list">{remembered.map(item => <div className="analytics-activity-row" key={item.entity.id}><span><strong>{item.entity.title}</strong><small>Remembered on this device</small></span><button className="analytics-button" onClick={() => preferences.undo(item.entity.id)}>Undo</button></div>)}</div>}</SectionCard>}
       </div>
-      <div className="analytics-focus-tip"><Star size={17} color="var(--warning)" />{tipItem ? <><span><strong>Focus Tip</strong>{tipItem.entity.checkState === 'failure' ? `Fix failing checks on ${tipItem.entity.title}.` : reviewsRequested.some(value => value.entity.id === tipItem.entity.id) ? `Review ${tipItem.entity.title}; GitHub explicitly requested you.` : `Finish ${tipItem.entity.title} to reduce current parallel WIP.`}</span><div className="analytics-tip-actions"><button onClick={() => selectEntity(tipItem)}>Open</button><button onClick={() => setDismissed(current => new Set(current).add(tipItem.entity.id))}><X size={11} /> Dismiss</button><button onClick={() => setDismissed(current => new Set(current).add(tipItem.entity.id))}><Clock3 size={11} /> Snooze</button><button onClick={() => setDismissed(current => new Set(current).add(tipItem.entity.id))}>Mark irrelevant</button><button onClick={() => updateSettings({ ignoredRepositories: [...new Set([...settings.ignoredRepositories, tipItem.entity.repositoryId])] })}>Exclude repository</button></div></> : <span><strong>Focus Tip</strong>No actionable current work is available.</span>}</div>
+      <div className="analytics-focus-tip"><Star size={17} color="var(--warning)" />{tipItem ? <><span><strong>Next action</strong>{tipItem.entity.checkState === 'failure' ? `Fix the latest failing checks on ${tipItem.entity.title}.` : reviewsRequested.some(value => value.entity.id === tipItem.entity.id) ? `Review ${tipItem.entity.title}; GitHub explicitly requested you.` : `Continue ${tipItem.entity.title}; ${tipItem.relationship.explanation}`}</span><div className="analytics-tip-actions"><button onClick={() => selectEntity(tipItem)}>Open</button><button onClick={() => preferences.dismiss(tipItem.entity.id)}><X size={11} /> Dismiss</button><button onClick={() => preferences.snooze(tipItem.entity.id)}><Clock3 size={11} /> Snooze</button><button onClick={() => preferences.markIrrelevant(tipItem.entity.id)}>Mark irrelevant</button><button onClick={() => updateSettings({ ignoredRepositories: [...new Set([...settings.ignoredRepositories, tipItem.entity.repositoryId])] })}>Exclude repository</button></div></> : <span><strong>Next action</strong>No actionable current responsibility is available.</span>}</div>
+      {aboveNormal && <p className="analytics-focus-warning"><AlertTriangle size={12}/> Active responsibilities are above your usual workload.</p>}
     </>}
   </AnalyticsPage>;
 }

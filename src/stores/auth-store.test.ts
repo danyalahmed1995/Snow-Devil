@@ -38,6 +38,15 @@ describe('Auth Store', () => {
     expect(useAuthStore.getState().session.status).toBe('disconnected');
   });
 
+  it('replaces the shared organization dataset after account refresh', async () => {
+    (invoke as any).mockResolvedValueOnce({ isAuthenticated: true, account: { login: 'testuser', organizations: { totalCount: 0, status: 'ready', nodes: [] } } });
+    await useAuthStore.getState().checkAuthStatus();
+    (invoke as any).mockResolvedValueOnce({ isAuthenticated: true, account: { login: 'testuser', organizations: { totalCount: 2, status: 'ready', nodes: [{ id: 1, login: 'one' }, { id: 2, login: 'two' }] } } });
+    await useAuthStore.getState().checkAuthStatus();
+    const session = useAuthStore.getState().session;
+    expect(session.status === 'connected' ? session.account.organizations?.totalCount : 0).toBe(2);
+  });
+
   it('sign-out removes account-scoped tabs before private content can remain visible', async () => {
     const now=Date.now();
     useTabsStore.setState({tabs:[{id:'native:home',family:'native',kind:'home',title:'Home',pinned:true,closable:false,createdAt:now,lastActivatedAt:now},{id:'private',family:'browser',kind:'repository',title:'Private repo',currentUrl:'https://github.com/private/repo',history:['https://github.com/private/repo'],historyIndex:0,lifecycle:'resident',pinned:false,closable:true,createdAt:now,lastActivatedAt:now}],activeTabId:'private'});

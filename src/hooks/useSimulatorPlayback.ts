@@ -1,22 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SimulatorEvent, SimulatorEntityState } from "../simulator/simulator-types";
 import { reconstructState } from "../simulator/simulator-reducer";
+import { historyCalendarCutoffs, normalizeHistoryCutoff } from '../lib/history-date';
 
-export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: string, loadedUntil: string) {
-  const [cursor, setCursor] = useState<string>(loadedSince);
+export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: string, loadedUntil: string, options: { timeZone?: string; reducedMotion?: boolean; initialCursor?: string; onCursorChange?: (cursor: string) => void } = {}) {
+  const [cursor, setCursor] = useState<string>(() => options.initialCursor ? normalizeHistoryCutoff(options.initialCursor, loadedUntil, options.timeZone) : loadedUntil);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
+  const previousUntilRef = useRef(loadedUntil);
   const currentState = useMemo<Map<string, SimulatorEntityState>>(
     () => reconstructState(events, cursor),
     [events, cursor],
   );
 
-  const meaningfulTimestamps = useMemo(() => [...new Set(events.map(event => event.occurredAt))].sort(), [events]);
+  const meaningfulTimestamps = useMemo(() => options.timeZone
+    ? historyCalendarCutoffs(events.map(event => event.occurredAt), loadedUntil, options.timeZone)
+    : [...new Set(events.map(event => event.occurredAt))].sort(), [events, loadedUntil, options.timeZone]);
 
   useEffect(() => {
     setIsPlaying(false);
-    setCursor(loadedUntil);
-  }, [loadedSince, loadedUntil]);
+    setCursor(current => current >= previousUntilRef.current ? loadedUntil : current < loadedSince ? (options.timeZone ? normalizeHistoryCutoff(loadedSince, loadedUntil, options.timeZone) : loadedSince) : current > loadedUntil ? loadedUntil : current);
+    previousUntilRef.current = loadedUntil;
+  }, [loadedSince, loadedUntil, options.timeZone]);
+
+  useEffect(() => { options.onCursorChange?.(cursor); }, [cursor, options.onCursorChange]);
 
   useEffect(() => {
     if (!isPlaying) return;
@@ -33,9 +40,9 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
     return () => window.clearInterval(timer);
   }, [isPlaying, loadedUntil, meaningfulTimestamps, speedMultiplier]);
 
-  const togglePlay = () => setIsPlaying(p => !p);
+  const togglePlay = () => options.reducedMotion ? stepForward() : setIsPlaying(p => !p);
   const pause = () => setIsPlaying(false);
-  const play = () => setIsPlaying(true);
+  const play = () => options.reducedMotion ? stepForward() : setIsPlaying(true);
   
   const stepForward = () => {
     pause();
@@ -65,7 +72,7 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
 
   const setCursorManual = (val: string) => {
     pause();
-    setCursor(val);
+    setCursor(options.timeZone ? normalizeHistoryCutoff(val, loadedUntil, options.timeZone) : val);
   };
 
   return {

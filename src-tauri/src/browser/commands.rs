@@ -4,8 +4,9 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::{AppHandle, Manager};
-use tauri::webview::WebviewBuilder;
+use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder};
 use tauri::{Emitter, WebviewUrl};
+use tauri_plugin_opener::OpenerExt;
 use url::Url;
 
 use super::manager::{BrowserWebviewManager, BrowserWebviewRecord};
@@ -100,9 +101,18 @@ pub async fn browser_create(
     }
 
     let main_window = get_main_window(&app)?;
-    let app_clone = app.clone();
-    let tab_id_clone = request.tab_id.clone();
-    let label_clone = label.clone();
+    let navigation_app = app.clone();
+    let navigation_tab_id = request.tab_id.clone();
+    let navigation_label = label.clone();
+    let new_window_app = app.clone();
+    let new_window_tab_id = request.tab_id.clone();
+    let new_window_label = label.clone();
+    let title_app = app.clone();
+    let title_tab_id = request.tab_id.clone();
+    let load_app = app.clone();
+    let load_tab_id = request.tab_id.clone();
+    let download_app = app.clone();
+    let download_tab_id = request.tab_id.clone();
 
     let webview_builder = WebviewBuilder::new(
         &label,
@@ -110,19 +120,56 @@ pub async fn browser_create(
     )
     .on_navigation(move |nav_url| {
         let decision = security::classify_navigation(nav_url);
-        if decision != NavigationDecision::Allow {
-            return false;
+        match decision {
+            NavigationDecision::OpenExternal => {
+                let _ = navigation_app.opener().open_url(nav_url.as_str(), None::<String>);
+                return false;
+            }
+            NavigationDecision::Block => {
+                let _ = navigation_app.emit("browser:error", BrowserErrorEvent { tab_id: navigation_tab_id.clone(), error: format!("Unsupported or unsafe protocol blocked: {}", nav_url.scheme()) });
+                return false;
+            }
+            NavigationDecision::Allow => {}
         }
 
-        let _ = app_clone.emit(
+        if let Ok(mut manager) = navigation_app.state::<Mutex<BrowserWebviewManager>>().lock() {
+            if let Some(record) = manager.records.get_mut(&navigation_tab_id) { record.current_url = nav_url.clone(); }
+        }
+        let _ = navigation_app.emit(
             "browser:navigation",
             BrowserNavigationEvent {
-                tab_id: tab_id_clone.clone(),
-                webview_label: label_clone.clone(),
+                tab_id: navigation_tab_id.clone(),
+                webview_label: navigation_label.clone(),
                 url: nav_url.to_string(),
             },
         );
 
+        true
+    })
+    .on_new_window(move |url, _features| {
+        match security::classify_navigation(&url) {
+            NavigationDecision::Allow => {
+                let _ = new_window_app.emit("browser:open-entity", BrowserNavigationEvent { tab_id: new_window_tab_id.clone(), webview_label: new_window_label.clone(), url: url.to_string() });
+            }
+            NavigationDecision::OpenExternal => { let _ = new_window_app.opener().open_url(url.as_str(), None::<String>); }
+            NavigationDecision::Block => { let _ = new_window_app.emit("browser:error", BrowserErrorEvent { tab_id: new_window_tab_id.clone(), error: format!("Unsupported or unsafe protocol blocked: {}", url.scheme()) }); }
+        }
+        NewWindowResponse::Deny
+    })
+    .on_document_title_changed(move |_webview, title| {
+        let _ = title_app.emit("browser:title-changed", BrowserTitleEvent { tab_id: title_tab_id.clone(), title });
+    })
+    .on_page_load(move |_webview, payload| {
+        let event = match payload.event() { PageLoadEvent::Started => "browser:load-started", PageLoadEvent::Finished => "browser:load-finished" };
+        let _ = load_app.emit(event, BrowserTabEvent { tab_id: load_tab_id.clone() });
+    })
+    .on_download(move |_webview, event| {
+        let (url, status) = match event {
+            DownloadEvent::Requested { url, .. } => (url.to_string(), "requested".to_string()),
+            DownloadEvent::Finished { url, success, .. } => (url.to_string(), if success { "finished" } else { "failed" }.to_string()),
+            _ => return true,
+        };
+        let _ = download_app.emit("browser:download", BrowserDownloadEvent { tab_id: download_tab_id.clone(), url, status });
         true
     });
 
@@ -355,6 +402,24 @@ pub async fn browser_reload(
     if let Some(l) = label {
         if let Some(wv) = app.get_webview(&l) {
             wv.eval("location.reload()").map_err(|e| format!("Failed to reload: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn browser_stop(
+    app: AppHandle,
+    state: tauri::State<'_, Mutex<BrowserWebviewManager>>,
+    tab_id: String,
+) -> Result<(), String> {
+    let label = {
+        let mgr = state.lock().map_err(|e| e.to_string())?;
+        mgr.records.get(&tab_id).map(|record| record.webview_label.clone())
+    };
+    if let Some(label) = label {
+        if let Some(webview) = app.get_webview(&label) {
+            webview.eval("window.stop()").map_err(|e| format!("Failed to stop loading: {e}"))?;
         }
     }
     Ok(())

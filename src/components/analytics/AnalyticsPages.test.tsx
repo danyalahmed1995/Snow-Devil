@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useFlowStore } from '../../stores/flow-store';
+import { useFocusPreferencesStore } from '../../stores/focus-preferences-store';
 import { useModeStore } from '../../stores/mode-store';
 import { CIHealthPage } from './CIHealthPage';
 import { FlowAnalyticsPage } from './FlowAnalyticsPage';
@@ -20,6 +21,7 @@ describe('individual analytics pages in Demo Mode', () => {
     useModeStore.setState({ mode: 'demo', demoRevision: 0 });
     useAnalyticsSettingsStore.getState().resetSettings();
     useFlowStore.setState({ states: {} });
+    useFocusPreferencesStore.setState({ dismissed: [], irrelevant: [], snoozedUntil: {} });
   });
 
   it('renders CI health grades, filters, and a selectable repository table', () => {
@@ -44,6 +46,9 @@ describe('individual analytics pages in Demo Mode', () => {
   it('filters inventory and selects an evidence-backed item', () => {
     renderPage(<InventoryPage />);
     expect(screen.getByRole('heading', { name: 'Delivery Inventory' })).toBeInTheDocument();
+    expect(screen.queryByText(/experiment\/old-renderer/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Inventory repository scope'));
+    fireEvent.click(screen.getByRole('option', { name: 'All accessible repositories' }));
     fireEvent.change(screen.getByLabelText('Search inventory'), { target: { value: 'old-renderer' } });
     const row = screen.getByText(/experiment\/old-renderer/).closest('tr');
     expect(row).not.toBeNull();
@@ -51,11 +56,15 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(Object.values(useFlowStore.getState().states).some(state => state.selectedAnalyticsEntity?.kind === 'inventory')).toBe(true);
   });
 
-  it('renders focus warnings from the same current-work model', () => {
+  it('defaults focus to current direct human responsibility', () => {
     renderPage(<PersonalFocusPage />);
     expect(screen.getByRole('heading', { name: 'Personal Focus' })).toBeInTheDocument();
-    expect(screen.getByText('Current WIP is meaningfully above your historical norm.')).toBeInTheDocument();
-    expect(screen.getByText('Focus Tip')).toBeInTheDocument();
+    expect(screen.getByLabelText('Focus involvement')).toHaveTextContent('Direct responsibility');
+    expect(screen.getByLabelText('Focus actor')).toHaveTextContent('Humans only');
+    expect(screen.getByRole('heading', { name: 'Do now' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Waiting on others' })).toBeInTheDocument();
+    expect(screen.getByText('Next action')).toBeInTheDocument();
+    expect(screen.queryByText('Bump vite from 7.3.4 to 7.3.5')).not.toBeInTheDocument();
   });
 
   it('persists settings and requires explicit reset confirmation', () => {

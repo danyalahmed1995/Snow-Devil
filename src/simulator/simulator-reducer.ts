@@ -37,7 +37,7 @@ export function reconstructState(
         reviewCommentCount: 0,
         reviewState: "none",
         checkState: "unknown",
-        createdAt: event.occurredAt,
+        createdAt: typeof event.metadata.actualCreatedAt === 'string' ? event.metadata.actualCreatedAt : event.occurredAt,
         updatedAt: event.occurredAt,
         inclusionReason: (event as any).inclusionReason,
         sourceCompleteness: event.sourceCompleteness,
@@ -171,6 +171,13 @@ export function reconstructState(
          ent.stage = "deployed";
          ent.deployedAt = event.occurredAt;
          break;
+    }
+
+    if (typeof event.metadata.actualCreatedAt === 'string') ent.createdAt = event.metadata.actualCreatedAt;
+    if (typeof event.metadata.actualUpdatedAt === 'string') ent.updatedAt = event.metadata.actualUpdatedAt;
+    if (event.metadata.baseline === true) {
+      ent.baselineAtReplayStart = true;
+      ent.baselineLabel = typeof event.metadata.baselineLabel === 'string' ? event.metadata.baselineLabel : 'Existing at replay start';
     }
 
     const classified = classifyLifecycle({

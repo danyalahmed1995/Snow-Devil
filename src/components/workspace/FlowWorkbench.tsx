@@ -11,11 +11,16 @@ import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
 import { useTabsStore } from '../../stores/tabs-store';
 import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
-import { filterWorkflowItems, normalizeWorkflowItem, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
+import { canonicalAttentionItems, filterWorkflowItems, normalizeWorkflowItem, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
 import { Select } from '../ui/Select';
 import './FlowWorkbench.css';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
+import { SavedViewsMenu } from '../saved-views/SavedViewsMenu';
+import '../saved-views/SavedViewsMenu.css';
+import { useAuthStore } from '../../stores/auth-store';
+import { queryClient } from '../../app/providers';
+import { useCurrentTabId } from './TabInstanceContext';
 
 function flattenSourcePages(
   data: any, 
@@ -23,6 +28,7 @@ function flattenSourcePages(
   options?: {
     assertRepoId?: string;
     repoNameWithOwner?: string;
+    viewerLogin?: string;
   }
 ): { items: FlowItem[], exactTotal?: number } {
   if (!data || !data.pages) return { items: [] };
@@ -48,7 +54,7 @@ function flattenSourcePages(
       if (type === 'release') {
         item = parseRelease(node, repoId, options?.repoNameWithOwner || '', repoOwner);
       } else {
-        item = parseGitHubIssueOrPR(node, type);
+        item = parseGitHubIssueOrPR(node, type, options?.viewerLogin);
       }
 
       // Runtime Assertions
@@ -68,8 +74,10 @@ function flattenSourcePages(
 
 export function FlowWorkbench() {
   const appMode = useModeStore(state => state.mode);
+  const session = useAuthStore(state => state.session);
+  const viewerLogin = appMode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : undefined;
   const { data: demoPipeline, isLoading: demoLoading, error: demoError } = useDemoPipeline();
-  const activeTabId = useTabsStore(s => s.activeTabId);
+  const activeTabId = useCurrentTabId();
   const openBrowserTab = useTabsStore(s => s.openBrowserTab);
   const openNativeTab = useTabsStore(s => s.openNativeTab);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
@@ -93,6 +101,7 @@ export function FlowWorkbench() {
   const involvementFilter = flowState.involvementFilter;
   const actorFilter = flowState.actorFilter;
   const accountRepositoryFilter = flowState.accountRepositoryFilter;
+  const sortOrder = flowState.sortOrder;
 
   const repoOwner = selectedRepository?.nameWithOwner.split('/')[0] || '';
   const repoName = selectedRepository?.nameWithOwner.split('/')[1] || '';
@@ -121,6 +130,10 @@ export function FlowWorkbench() {
       repoOpenPrs.refetch(), repoOpenIssues.refetch(), repoMergedPrs.refetch(), repoReleases.refetch(),
       accAuthoredPrs.refetch(), accReviewReqPrs.refetch(), accReviewedPrs.refetch(), accAuthoredIssues.refetch(), accAssignedIssues.refetch(), accMergedPrs.refetch(),
     ]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['flow'] }),
+      queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] }),
+    ]);
   } }), [
     repoOpenPrs.refetch, repoOpenIssues.refetch, repoMergedPrs.refetch, repoReleases.refetch,
     accAuthoredPrs.refetch, accReviewReqPrs.refetch, accReviewedPrs.refetch, accAuthoredIssues.refetch, accAssignedIssues.refetch, accMergedPrs.refetch,
@@ -130,19 +143,21 @@ export function FlowWorkbench() {
   const repoOpts = useMemo(() => isRepo ? {
     assertRepoId: selectedRepository?.id,
     repoNameWithOwner: selectedRepository?.nameWithOwner,
-  } : undefined, [isRepo, selectedRepository?.id, selectedRepository?.nameWithOwner]);
+    viewerLogin,
+  } : undefined, [isRepo, selectedRepository?.id, selectedRepository?.nameWithOwner, viewerLogin]);
   
   const { items: rawRepoOpenPrs, exactTotal: repoOpenPrsTotal } = useMemo(() => flattenSourcePages(repoOpenPrs.data, 'pull_request', repoOpts), [repoOpenPrs.data, repoOpts]);
   const { items: rawRepoOpenIssues, exactTotal: repoOpenIssuesTotal } = useMemo(() => flattenSourcePages(repoOpenIssues.data, 'issue', repoOpts), [repoOpenIssues.data, repoOpts]);
   const { items: rawRepoMergedPrs, exactTotal: repoMergedPrsTotal } = useMemo(() => flattenSourcePages(repoMergedPrs.data, 'pull_request', repoOpts), [repoMergedPrs.data, repoOpts]);
   const { items: rawRepoReleases, exactTotal: repoReleasesTotal } = useMemo(() => flattenSourcePages(repoReleases.data, 'release', repoOpts), [repoReleases.data, repoOpts]);
 
-  const { items: rawAccAuthoredPrs } = useMemo(() => flattenSourcePages(accAuthoredPrs.data, 'pull_request'), [accAuthoredPrs.data]);
-  const { items: rawAccReviewReqPrs } = useMemo(() => flattenSourcePages(accReviewReqPrs.data, 'pull_request'), [accReviewReqPrs.data]);
-  const { items: rawAccReviewedPrs } = useMemo(() => flattenSourcePages(accReviewedPrs.data, 'pull_request'), [accReviewedPrs.data]);
-  const { items: rawAccAuthoredIssues } = useMemo(() => flattenSourcePages(accAuthoredIssues.data, 'issue'), [accAuthoredIssues.data]);
-  const { items: rawAccAssignedIssues } = useMemo(() => flattenSourcePages(accAssignedIssues.data, 'issue'), [accAssignedIssues.data]);
-  const { items: rawAccMergedPrs, exactTotal: accMergedPrsTotal } = useMemo(() => flattenSourcePages(accMergedPrs.data, 'pull_request'), [accMergedPrs.data]);
+  const accountOpts = useMemo(() => ({ viewerLogin }), [viewerLogin]);
+  const { items: rawAccAuthoredPrs } = useMemo(() => flattenSourcePages(accAuthoredPrs.data, 'pull_request', accountOpts), [accAuthoredPrs.data, accountOpts]);
+  const { items: rawAccReviewReqPrs } = useMemo(() => flattenSourcePages(accReviewReqPrs.data, 'pull_request', accountOpts), [accReviewReqPrs.data, accountOpts]);
+  const { items: rawAccReviewedPrs } = useMemo(() => flattenSourcePages(accReviewedPrs.data, 'pull_request', accountOpts), [accReviewedPrs.data, accountOpts]);
+  const { items: rawAccAuthoredIssues } = useMemo(() => flattenSourcePages(accAuthoredIssues.data, 'issue', accountOpts), [accAuthoredIssues.data, accountOpts]);
+  const { items: rawAccAssignedIssues } = useMemo(() => flattenSourcePages(accAssignedIssues.data, 'issue', accountOpts), [accAssignedIssues.data, accountOpts]);
+  const { items: rawAccMergedPrs, exactTotal: accMergedPrsTotal } = useMemo(() => flattenSourcePages(accMergedPrs.data, 'pull_request', accountOpts), [accMergedPrs.data, accountOpts]);
 
   const baseItems = useMemo(() => {
     if (appMode === 'demo') {
@@ -260,8 +275,8 @@ export function FlowWorkbench() {
     const currentItems = appMode === 'demo' || mode === 'live' || scope !== 'repository'
       ? baseItems
       : baselineItems.map(item => advanceItemState(item, replayEvents, rangeStart, cursorTime));
-    return currentItems.map(item => normalizeWorkflowItem(item, appMode, appMode === 'demo' ? demoPipeline?.referenceDate : undefined));
-  }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime, demoPipeline?.referenceDate]);
+    return currentItems.map(item => normalizeWorkflowItem(item, appMode, appMode === 'demo' ? demoPipeline?.referenceDate : undefined, viewerLogin));
+  }, [appMode, baselineItems, baseItems, mode, scope, replayEvents, rangeStart, cursorTime, demoPipeline?.referenceDate, viewerLogin]);
 
   const rangeFilteredItems = useMemo(() => {
     if (timeRange !== 'custom' || !flowState.customRangeStart || !flowState.customRangeEnd) return classifiedItems;
@@ -286,8 +301,12 @@ export function FlowWorkbench() {
       if (actorFilter === 'renovate' && item.actorClassification !== 'renovate') return false;
       return true;
     });
-    return filterWorkflowItems(scoped, { search, activeOnly, stage: filterStage, statusFilter, repositoryId: isRepo ? selectedRepository?.id : undefined });
-  }, [accountRepositoryFilter, activeOnly, actorFilter, filterStage, involvementFilter, isAccount, isRepo, rangeFilteredItems, scope, search, selectedRepository, statusFilter]);
+    const filtered = filterWorkflowItems(scoped, { search, activeOnly, stage: filterStage, statusFilter, repositoryId: isRepo ? selectedRepository?.id : undefined });
+    return [...filtered].sort((a, b) => sortOrder === 'oldest' ? a.updatedAt.localeCompare(b.updatedAt)
+      : sortOrder === 'repository' ? a.repositoryName.localeCompare(b.repositoryName) || b.updatedAt.localeCompare(a.updatedAt)
+      : sortOrder === 'attention' ? Number(Boolean(b.attentionReasons?.length)) - Number(Boolean(a.attentionReasons?.length)) || b.updatedAt.localeCompare(a.updatedAt)
+      : b.updatedAt.localeCompare(a.updatedAt));
+  }, [accountRepositoryFilter, activeOnly, actorFilter, filterStage, involvementFilter, isAccount, isRepo, rangeFilteredItems, scope, search, selectedRepository, sortOrder, statusFilter]);
 
   // Clear selected item when scope or dataset changes
   useEffect(() => {
@@ -375,16 +394,22 @@ export function FlowWorkbench() {
     ? repoOpenPrs.isLoading || repoOpenIssues.isLoading || repoMergedPrs.isLoading || repoReleases.isLoading
     : accAuthoredPrs.isLoading || accReviewReqPrs.isLoading || accReviewedPrs.isLoading || accAuthoredIssues.isLoading || accAssignedIssues.isLoading || accMergedPrs.isLoading;
 
+  const liveFetching = isRepo
+    ? repoOpenPrs.isFetching || repoOpenIssues.isFetching || repoMergedPrs.isFetching || repoReleases.isFetching
+    : accAuthoredPrs.isFetching || accReviewReqPrs.isFetching || accReviewedPrs.isFetching || accAuthoredIssues.isFetching || accAssignedIssues.isFetching || accMergedPrs.isFetching;
+
   const liveError = isRepo
     ? repoOpenPrs.error || repoOpenIssues.error || repoMergedPrs.error || repoReleases.error
     : accAuthoredPrs.error || accReviewReqPrs.error || accReviewedPrs.error || accAuthoredIssues.error || accAssignedIssues.error || accMergedPrs.error;
 
   const isLoading = appMode === 'demo' ? demoLoading : liveLoading;
+  const isRefreshing = appMode === 'live' && liveFetching && !liveLoading && baseItems.length > 0;
   const error = appMode === 'demo' ? demoError : liveError;
 
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       <div className="flow-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        {flowState.sourceContext && <button type="button" className="flow-context-chip" title="Remove Home context" onClick={() => setFlowState(activeTabId, { sourceContext: undefined })}>{flowState.sourceContext}<span aria-hidden="true">×</span></button>}
         <label className="flow-field">Scope<Select ariaLabel="Flow scope" value={scope} onChange={value => setFlowState(activeTabId, { scope: value as 'account' | 'repository', filterStage: undefined })} options={[{ value: 'account', label: 'Account Flow' }, { value: 'repository', label: 'Repository Flow' }]} /></label>
 
         {scope === 'repository' && (
@@ -403,7 +428,8 @@ export function FlowWorkbench() {
         <label className="flow-field">View<Select ariaLabel="Flow view" value={statusFilter} onChange={value => setFlowState(activeTabId, { statusFilter: value as typeof statusFilter })} options={[{ value: 'all', label: 'All work' }, { value: 'attention', label: 'Needs attention' }, { value: 'waiting_review', label: scope === 'account' ? 'Reviews requested from me' : 'Review requested' }, { value: 'failing', label: 'Failing checks' }, { value: 'merged', label: 'Recently merged' }]} /></label>
         {scope === 'account' && <label className="flow-field">Involvement<Select ariaLabel="Flow involvement" value={involvementFilter} onChange={value => setFlowState(activeTabId, { involvementFilter: value as typeof involvementFilter })} options={[{ value: 'all', label: 'All activity' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'authored', label: 'Authored by me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participating' }]} /></label>}
         <label className="flow-field">Actor<Select ariaLabel="Flow actor" value={actorFilter} onChange={value => setFlowState(activeTabId, { actorFilter: value as typeof actorFilter })} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'humans', label: 'Humans only' }, { value: 'bots', label: 'Bots only' }, { value: 'dependabot', label: 'Dependabot' }, { value: 'renovate', label: 'Renovate' }]} /></label>
-        <span className="flow-freshness" title="Flow shows the latest completed cached query snapshot.">Synced snapshot · {items.length} results</span>
+        {filterStage && <label className="flow-field">Sort<Select ariaLabel="Focused stage sort" value={sortOrder} onChange={value => setFlowState(activeTabId, { sortOrder: value as typeof sortOrder })} options={[{ value: 'newest', label: 'Newest activity' }, { value: 'oldest', label: 'Oldest activity' }, { value: 'repository', label: 'Repository' }, { value: 'attention', label: 'Attention first' }]} /></label>}
+        <SavedViewsMenu current={flowState}/><span className="flow-freshness" title="Flow shows the latest completed cached query snapshot.">Synced snapshot · {items.length} results</span>
       </div>
       
       <div className="flow-content" style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
@@ -416,18 +442,13 @@ export function FlowWorkbench() {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
             Loading {scope} flow...
           </div>
-        ) : error ? (
+        ) : error && items.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
             Error loading flow: {(error as Error).message}
           </div>
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            {isLoading ? (
-              <div className="flow-loading-overlay">
-                <div className="spinner"></div>
-                <p>Loading flow data...</p>
-              </div>
-            ) : (
+            {items.length === 0 ? <div className="flow-empty-scope"><strong>No {filterStage ? filterStage.replace(/_/g, ' ') : 'work'} items matched your current repository, range, and involvement filters.</strong><span>Current scope: {scope} · {timeRange} · {statusFilter.replace(/_/g, ' ')}</span><div><button onClick={() => setFlowState(activeTabId, { search: '', statusFilter: 'all', involvementFilter: 'all', actorFilter: 'everyone', accountRepositoryFilter: 'all' })}>Clear filters</button><button onClick={() => setFlowState(activeTabId, { filterStage: undefined, sourceContext: undefined })}>Return to all stages</button><button onClick={() => void (isRepo ? Promise.all([repoOpenPrs.refetch(), repoOpenIssues.refetch()]) : Promise.all([accAuthoredPrs.refetch(), accReviewReqPrs.refetch(), accAssignedIssues.refetch()]))}>Refresh</button></div></div> : (
               <FlowPipeline
                 key={`${scope}-${selectedRepository?.id || 'none'}-${mode}`}
                 resetKey={`${appMode}-${scope}-${selectedRepository?.id || 'none'}-${mode}-${timeRange}-${activeTabId}`}
@@ -442,7 +463,8 @@ export function FlowWorkbench() {
             )}
           </div>
         )}
-        {!isLoading && !error && items.length > 0 && <section className="flow-detail-panels" aria-label="Flow operational context"><div className="flow-event-preview"><header><strong>Event Stream</strong><span>Latest cached activity</span></header>{[...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 3).map(item => <button key={item.id} onClick={() => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}><time>{new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>{item.title}</span><small>{item.stage}</small></button>)}</div><div><div className="flow-supporting"><div><span>Visible</span><strong>{items.length}</strong></div><div><span>Attention</span><strong>{items.filter(item => item.status === 'failing' || item.status === 'changes_requested').length}</strong></div><div><span>Reviews</span><strong>{items.filter(item => item.stage === 'review').length}</strong></div><div><span>Merged</span><strong>{items.filter(item => item.stage === 'merged').length}</strong></div><div><span>Coverage</span><strong>{items.some(item => item.completeness !== 'complete') ? 'Partial' : 'Complete'}</strong></div></div>{isRepo && selectedRepository && <div className="flow-deep-links"><span>{selectedRepository.nameWithOwner}</span><button onClick={() => { setFlowState('native:repository-simulator', { selectedRepository }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository Simulator', false, true); }}>Repository Simulator</button><button onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Health', false, true)}>CI Health</button></div>}</div></section>}
+        {isRefreshing && <div className="flow-refreshing" role="status">Refreshing GitHub data · Displaying previous snapshot</div>}
+        {!isLoading && items.length > 0 && <section className="flow-detail-panels" aria-label="Flow operational context"><div className="flow-event-preview"><header><strong>Event Stream</strong><span>Latest cached activity</span></header>{[...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 3).map(item => <button key={item.id} onClick={() => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}><time>{new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>{item.title}</span><small>{item.stage}</small></button>)}</div><div><div className="flow-supporting"><div><span>Visible</span><strong>{items.length}</strong></div><div><span>Attention</span><strong>{canonicalAttentionItems(items).length}</strong></div><div><span>Reviews</span><strong>{items.filter(item => item.stage === 'review').length}</strong></div><div><span>Merged</span><strong>{items.filter(item => item.stage === 'merged').length}</strong></div><div><span>Coverage</span><strong>{items.some(item => item.completeness !== 'complete') || error ? 'Partial' : 'Complete'}</strong></div></div>{isRepo && selectedRepository && <div className="flow-deep-links"><span>{selectedRepository.nameWithOwner}</span><button onClick={() => { setFlowState('native:repository-simulator', { selectedRepository }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}>Repository History</button><button onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Health', false, true)}>CI Health</button></div>}</div></section>}
       </div>
     </div>
   );

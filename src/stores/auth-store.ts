@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { queryClient } from '../app/providers';
 import { useTabsStore } from './tabs-store';
 import { useFlowStore } from './flow-store';
+import { useHistoryViewStore } from './history-view-store';
 
 export type ConnectedAccount = {
   login: string;
@@ -11,7 +12,7 @@ export type ConnectedAccount = {
   bio?: string;
   url?: string;
   repositories?: { totalCount: number };
-  organizations?: { totalCount: number };
+  organizations?: { totalCount: number; publicCount?: number; privateCount?: number; source?: string; status?: 'ready' | 'partial' | 'unavailable'; errorCode?: 'missing_read_org' | 'sso_required' | 'organization_access_restricted' | 'unavailable'; message?: string; nodes?: Array<{ id: number; login: string; avatarUrl?: string; url?: string; role?: string; state?: string; visibility?: 'public' | 'private' }> };
   pullRequests?: { totalCount: number };
   issues?: { totalCount: number };
 };
@@ -56,14 +57,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   checkAuthStatus: async () => {
+    const previousSession = get().session;
+    const previousLogin = previousSession.status === 'connected' ? previousSession.account.login : undefined;
     set({ session: { status: "checking" } });
     try {
       const res = await invoke<any>('get_auth_status');
       if (res.isAuthenticated && res.account) {
+        if (previousLogin && previousLogin.toLowerCase() !== String(res.account.login).toLowerCase()) {
+          queryClient.clear();
+          useFlowStore.setState({ states: {} });
+          useHistoryViewStore.setState({ states: {} });
+        }
         set({ 
           session: { status: "connected", account: res.account },
           isAuthenticated: true
         });
+        await queryClient.invalidateQueries({ queryKey: ['account-context'] });
       } else {
         set({ session: { status: "disconnected" }, isAuthenticated: false });
       }
@@ -169,6 +178,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await import('../browser/browser-commands').then(({ browserClearData }) => Promise.all(useTabsStore.getState().tabs.filter(tab=>tab.family==='browser').map(tab=>browserClearData(tab.id)))).catch(() => undefined);
       queryClient.clear();
       useFlowStore.setState({ states: {} });
+      useHistoryViewStore.setState({ states: {} });
       const now=Date.now();
       useTabsStore.setState({ tabs:[{id:'native:home',family:'native',kind:'home',title:'Home',pinned:true,closable:false,createdAt:now,lastActivatedAt:now}],activeTabId:'native:home',navigationGeneration:useTabsStore.getState().navigationGeneration+1 });
       set({ session: { status: "disconnected" }, isAuthenticated: false });

@@ -51,6 +51,32 @@ describe('analytics product correctness', () => {
     expect(buckets.reduce((sum, bucket) => sum + bucket.merged, 0)).toBe(1);
   });
 
+  it('resolves an aggregated workflow failure when newer evidence succeeds', () => {
+    const failed: DeliveryEntity = { ...baseEntity, id: 'workflow-failed', type: 'workflow_run', number: undefined, title: 'CI', updatedAt: '2026-05-09T00:00:00Z', checkState: 'failure', evidence: ['failed run'] };
+    const passed: DeliveryEntity = { ...baseEntity, id: 'workflow-passed', type: 'workflow_run', number: undefined, title: 'CI', updatedAt: '2026-05-12T00:00:00Z', checkState: 'success', evidence: ['successful rerun'] };
+    const items = inventoryItems(dataset([{ ...baseEntity, checkState: 'success' }, failed, passed]), { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' });
+    expect(items.some(item => item.type === 'checks_failing')).toBe(false);
+  });
+
+  it('keeps workflow failures on different branches as separate canonical inventory', () => {
+    const workflow = (id: string, branchName: string): DeliveryEntity => ({ ...baseEntity, id, type: 'workflow_run', number: undefined, title: 'CI', branchName, checkState: 'failure', evidence: [`${branchName} failed`] });
+    const items = inventoryItems(dataset([workflow('one', 'feature/one'), workflow('two', 'feature/two')]), { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' });
+    expect(items).toHaveLength(2);
+  });
+
+  it('keeps different workflow identities separate even when both are named CI', () => {
+    const workflow = (id: string, workflowId: string): DeliveryEntity => ({ ...baseEntity, id, workflowId, type: 'workflow_run', number: undefined, title: 'CI', branchName: 'main', checkState: 'failure', evidence: [`run ${id}`] });
+    const items = inventoryItems(dataset([workflow('run-1', 'workflow-1'), workflow('run-2', 'workflow-2')]), { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' });
+    expect(items).toHaveLength(2);
+  });
+
+  it('groups run-id changes as evidence under one stable workflow row', () => {
+    const workflow = (id: string): DeliveryEntity => ({ ...baseEntity, id, workflowId: 'workflow-1', runId: id, type: 'workflow_run', number: undefined, title: 'CI', branchName: 'main', checkState: 'failure', evidence: [`run ${id}`] });
+    const items = inventoryItems(dataset(Array.from({ length: 5 }, (_, index) => workflow(`run-${index + 1}`))), { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC' });
+    expect(items).toHaveLength(1);
+    expect(items[0].evidenceCount).toBe(5);
+  });
+
   it('does not invent deployment inventory when the repository cannot supply deployment evidence', () => {
     const items = inventoryItems(dataset([{ ...baseEntity, stage: 'merged', state: 'merged', mergedAt: '2026-05-11T00:00:00Z' }]), DEFAULT_ANALYTICS_SETTINGS);
     expect(items.some(item => item.type === 'merged_not_deployed')).toBe(false);

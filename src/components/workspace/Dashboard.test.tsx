@@ -43,7 +43,9 @@ describe('Dashboard (Home)', () => {
 
     renderDashboard();
 
-    expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading your GitHub workspace' })).toBeInTheDocument();
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument());
     expect(screen.getByText('Pipeline Preview')).toBeInTheDocument();
     expect(screen.queryByText('Activity Pipeline Preview')).not.toBeInTheDocument();
     expect(screen.queryByText('Recent Activity')).not.toBeInTheDocument();

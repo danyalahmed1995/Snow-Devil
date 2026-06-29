@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { useModeStore } from '../../stores/mode-store';
 import { DemoDataProvider } from '../../data/demo-provider';
 import { Select } from '../ui/Select';
+import { useAccountRepositories } from '../../hooks/useAccountContext';
 
 interface Repo {
   id: string;
@@ -18,16 +18,15 @@ interface RepositorySelectorProps {
 export function RepositorySelector({ selectedRepo, onSelect, compact = false }: RepositorySelectorProps) {
   const mode = useModeStore(state => state.mode);
   const [repos, setRepos] = useState<Repo[]>([]);
+  const accountRepositories = useAccountRepositories();
 
   useEffect(() => {
     if (mode === 'demo') {
       void DemoDataProvider.manifest().then(manifest => setRepos(manifest.repositories.map(repo => ({ id: repo.id, name: repo.nameWithOwner }))));
       return;
     }
-    void invoke<Array<{ id: string; nameWithOwner: string }>>('get_viewer_repositories')
-      .then(values => setRepos((values || []).map(repo => ({ id: repo.id, name: repo.nameWithOwner }))))
-      .catch(console.error);
-  }, [mode]);
+    setRepos((accountRepositories.data ?? []).map(repo => ({ id: repo.id, name: repo.nameWithOwner })));
+  }, [accountRepositories.data, mode]);
 
   const options = [
     ...(!selectedRepo ? [{ value: '', label: 'Select a repository…', disabled: true, disabledReason: 'Choose a repository to continue' }] : []),

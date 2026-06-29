@@ -60,7 +60,7 @@ export function classifyWorkflowItem(item: Partial<FlowItem>): ClassifiedWorkflo
   return { ...result, stage: result.stage as FlowStage, status: result.status as FlowStatus };
 }
 
-export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = item.sourceMode ?? 'live', referenceTime?: string): FlowItem {
+export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = item.sourceMode ?? 'live', referenceTime?: string, viewerLogin?: string): FlowItem {
   const classified = classifyWorkflowItem(item);
   const history = dedupeStageHistory(item.stageHistory ?? fallbackHistory(item, classified.stage));
   const actorClassification = classifyActor(item.author?.login, item.isBot ?? item.author?.isBot);
@@ -75,7 +75,8 @@ export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = it
     reviewState: item.reviewSummary?.state,
     requestedReviewers: item.reviewSummary?.requestedReviewers,
     checkState: item.checksSummary?.state,
-  });
+  }, viewerLogin);
+  const inclusionLabels: Record<string, string> = { assigned: 'Assigned to you', assigned_to_you: 'Assigned to you', authored: 'Authored by you', authored_by_you: 'Authored by you', review_requested_from_you: 'Review requested', reviewed_by_you: 'You participated', commented_on_by_you: 'You participated', merged_contribution: 'Authored by you · Recently merged', release_published_by_you: 'Published by you', deployment_triggered_by_you: 'Triggered by you' };
   return {
     ...item,
     stage: classified.stage,
@@ -89,6 +90,7 @@ export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = it
     referenceTime: referenceTime ?? item.referenceTime,
     isBot: item.isBot ?? item.author?.isBot ?? false,
     actorClassification,
+    inclusionReason: item.viewerRelationship?.label ?? inclusionLabels[item.inclusionReason ?? ''] ?? item.inclusionReason,
     confidence: classified.confidence,
     missingEvidence: classified.missingEvidence,
     attentionReasons: attention.reasons,
@@ -150,6 +152,10 @@ export function filterWorkflowItems(items: FlowItem[], filters: WorkflowFilters)
       type: item.type,
       branch: item.headBranch,
     }, filters.search)));
+}
+
+export function canonicalAttentionItems(items: FlowItem[]): FlowItem[] {
+  return items.filter(item => Boolean(item.attentionReasons?.length) || item.status === 'failing' || item.status === 'changes_requested');
 }
 
 export function homePreview(items: FlowItem[], limit = 2): Record<FlowStage, FlowItem[]> {

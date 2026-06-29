@@ -1,4 +1,4 @@
-import { AppWindow, Globe2, MoreHorizontal, RotateCcw, X } from 'lucide-react';
+import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
@@ -164,6 +164,7 @@ export function WorkspaceTabStrip() {
           );
         })}
       </div>
+      <button className="workspace-tab-add" aria-label="Open or switch tab" title="Open or switch tab" onClick={event => showMenu({ x: event.currentTarget.getBoundingClientRect().right - 220, y: event.currentTarget.getBoundingClientRect().bottom + 4 })}><Plus size={15}/></button>
       <button ref={overflowRef} className="workspace-tab-overflow" aria-label="Tab overflow menu" onClick={event => showMenu({ x: event.currentTarget.getBoundingClientRect().right - 220, y: event.currentTarget.getBoundingClientRect().bottom + 4 })}><MoreHorizontal size={16} /></button>
       {popup}
     </div>

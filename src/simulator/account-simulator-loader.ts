@@ -20,6 +20,7 @@ export interface AccountSimulatorSnapshot {
 
 const EMPTY_DETAILS: SimulatorLoadDetails = {
   sourceFailures: [],
+  sourceStatuses: [],
   loadedSources: 0,
   totalSources: 0,
   cached: false,
@@ -27,13 +28,18 @@ const EMPTY_DETAILS: SimulatorLoadDetails = {
 };
 
 export function emptySimulatorLoadDetails(): SimulatorLoadDetails {
-  return { ...EMPTY_DETAILS, sourceFailures: [] };
+  return { ...EMPTY_DETAILS, sourceFailures: [], sourceStatuses: [] };
 }
 
 export function accountCacheRange(events: SimulatorEvent[]): SimulatorLoadDetails["cacheRange"] {
   if (events.length === 0) return undefined;
   const sorted = [...events].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
   return { since: sorted[0].occurredAt, until: sorted[sorted.length - 1].occurredAt, eventCount: sorted.length };
+}
+
+function historyWindowMessage(since: string, until: string): string {
+  const days = Math.max(1, Math.ceil((new Date(until).getTime() - new Date(since).getTime()) / 86400000));
+  return `${days}-day selected retention window`;
 }
 
 export function isAccountSimulatorEvent(event: SimulatorEvent, login: string): boolean {
@@ -90,18 +96,23 @@ export async function loadAccountSimulatorSnapshot(
     const fresh = await fetchFresh(login, since, until);
     validateReplayable(fresh.events, until, buildReplay);
     if (fresh.events.length > 0) await saveEvents(fresh.events);
-    const partial = fresh.sourceFailures.length > 0 || fresh.loadedSources < fresh.totalSources;
+    const partialStatuses = fresh.sourceStatuses?.filter(source => source.status === 'partial') ?? [];
+    const partial = fresh.sourceFailures.length > 0 || fresh.loadedSources < fresh.totalSources || fresh.sourceStatuses?.some(source => source.status !== 'loaded');
+    const historicalDepth = fresh.sourceFailures.length > 0 ? 'partial_events' as const : partialStatuses.length > 0 ? 'api_bounded' as const : 'retention_bounded' as const;
     return {
       events: fresh.events,
       loadState: partial ? "ready_partial" : "ready_complete",
       details: {
         sourceFailures: fresh.sourceFailures.map(markSourceFailure),
+        sourceStatuses: fresh.sourceStatuses ?? [],
         loadedSources: fresh.loadedSources,
         totalSources: fresh.totalSources,
         cached: false,
         stale: false,
         cacheRange: accountCacheRange(fresh.events),
         cacheError,
+        historicalDepth,
+        historicalDepthMessage: historicalDepth === 'retention_bounded' ? historyWindowMessage(since, until) : historicalDepth === 'api_bounded' ? 'GitHub search/page bounded within the selected window' : 'Partial event history because one or more configured sources failed',
       },
     };
   } catch (cause) {
@@ -122,6 +133,8 @@ export async function loadAccountSimulatorSnapshot(
           cacheRange: accountCacheRange(cachedEvents),
           refreshError,
           cacheError,
+          historicalDepth: 'partial_events',
+          historicalDepthMessage: 'Cached history shown while the latest source refresh is unavailable',
         },
       };
     }
@@ -137,6 +150,8 @@ export async function loadAccountSimulatorSnapshot(
         stale: false,
         refreshError,
         cacheError,
+        historicalDepth: 'partial_events',
+        historicalDepthMessage: 'Historical depth unavailable because no source snapshot could be loaded',
       },
     };
   }

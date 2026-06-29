@@ -25,7 +25,12 @@ export interface AnalyticsSyncState {
 
 interface ApiResponse { status: number; body: unknown; next_page?: number; rate_remaining?: number; rate_reset?: number }
 interface RecordInput { account_login: string; repository_id: string; source_type: string; source_id: string; updated_at: string; payload_json: string }
-interface Repository { id: number; node_id?: string; full_name: string; archived: boolean; fork: boolean; private: boolean; default_branch: string; updated_at: string }
+interface Repository { id: number; node_id?: string; full_name: string; archived: boolean; fork: boolean; private: boolean; default_branch: string; updated_at: string; size?: number; permissions?: Record<string, boolean> }
+
+export interface AnalyticsSyncContinuation {
+  currentJob?: { completedRepositories: number; failedRepositories: number; totalRepositories: number; normalizedRecords: number };
+  unsupportedSources?: Array<{ repository: string; stage: AnalyticsSyncStage; source: string; reason: string }>;
+}
 
 let active: { account: string; cancelled: boolean } | null = null;
 const listeners = new Set<() => void>();
@@ -48,6 +53,12 @@ function included(repo: Repository, settings: AnalyticsSettings): boolean {
   if (settings.ignoredRepositories.includes(repo.full_name)) return false;
   if (settings.includedRepositories.length && !settings.includedRepositories.includes(repo.full_name)) return false;
   return (settings.includeArchived || !repo.archived) && (settings.includeForks || !repo.fork) && (settings.includePrivate || !repo.private);
+}
+
+export function checkRunUnsupportedReason(repository: Pick<Repository, 'default_branch' | 'size'>): string | undefined {
+  if (!repository.default_branch) return 'Checks unavailable: repository has no valid default branch.';
+  if (repository.size === 0) return 'Checks unavailable: empty repository has no commit on its default branch.';
+  return undefined;
 }
 
 async function fetchPage(endpoint: string): Promise<ApiResponse> {
@@ -73,7 +84,7 @@ function record(account: string, repo: string, type: string, item: Record<string
 async function saveState(value: AnalyticsSyncState) { await invoke('save_analytics_sync_state', { value }); notify(); }
 async function saveRecords(records: RecordInput[]) { for (let index = 0; index < records.length; index += 100) await invoke('save_analytics_records', { records: records.slice(index, index + 100) }); }
 
-async function paged(account: string, repo: string, type: string, endpoint: (page: number) => string, boundary: string, maxPages = 10): Promise<{ count: number; unsupported: boolean; rate?: object }> {
+async function paged(account: string, repo: string, type: string, endpoint: (page: number) => string, boundary: string, maxPages = 10, boundedByHistory = true): Promise<{ count: number; unsupported: boolean; rate?: object }> {
   let page = 1; let pagesFetched = 0; let count = 0; let unsupported = false; let rate: object | undefined;
   const visited = new Set<number>();
   while (pagesFetched < maxPages && !visited.has(page)) {
@@ -88,7 +99,7 @@ async function paged(account: string, repo: string, type: string, endpoint: (pag
     count += items.length;
     const oldestItem = items[items.length - 1];
     const oldest = oldestItem?.updated_at ?? oldestItem?.created_at;
-    if (!response.next_page || (typeof oldest === 'string' && oldest < boundary)) break;
+    if (!response.next_page || boundedByHistory && typeof oldest === 'string' && oldest < boundary) break;
     page = response.next_page;
   }
   return { count, unsupported, rate };
@@ -104,26 +115,34 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
   const previous = await getAnalyticsSyncState(account);
   const completed = new Set<string>();
   const failed: Array<{ repository: string; stage: string; error: string }> = [];
+  const unsupportedSources: NonNullable<AnalyticsSyncContinuation['unsupportedSources']> = [];
   const counts: Record<string, number> = {};
-  const state: AnalyticsSyncState = { account_login: account, status: 'syncing', current_stage: 'repositories', current_repository: null, completed_repositories_json: '[]', failed_repositories_json: '[]', continuation_json: previous?.continuation_json ?? null, last_attempted_at: now.toISOString(), last_successful_at: previous?.last_successful_at ?? null, retention_start: boundary, coverage_start: previous?.coverage_start ?? null, coverage_end: previous?.coverage_end ?? null, counts_json: '{}', rate_limit_json: null, error: null, settings_fingerprint: fingerprint };
+  const state: AnalyticsSyncState = { account_login: account, status: 'syncing', current_stage: 'repositories', current_repository: null, completed_repositories_json: previous?.completed_repositories_json ?? '[]', failed_repositories_json: previous?.failed_repositories_json ?? '[]', continuation_json: JSON.stringify({ currentJob: { completedRepositories: 0, failedRepositories: 0, totalRepositories: 0, normalizedRecords: 0 } } satisfies AnalyticsSyncContinuation), last_attempted_at: now.toISOString(), last_successful_at: previous?.last_successful_at ?? null, retention_start: boundary, coverage_start: previous?.coverage_start ?? null, coverage_end: previous?.coverage_end ?? null, counts_json: previous?.counts_json ?? '{}', rate_limit_json: previous?.rate_limit_json ?? null, error: null, settings_fingerprint: fingerprint };
   try {
     await saveState(state);
     const repositories: Repository[] = [];
     let page = 1; let repositoryPages = 0; const visitedRepositoryPages = new Set<number>();
     do {
       visitedRepositoryPages.add(page); repositoryPages += 1;
-      const response = await fetchPage(`/user/repos?per_page=100&page=${page}&sort=updated&direction=desc`);
+      const response = await fetchPage(`/user/repos?affiliation=owner,collaborator,organization_member&visibility=all&per_page=100&page=${page}&sort=updated&direction=desc`);
       if (response.status >= 400) throw new Error(`github_${response.status}`);
       repositories.push(...array(response.body) as unknown as Repository[]);
       page = response.next_page ?? 0;
     } while (page && repositoryPages < 10 && !visitedRepositoryPages.has(page) && !active.cancelled);
     const selected = repositories.filter(repo => included(repo, settings));
     await saveRecords(selected.map(repo => record(account, repo.full_name, 'repository', repo as unknown as Record<string, unknown>)));
+    counts.accessible_repositories = repositories.length;
+    counts.included_repositories = selected.length;
+    counts.eligible_repositories = selected.length;
     counts.repositories = selected.length;
+    state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: 0, failedRepositories: 0, totalRepositories: selected.length, normalizedRecords: selected.length } } satisfies AnalyticsSyncContinuation);
+    await saveState(state);
     for (const repo of selected) {
       state.current_repository = repo.full_name;
       const [owner, name] = repo.full_name.split('/').map(encodeURIComponent);
       const sources: Array<[AnalyticsSyncStage, string, (page: number) => string]> = [
+        ['pull_requests_issues', 'current_pull_request', p => `/repos/${owner}/${name}/pulls?state=open&sort=updated&direction=desc&per_page=100&page=${p}`],
+        ['pull_requests_issues', 'current_issue', p => `/repos/${owner}/${name}/issues?state=open&sort=updated&direction=desc&per_page=100&page=${p}`],
         ['pull_requests_issues', 'issue_or_pull_request', p => `/repos/${owner}/${name}/issues?state=all&since=${encodeURIComponent(boundary)}&per_page=100&page=${p}`],
         ['pull_requests_issues', 'pull_request', p => `/repos/${owner}/${name}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${p}`],
         ['branches', 'branch', p => `/repos/${owner}/${name}/branches?per_page=100&page=${p}`],
@@ -134,8 +153,17 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       ];
       try {
         for (const [stage, type, endpoint] of sources) {
-          state.current_stage = stage; state.continuation_json = JSON.stringify({ repository: repo.full_name, stage }); await saveState(state);
-          const result = await paged(account, repo.full_name, type, endpoint, boundary);
+          const unsupportedReason = type === 'check_run' ? checkRunUnsupportedReason(repo) : undefined;
+          if (unsupportedReason) {
+            const reason = unsupportedReason;
+            unsupportedSources.push({ repository: repo.full_name, stage, source: type, reason });
+            counts.check_run_unsupported = (counts.check_run_unsupported ?? 0) + 1;
+            continue;
+          }
+          state.current_stage = stage;
+          state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: completed.size, failedRepositories: failed.length, totalRepositories: selected.length, normalizedRecords: Object.values(counts).reduce((sum, value) => sum + value, 0) }, unsupportedSources } satisfies AnalyticsSyncContinuation);
+          await saveState(state);
+          const result = await paged(account, repo.full_name, type, endpoint, boundary, 10, !type.startsWith('current_'));
           counts[type] = (counts[type] ?? 0) + result.count;
           if (result.unsupported) counts[`${type}_unsupported`] = (counts[`${type}_unsupported`] ?? 0) + 1;
           state.rate_limit_json = result.rate ? JSON.stringify(result.rate) : state.rate_limit_json;
@@ -146,10 +174,11 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
         if (String(error).includes('cancelled') || String(error).includes('authentication_expired') || String(error).includes('rate_limited')) throw error;
         failed.push({ repository: repo.full_name, stage: state.current_stage ?? 'unknown', error: String(error) });
       }
-      state.completed_repositories_json = JSON.stringify([...completed]); state.failed_repositories_json = JSON.stringify(failed); state.counts_json = JSON.stringify(counts); await saveState(state);
+      state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: completed.size, failedRepositories: failed.length, totalRepositories: selected.length, normalizedRecords: Object.values(counts).reduce((sum, value) => sum + value, 0) }, unsupportedSources } satisfies AnalyticsSyncContinuation);
+      await saveState(state);
     }
     if (active.cancelled) throw new Error('cancelled');
-    state.status = failed.length ? 'partial' : 'complete'; state.current_stage = null; state.current_repository = null; state.continuation_json = null; state.last_successful_at = new Date().toISOString(); state.coverage_start = boundary; state.coverage_end = new Date().toISOString();
+    state.status = failed.length ? 'partial' : 'complete'; state.current_stage = null; state.current_repository = null; state.completed_repositories_json = JSON.stringify([...completed]); state.failed_repositories_json = JSON.stringify(failed); state.counts_json = JSON.stringify(counts); state.continuation_json = JSON.stringify({ unsupportedSources } satisfies AnalyticsSyncContinuation); state.last_successful_at = new Date().toISOString(); state.coverage_start = boundary; state.coverage_end = new Date().toISOString();
     await saveState(state);
   } catch (error) {
     const message = String(error);

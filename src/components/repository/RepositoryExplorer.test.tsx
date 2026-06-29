@@ -32,7 +32,7 @@ describe('RepositoryExplorer tree presentation', () => {
     fireEvent.click(src);
     await waitFor(() => expect(screen.getByRole('treeitem', { name: /File src\/main\.tsx/ })).toBeInTheDocument());
     expect(screen.getByRole('treeitem', { name: /File src\/main\.tsx/ }).querySelector('[data-tree-icon="file-typescript"]')).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Filter files' }), { target: { value: 'App.tsx' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Filter loaded tree' }), { target: { value: 'App.tsx' } });
     expect(screen.getByRole('treeitem', { name: 'Folder src' })).toBeInTheDocument();
     expect(screen.getByRole('treeitem', { name: 'Folder src/app' })).toBeInTheDocument();
     expect(screen.getByRole('treeitem', { name: /File src\/app\/App\.tsx/ })).toBeInTheDocument();

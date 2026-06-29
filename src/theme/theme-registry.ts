@@ -8,49 +8,48 @@ export const THEME_TOKEN_KEYS = [
 
 export type ThemeTokenKey = typeof THEME_TOKEN_KEYS[number];
 export type ThemeTokens = Record<ThemeTokenKey, string>;
-export type ThemeId = 'dark-glass' | 'deep-navy' | 'light-premium' | 'amber-executive' | 'aurora-glass' | 'midnight-minimal' | 'frosted-light' | 'slate-monochrome';
+export type ThemeId = 'snow-devil';
 
 export interface SnowDevilTheme {
   id: ThemeId;
   name: string;
   description: string;
-  colorScheme: 'dark' | 'light';
+  colorScheme: 'dark';
   swatch: [string, string, string];
   tokens: ThemeTokens;
 }
 
-const darkBase: ThemeTokens = {
-  bgPrimary:'#080d14',bgSecondary:'#0d141e',bgTertiary:'#131d29',bgElevated:'#111a25',surface:'#111a25',surfacePanel:'#0d1620',surfaceNested:'#0a111a',surfaceGlass:'rgba(13,21,31,.78)',surfaceGlassStrong:'rgba(10,17,26,.92)',surfaceHover:'rgba(89,154,224,.10)',surfaceSelected:'rgba(47,129,247,.16)',
-  borderSubtle:'rgba(174,204,235,.09)',borderStandard:'rgba(174,204,235,.15)',borderStrong:'rgba(174,204,235,.26)',borderFocus:'#58a6ff',textPrimary:'#e6edf3',textSecondary:'#9eacba',textMuted:'#718091',accent:'#3b8ef3',accentHover:'#65a8f8',success:'#3fb950',warning:'#d6a84b',danger:'#f05d5e',info:'#58a6ff',
-  statusSuccessBg:'#238636',statusSuccessFg:'#ffffff',statusWarningBg:'#8a5a00',statusWarningFg:'#ffffff',statusDangerBg:'#cf3338',statusDangerFg:'#ffffff',statusInfoBg:'#0969da',statusInfoFg:'#ffffff',statusNeutralBg:'#334155',statusNeutralFg:'#f8fafc',statusReviewBg:'#6f42c1',statusReviewFg:'#ffffff',statusDraftBg:'#1f3a5f',statusDraftFg:'#eff6ff',statusApprovedBg:'#238636',statusApprovedFg:'#ffffff',statusChangesRequestedBg:'#cf3338',statusChangesRequestedFg:'#ffffff',badgeBg:'#334155',badgeFg:'#f8fafc',labelBg:'#334155',labelFg:'#f8fafc',counterBg:'#07101a',counterFg:'#dbeafe',selectionBg:'#143255',selectionFg:'#f8fbff',disabledBg:'#263241',disabledFg:'#cbd5e1',
-  shadowSm:'0 1px 3px rgba(0,0,0,.32)',shadowMd:'0 8px 24px rgba(0,0,0,.30)',shadowLg:'0 18px 50px rgba(0,0,0,.42)',shadowFocus:'0 0 0 2px rgba(88,166,255,.35)',blurPanel:'14px',radiusSm:'4px',radiusMd:'8px',radiusLg:'12px',fontUi:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',fontMono:'ui-monospace,SFMono-Regular,Consolas,monospace',density:'1',scrollbar:'rgba(113,128,145,.45)',scrollbarHover:'#718091',
-  syntaxBackground:'#070c12',syntaxText:'#d6deeb',syntaxKeyword:'#82aaff',syntaxString:'#c3e88d',syntaxNumber:'#f78c6c',pipelineIssue:'#f05d5e',pipelineCoding:'#58a6ff',pipelineReview:'#b392f0',pipelineChecks:'#d6a84b',pipelineDelivery:'#3fb950',
+/**
+ * The sole product theme. The registry shape remains so a future deliberate
+ * theme project does not require replacing the token application boundary.
+ */
+export const CANONICAL_THEME: SnowDevilTheme = {
+  id: 'snow-devil',
+  name: 'Snow Devil',
+  description: 'The canonical deep-navy Snow Devil desktop system.',
+  colorScheme: 'dark',
+  swatch: ['#07111f', '#10213a', '#3978ff'],
+  tokens: {
+    bgPrimary:'#07101d',bgSecondary:'#0a1626',bgTertiary:'#10213a',bgElevated:'#12243d',surface:'#0d1b2e',surfacePanel:'#0a1728',surfaceNested:'#071321',surfaceGlass:'rgba(12,27,47,.88)',surfaceGlassStrong:'rgba(8,20,35,.96)',surfaceHover:'rgba(91,145,255,.11)',surfaceSelected:'rgba(57,120,255,.22)',
+    borderSubtle:'rgba(157,190,235,.10)',borderStandard:'rgba(157,190,235,.17)',borderStrong:'rgba(112,162,232,.34)',borderFocus:'#6ba2ff',textPrimary:'#f1f6ff',textSecondary:'#b4c3d9',textMuted:'#7f91aa',accent:'#3978ff',accentHover:'#5d91ff',success:'#4bd16f',warning:'#f3ac2f',danger:'#ff646d',info:'#57a0ff',
+    statusSuccessBg:'#123c2c',statusSuccessFg:'#83f19d',statusWarningBg:'#432e0d',statusWarningFg:'#ffc85f',statusDangerBg:'#461b25',statusDangerFg:'#ff8b92',statusInfoBg:'#13335f',statusInfoFg:'#8dbbff',statusNeutralBg:'#1a2a40',statusNeutralFg:'#d9e5f6',statusReviewBg:'#342261',statusReviewFg:'#c6a6ff',statusDraftBg:'#172c49',statusDraftFg:'#b9d4ff',statusApprovedBg:'#123c2c',statusApprovedFg:'#83f19d',statusChangesRequestedBg:'#461b25',statusChangesRequestedFg:'#ff8b92',badgeBg:'#1a2a40',badgeFg:'#d9e5f6',labelBg:'#1d3453',labelFg:'#dceaff',counterBg:'#1a2940',counterFg:'#e9f1ff',selectionBg:'#1b3e78',selectionFg:'#ffffff',disabledBg:'#172437',disabledFg:'#8292a8',
+    shadowSm:'0 2px 8px rgba(0,7,18,.28)',shadowMd:'0 12px 32px rgba(0,7,18,.34)',shadowLg:'0 24px 64px rgba(0,5,15,.50)',shadowFocus:'0 0 0 3px rgba(77,137,255,.30)',blurPanel:'14px',radiusSm:'6px',radiusMd:'10px',radiusLg:'14px',fontUi:'Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',fontMono:'"Cascadia Code",ui-monospace,SFMono-Regular,Consolas,monospace',density:'.96',scrollbar:'rgba(126,151,184,.42)',scrollbarHover:'#8195af',
+    syntaxBackground:'#06101c',syntaxText:'#dce8f8',syntaxKeyword:'#8fb4ff',syntaxString:'#99d8a5',syntaxNumber:'#ffad80',pipelineIssue:'#ff717a',pipelineCoding:'#57a0ff',pipelineReview:'#b48cff',pipelineChecks:'#f3ac2f',pipelineDelivery:'#4bd16f',
+  },
 };
 
-const theme = (id: ThemeId, name: string, description: string, colorScheme: 'dark'|'light', swatch: [string,string,string], overrides: Partial<ThemeTokens>): SnowDevilTheme => ({ id,name,description,colorScheme,swatch,tokens:{...darkBase,...overrides} });
-
-export const THEMES: readonly SnowDevilTheme[] = [
-  theme('dark-glass','Dark Glass Premium','Graphite glass with restrained ice-blue depth.','dark',['#080d14','#111a25','#3b8ef3'],{}),
-  theme('deep-navy','Deep Navy Elegance','Rich navy surfaces with precise cool-blue elevation.','dark',['#061124','#101f3a','#5b7cfa'],{bgPrimary:'#050b18',bgSecondary:'#09152a',bgTertiary:'#102442',bgElevated:'#0c1b34',surface:'#0e1c34',surfacePanel:'#09172c',surfaceNested:'#061121',surfaceGlass:'rgba(6,18,38,.82)',surfaceGlassStrong:'rgba(5,13,29,.94)',accent:'#5876f5',accentHover:'#7f96ff',borderFocus:'#86a3ff',surfaceSelected:'rgba(88,118,245,.18)',info:'#6ea8ff',syntaxBackground:'#040b18',syntaxKeyword:'#8ea7ff'}),
-  theme('light-premium','Light Premium Glass','Crisp light glass with soft blue and pastel accents.','light',['#eef4fb','#ffffff','#2677e8'],{bgPrimary:'#eef3f9',bgSecondary:'#f8fbff',bgTertiary:'#e4edf8',bgElevated:'#ffffff',surface:'#ffffff',surfacePanel:'#f7faff',surfaceNested:'#edf3fa',surfaceGlass:'rgba(248,251,255,.78)',surfaceGlassStrong:'rgba(255,255,255,.92)',surfaceHover:'rgba(38,119,232,.08)',surfaceSelected:'rgba(38,119,232,.13)',borderSubtle:'rgba(28,55,88,.10)',borderStandard:'rgba(28,55,88,.17)',borderStrong:'rgba(28,55,88,.28)',borderFocus:'#2677e8',textPrimary:'#14243a',textSecondary:'#51647a',textMuted:'#71849a',accent:'#2677e8',accentHover:'#145fc6',success:'#238636',warning:'#a76b00',danger:'#cf3338',info:'#0969da',statusNeutralBg:'#d8e1ec',statusNeutralFg:'#14243a',statusDraftBg:'#dbeafe',statusDraftFg:'#17325c',badgeBg:'#d8e1ec',badgeFg:'#14243a',labelBg:'#d8e1ec',labelFg:'#14243a',counterBg:'#e6edf6',counterFg:'#14243a',selectionBg:'#d7e8ff',selectionFg:'#14243a',disabledBg:'#e1e8f0',disabledFg:'#51647a',shadowSm:'0 1px 3px rgba(35,55,80,.10)',shadowMd:'0 8px 24px rgba(35,55,80,.12)',shadowLg:'0 18px 45px rgba(35,55,80,.16)',shadowFocus:'0 0 0 3px rgba(38,119,232,.22)',scrollbar:'rgba(75,99,125,.35)',scrollbarHover:'#71849a',syntaxBackground:'#f6f8fa',syntaxText:'#24292f',syntaxKeyword:'#8250df',syntaxString:'#116329',syntaxNumber:'#953800'}),
-  theme('amber-executive','Amber Accent Executive','Warm charcoal with selective amber executive accents.','dark',['#0d0d0c','#1b1915','#d99a2b'],{bgPrimary:'#0d0d0c',bgSecondary:'#171612',bgTertiary:'#242018',bgElevated:'#1d1b16',surface:'#1c1a16',surfacePanel:'#161510',surfaceNested:'#100f0d',surfaceGlass:'rgba(24,22,17,.82)',surfaceGlassStrong:'rgba(14,13,11,.94)',surfaceHover:'rgba(217,154,43,.10)',surfaceSelected:'rgba(217,154,43,.16)',borderSubtle:'rgba(239,204,139,.09)',borderStandard:'rgba(239,204,139,.16)',borderStrong:'rgba(239,204,139,.29)',borderFocus:'#e8ad43',accent:'#d99a2b',accentHover:'#f0b84f',info:'#e8ad43',warning:'#e0a53b',syntaxBackground:'#0c0b09',syntaxKeyword:'#e8ad43',syntaxString:'#b7d37b'}),
-  theme('aurora-glass','Aurora Glass','Deep indigo glass with restrained aurora color depth.','dark',['#080a22','#171446','#9a4dff'],{bgPrimary:'#07091c',bgSecondary:'#0d1230',bgTertiary:'#181849',bgElevated:'#12143b',surface:'#12143b',surfacePanel:'#0d102d',surfaceNested:'#090b20',surfaceGlass:'rgba(13,15,45,.76)',surfaceGlassStrong:'rgba(8,9,28,.91)',surfaceHover:'rgba(154,77,255,.12)',surfaceSelected:'rgba(112,83,255,.20)',borderSubtle:'rgba(174,158,255,.11)',borderStandard:'rgba(174,158,255,.20)',borderStrong:'rgba(174,158,255,.34)',borderFocus:'#b56dff',accent:'#8f5bff',accentHover:'#bd78ff',info:'#56c8ff',success:'#52d6a2',warning:'#f0b45e',danger:'#ff6485',shadowLg:'0 20px 60px rgba(17,5,60,.60)',syntaxBackground:'#07081b',syntaxKeyword:'#c792ea',syntaxString:'#89ddff',syntaxNumber:'#f78c6c'}),
-  theme('midnight-minimal','Midnight Minimal','Minimal near-black surfaces and crisp blue hierarchy.','dark',['#05070a','#0d1218','#2f9bff'],{bgPrimary:'#05070a',bgSecondary:'#0a0e13',bgTertiary:'#121820',bgElevated:'#0d1218',surface:'#0d1218',surfacePanel:'#090d12',surfaceNested:'#06090c',surfaceGlass:'rgba(8,12,17,.90)',surfaceGlassStrong:'rgba(5,7,10,.97)',borderSubtle:'rgba(210,225,240,.07)',borderStandard:'rgba(210,225,240,.12)',borderStrong:'rgba(210,225,240,.22)',accent:'#2f9bff',accentHover:'#62b4ff',radiusSm:'3px',radiusMd:'6px',radiusLg:'8px',blurPanel:'8px',density:'.94',syntaxBackground:'#030507'}),
-  theme('frosted-light','Frosted Light','Airy frosted surfaces with calm blue accents.','light',['#e8f1fb','#fafdff','#3c82ee'],{bgPrimary:'#e7eff8',bgSecondary:'#f5f9fd',bgTertiary:'#dae7f4',bgElevated:'#fbfdff',surface:'#f9fcff',surfacePanel:'#f3f8fd',surfaceNested:'#eaf2fa',surfaceGlass:'rgba(247,251,255,.68)',surfaceGlassStrong:'rgba(252,254,255,.86)',surfaceHover:'rgba(60,130,238,.08)',surfaceSelected:'rgba(60,130,238,.14)',borderSubtle:'rgba(47,78,112,.09)',borderStandard:'rgba(47,78,112,.15)',borderStrong:'rgba(47,78,112,.25)',borderFocus:'#3c82ee',textPrimary:'#17283d',textSecondary:'#536a82',textMuted:'#75899e',accent:'#3c82ee',accentHover:'#2269cf',success:'#2d8b57',warning:'#aa7208',danger:'#d4474e',info:'#2678dc',statusNeutralBg:'#dbe6f1',statusNeutralFg:'#17283d',statusDraftBg:'#dbeafe',statusDraftFg:'#17325c',badgeBg:'#dbe6f1',badgeFg:'#17283d',labelBg:'#dbe6f1',labelFg:'#17283d',counterBg:'#e7eef7',counterFg:'#17283d',selectionBg:'#d9eaff',selectionFg:'#17283d',disabledBg:'#e3ebf4',disabledFg:'#536a82',shadowSm:'0 1px 4px rgba(53,79,106,.09)',shadowMd:'0 10px 28px rgba(53,79,106,.12)',shadowLg:'0 22px 55px rgba(53,79,106,.17)',shadowFocus:'0 0 0 3px rgba(60,130,238,.2)',blurPanel:'20px',radiusMd:'10px',radiusLg:'15px',scrollbar:'rgba(80,107,135,.30)',scrollbarHover:'#75899e',syntaxBackground:'#f4f8fc',syntaxText:'#24364a',syntaxKeyword:'#6f42c1',syntaxString:'#287a47',syntaxNumber:'#a85800'}),
-  theme('slate-monochrome','Slate Monochrome','Technical slate with subtle green accents and sharp clarity.','dark',['#0c1115','#172027','#5f9f75'],{bgPrimary:'#0b1014',bgSecondary:'#121a20',bgTertiary:'#1b262e',bgElevated:'#172027',surface:'#172027',surfacePanel:'#11191f',surfaceNested:'#0d1318',surfaceGlass:'rgba(17,25,31,.84)',surfaceGlassStrong:'rgba(11,16,20,.95)',surfaceHover:'rgba(95,159,117,.10)',surfaceSelected:'rgba(95,159,117,.15)',borderSubtle:'rgba(194,211,202,.08)',borderStandard:'rgba(194,211,202,.15)',borderStrong:'rgba(194,211,202,.25)',borderFocus:'#74b98b',textPrimary:'#e2e9e5',textSecondary:'#a0ada7',textMuted:'#74827b',accent:'#5f9f75',accentHover:'#7cba91',info:'#78a9c5',success:'#66ad7d',warning:'#c8a35d',danger:'#df6b6b',radiusSm:'3px',radiusMd:'6px',radiusLg:'9px',blurPanel:'10px',syntaxBackground:'#090e11',syntaxText:'#d9e2dd',syntaxKeyword:'#82b4cf',syntaxString:'#84bd93',syntaxNumber:'#d6a56f'}),
-] as const;
-
-export const DEFAULT_THEME_ID: ThemeId = 'dark-glass';
-export const themeById = (id: string | null | undefined) => THEMES.find(item => item.id === id) ?? THEMES[0];
+export const THEMES: readonly SnowDevilTheme[] = [CANONICAL_THEME];
+export const DEFAULT_THEME_ID: ThemeId = 'snow-devil';
+export const themeById = (id: string | null | undefined) => { void id; return CANONICAL_THEME; };
 
 const CSS_TOKEN_NAMES: Record<ThemeTokenKey,string> = {
   bgPrimary:'--bg-primary',bgSecondary:'--bg-secondary',bgTertiary:'--bg-tertiary',bgElevated:'--bg-elevated',surface:'--surface',surfacePanel:'--surface-panel',surfaceNested:'--surface-nested',surfaceGlass:'--surface-glass',surfaceGlassStrong:'--surface-glass-strong',surfaceHover:'--surface-hover',surfaceSelected:'--surface-selected',borderSubtle:'--border-subtle',borderStandard:'--border-standard',borderStrong:'--border-strong',borderFocus:'--border-focus',textPrimary:'--text-primary',textSecondary:'--text-secondary',textMuted:'--text-muted',accent:'--accent',accentHover:'--accent-hover',success:'--success',warning:'--warning',danger:'--danger',info:'--info',statusSuccessBg:'--status-success-bg',statusSuccessFg:'--status-success-fg',statusWarningBg:'--status-warning-bg',statusWarningFg:'--status-warning-fg',statusDangerBg:'--status-danger-bg',statusDangerFg:'--status-danger-fg',statusInfoBg:'--status-info-bg',statusInfoFg:'--status-info-fg',statusNeutralBg:'--status-neutral-bg',statusNeutralFg:'--status-neutral-fg',statusReviewBg:'--status-review-bg',statusReviewFg:'--status-review-fg',statusDraftBg:'--status-draft-bg',statusDraftFg:'--status-draft-fg',statusApprovedBg:'--status-approved-bg',statusApprovedFg:'--status-approved-fg',statusChangesRequestedBg:'--status-changes-requested-bg',statusChangesRequestedFg:'--status-changes-requested-fg',badgeBg:'--badge-bg',badgeFg:'--badge-fg',labelBg:'--label-bg',labelFg:'--label-fg',counterBg:'--counter-bg',counterFg:'--counter-fg',selectionBg:'--selection-bg',selectionFg:'--selection-fg',disabledBg:'--disabled-bg',disabledFg:'--disabled-fg',shadowSm:'--shadow-sm',shadowMd:'--shadow-md',shadowLg:'--shadow-lg',shadowFocus:'--shadow-focus',blurPanel:'--blur-panel',radiusSm:'--radius-sm',radiusMd:'--radius-md',radiusLg:'--radius-lg',fontUi:'--font-ui',fontMono:'--font-mono',density:'--density',scrollbar:'--scrollbar',scrollbarHover:'--scrollbar-hover',syntaxBackground:'--syntax-bg',syntaxText:'--syntax-text',syntaxKeyword:'--syntax-keyword',syntaxString:'--syntax-string',syntaxNumber:'--syntax-number',pipelineIssue:'--pipeline-issue',pipelineCoding:'--pipeline-coding',pipelineReview:'--pipeline-review',pipelineChecks:'--pipeline-checks',pipelineDelivery:'--pipeline-delivery',
 };
 
-export function applyTheme(themeId: string, root: HTMLElement = document.documentElement) {
-  const selected = themeById(themeId);
-  root.dataset.theme = selected.id;
-  root.style.colorScheme = selected.colorScheme;
-  for (const key of THEME_TOKEN_KEYS) root.style.setProperty(CSS_TOKEN_NAMES[key], selected.tokens[key]);
-  return selected.id;
+export function applyTheme(_themeId: string, root: HTMLElement = document.documentElement) {
+  void _themeId;
+  root.dataset.theme = CANONICAL_THEME.id;
+  root.style.colorScheme = CANONICAL_THEME.colorScheme;
+  for (const key of THEME_TOKEN_KEYS) root.style.setProperty(CSS_TOKEN_NAMES[key], CANONICAL_THEME.tokens[key]);
+  return CANONICAL_THEME.id;
 }

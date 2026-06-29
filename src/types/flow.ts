@@ -104,6 +104,9 @@ export interface FlowItem {
   activityClassification?: import('../lib/delivery-semantics').ActivityClassification;
   actorClassification?: import('../lib/delivery-semantics').ActorClassification;
   missingEvidence?: string[];
+  viewerRelationship?: import('../lib/product-model').ViewerRelationship;
+  baseRepository?: import('../lib/product-model').RepositoryRelationshipInput;
+  headRepository?: import('../lib/product-model').RepositoryRelationshipInput;
 }
 
 export interface FlowStageHistoryEntry {
