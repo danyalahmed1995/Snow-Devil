@@ -64,8 +64,17 @@ pub fn save_simulator_entities(
 
         for e in entities {
             stmt.execute(rusqlite::params![
-                e.id, e.repository_id, e.subject_id, e.subject_type, e.title, e.number, e.payload_json, e.created_at, e.updated_at
-            ]).map_err(|err| err.to_string())?;
+                e.id,
+                e.repository_id,
+                e.subject_id,
+                e.subject_type,
+                e.title,
+                e.number,
+                e.payload_json,
+                e.created_at,
+                e.updated_at
+            ])
+            .map_err(|err| err.to_string())?;
         }
     }
     tx.commit().map_err(|e| e.to_string())?;
@@ -102,10 +111,23 @@ pub fn save_simulator_events(
 
         for e in events {
             stmt.execute(rusqlite::params![
-                e.id, e.repository_id, e.repository_name, e.repository_owner, e.subject_id, e.subject_type,
-                e.subject_number, e.subject_title, e.event_type, e.timestamp, e.actor_json, e.metadata_json,
-                e.source, e.completeness, e.inclusion_reason
-            ]).map_err(|err| err.to_string())?;
+                e.id,
+                e.repository_id,
+                e.repository_name,
+                e.repository_owner,
+                e.subject_id,
+                e.subject_type,
+                e.subject_number,
+                e.subject_title,
+                e.event_type,
+                e.timestamp,
+                e.actor_json,
+                e.metadata_json,
+                e.source,
+                e.completeness,
+                e.inclusion_reason
+            ])
+            .map_err(|err| err.to_string())?;
         }
     }
     tx.commit().map_err(|e| e.to_string())?;
@@ -131,33 +153,55 @@ pub fn get_simulator_events(
     query.push_str(" ORDER BY timestamp ASC");
 
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    
+
     let mut events = Vec::new();
     if !params.is_empty() {
-        let rows = stmt.query_map(rusqlite::params![params[0]], |row| {
-            Ok(SimulatorEvent {
-                id: row.get(0)?,
-                repository_id: row.get(1)?,
-                repository_name: row.get(2)?, repository_owner: row.get(3)?, subject_id: row.get(4)?,
-                subject_type: row.get(5)?, subject_number: row.get(6)?, subject_title: row.get(7)?,
-                event_type: row.get(8)?, timestamp: row.get(9)?, actor_json: row.get(10)?,
-                metadata_json: row.get(11)?, source: row.get(12)?, completeness: row.get(13)?, inclusion_reason: row.get(14)?,
+        let rows = stmt
+            .query_map(rusqlite::params![params[0]], |row| {
+                Ok(SimulatorEvent {
+                    id: row.get(0)?,
+                    repository_id: row.get(1)?,
+                    repository_name: row.get(2)?,
+                    repository_owner: row.get(3)?,
+                    subject_id: row.get(4)?,
+                    subject_type: row.get(5)?,
+                    subject_number: row.get(6)?,
+                    subject_title: row.get(7)?,
+                    event_type: row.get(8)?,
+                    timestamp: row.get(9)?,
+                    actor_json: row.get(10)?,
+                    metadata_json: row.get(11)?,
+                    source: row.get(12)?,
+                    completeness: row.get(13)?,
+                    inclusion_reason: row.get(14)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
         for row in rows {
             events.push(row.map_err(|e| e.to_string())?);
         }
     } else {
-        let rows = stmt.query_map([], |row| {
-            Ok(SimulatorEvent {
-                id: row.get(0)?,
-                repository_id: row.get(1)?,
-                repository_name: row.get(2)?, repository_owner: row.get(3)?, subject_id: row.get(4)?,
-                subject_type: row.get(5)?, subject_number: row.get(6)?, subject_title: row.get(7)?,
-                event_type: row.get(8)?, timestamp: row.get(9)?, actor_json: row.get(10)?,
-                metadata_json: row.get(11)?, source: row.get(12)?, completeness: row.get(13)?, inclusion_reason: row.get(14)?,
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(SimulatorEvent {
+                    id: row.get(0)?,
+                    repository_id: row.get(1)?,
+                    repository_name: row.get(2)?,
+                    repository_owner: row.get(3)?,
+                    subject_id: row.get(4)?,
+                    subject_type: row.get(5)?,
+                    subject_number: row.get(6)?,
+                    subject_title: row.get(7)?,
+                    event_type: row.get(8)?,
+                    timestamp: row.get(9)?,
+                    actor_json: row.get(10)?,
+                    metadata_json: row.get(11)?,
+                    source: row.get(12)?,
+                    completeness: row.get(13)?,
+                    inclusion_reason: row.get(14)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
         for row in rows {
             events.push(row.map_err(|e| e.to_string())?);
         }
@@ -182,39 +226,43 @@ pub fn get_simulator_entities(
 
     let conn = conn_guard.as_mut().ok_or("Database connection not found")?;
     let mut stmt = conn.prepare(&query).map_err(|e| e.to_string())?;
-    
+
     let mut entities = Vec::new();
     if !params.is_empty() {
-        let rows = stmt.query_map(rusqlite::params![params[0]], |row| {
-            Ok(SimulatorEntity {
-                id: row.get(0)?,
-                repository_id: row.get(1)?,
-                subject_id: row.get(2)?,
-                subject_type: row.get(3)?,
-                title: row.get(4)?,
-                number: row.get(5)?,
-                payload_json: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+        let rows = stmt
+            .query_map(rusqlite::params![params[0]], |row| {
+                Ok(SimulatorEntity {
+                    id: row.get(0)?,
+                    repository_id: row.get(1)?,
+                    subject_id: row.get(2)?,
+                    subject_type: row.get(3)?,
+                    title: row.get(4)?,
+                    number: row.get(5)?,
+                    payload_json: row.get(6)?,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
         for row in rows {
             entities.push(row.map_err(|e| e.to_string())?);
         }
     } else {
-        let rows = stmt.query_map([], |row| {
-            Ok(SimulatorEntity {
-                id: row.get(0)?,
-                repository_id: row.get(1)?,
-                subject_id: row.get(2)?,
-                subject_type: row.get(3)?,
-                title: row.get(4)?,
-                number: row.get(5)?,
-                payload_json: row.get(6)?,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(SimulatorEntity {
+                    id: row.get(0)?,
+                    repository_id: row.get(1)?,
+                    subject_id: row.get(2)?,
+                    subject_type: row.get(3)?,
+                    title: row.get(4)?,
+                    number: row.get(5)?,
+                    payload_json: row.get(6)?,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
         for row in rows {
             entities.push(row.map_err(|e| e.to_string())?);
         }
@@ -231,15 +279,19 @@ pub fn get_simulator_sync_state(
     let mut conn_guard = state.db_conn.lock().unwrap();
     let conn = conn_guard.as_mut().ok_or("Database connection not found")?;
 
-    let mut stmt = conn.prepare("SELECT id, scope, cursor, last_synced_at FROM simulator_sync_state WHERE id = ?1").map_err(|e| e.to_string())?;
-    let mut rows = stmt.query_map(rusqlite::params![id], |row| {
-        Ok(SyncState {
-            id: row.get(0)?,
-            scope: row.get(1)?,
-            cursor: row.get(2)?,
-            last_synced_at: row.get(3)?,
+    let mut stmt = conn
+        .prepare("SELECT id, scope, cursor, last_synced_at FROM simulator_sync_state WHERE id = ?1")
+        .map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query_map(rusqlite::params![id], |row| {
+            Ok(SyncState {
+                id: row.get(0)?,
+                scope: row.get(1)?,
+                cursor: row.get(2)?,
+                last_synced_at: row.get(3)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
 
     if let Some(row) = rows.next() {
         Ok(Some(row.map_err(|e| e.to_string())?))
@@ -266,8 +318,9 @@ pub fn save_simulator_sync_state(
             cursor = excluded.cursor,
             last_synced_at = excluded.last_synced_at
         ",
-        rusqlite::params![id, scope, cursor, last_synced_at]
-    ).map_err(|e| e.to_string())?;
+        rusqlite::params![id, scope, cursor, last_synced_at],
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }

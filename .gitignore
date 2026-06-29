@@ -18,6 +18,7 @@ playwright-report/
 test-results/
 blob-report/
 playwright/.cache/
+release-assets/
 
 # Rust and Tauri build outputs
 target/

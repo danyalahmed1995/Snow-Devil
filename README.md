@@ -129,8 +129,6 @@ The former simulators are now date-first cumulative history explorers:
 - Uses the same production data types and primary interfaces.
 - Supports reset and exit without writing demo records into live account caches.
 
-See [Demo Mode and local-data behavior](docs/demo-mode.md) for storage and reset details.
-
 ## Historical correctness model
 
 For a selected date, Snow Devil:
@@ -205,6 +203,16 @@ The browser-only Vite build is useful for frontend development and automated tes
 | `pnpm lint` | Run ESLint over TypeScript/React source |
 | `cargo test --manifest-path src-tauri/Cargo.toml` | Run Rust tests |
 
+## Continuous Integration
+
+Pull requests and pushes to `main` run four required checks: **Frontend Quality**, **Rust Quality**, **Playwright E2E**, and **Windows Tauri Build**. CI has read-only repository permission and never creates or publishes a release.
+
+## Releases
+
+A matching semantic-version tag such as `v0.1.0` builds one draft release with Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel assets. The tag must match the versions in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`. Apple Silicon and Intel are separate architecture-verified DMGs.
+
+Release builds are unsigned and are not notarized. Windows may show an unrecognized-publisher warning, and macOS users may need to approve Snow Devil in **System Settings → Privacy & Security**. Only the release workflow's final publication job receives write permission.
+
 ## Latest verification
 
 The History controls, loading truthfulness, and persistent-tab final patch was verified with:
@@ -232,23 +240,6 @@ Native checks covered History playback and Source Details at all target widths, 
 - Business-time calculations do not currently include public holidays.
 - The primary supported experience is the packaged Windows application; release signing, updater, and broad clean-machine qualification remain follow-up work.
 - Team workspaces, shared dashboards, cloud synchronization, role-based access, and multi-account operation are not implemented.
-
-## Detailed implementation reports
-
-- [History controls, loading states, and persistent tab state final patch](docs/history-controls-loading-tab-persistence-final-patch-report.md)
-- [History simplification, focused Flow scrolling, and chart width](docs/history-simplification-flow-scroll-chart-width-report.md)
-- [Final correctness reconciliation](docs/final-correctness-reconciliation-report.md)
-- [Product correctness and UX hardening](docs/product-correctness-ux-hardening-report.md)
-- [Visual parity and real-world qualification](docs/visual-parity-real-world-qualification-report.md)
-- [Single-theme next phase](docs/single-theme-next-phase-implementation-report.md)
-- [Repository Explorer breadcrumb and large-file guard](docs/repo-explorer-breadcrumb-large-file-guard-fix-report.md)
-- [Account history, tab menu, and repository-tree follow-up](docs/account-simulator-tab-menu-repo-tree-followup-report.md)
-- [Product feature coverage, limitations, and roadmap](docs/product-feature-coverage-limitations-roadmap.md)
-- [Premium GitHub browser expansion](docs/premium-github-browser-expansion-report.md)
-- [Individual MVP implementation](docs/individual-mvp-implementation-report.md)
-- [Home and Flow Workbench implementation](docs/home-flow-workbench-implementation-report.md)
-- [Final feature completion and premium polish](docs/final-feature-completion-premium-polish-report.md)
-- [Product correctness pass](docs/product-correctness-pass-report.md)
 
 ## Design principle
 

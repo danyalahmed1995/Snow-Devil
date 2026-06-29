@@ -2,6 +2,7 @@
   "name": "github-graph-browser",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@11.0.9",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -26,25 +26,73 @@ pub struct GraphData {
 }
 
 #[tauri::command]
-pub fn get_evidence_graph(state: tauri::State<'_, crate::db::AppState>, root_id: Option<String>, limit: Option<usize>) -> Result<GraphData, String> {
-    let guard = state.db_conn.lock().map_err(|_| "graph database lock failed".to_string())?;
-    let conn = guard.as_ref().ok_or_else(|| "graph database unavailable".to_string())?;
+pub fn get_evidence_graph(
+    state: tauri::State<'_, crate::db::AppState>,
+    root_id: Option<String>,
+    limit: Option<usize>,
+) -> Result<GraphData, String> {
+    let guard = state
+        .db_conn
+        .lock()
+        .map_err(|_| "graph database lock failed".to_string())?;
+    let conn = guard
+        .as_ref()
+        .ok_or_else(|| "graph database unavailable".to_string())?;
     let bounded = limit.unwrap_or(120).clamp(1, 200) as i64;
     let mut nodes = Vec::new();
     if let Some(root) = root_id.filter(|value| !value.is_empty()) {
         let mut statement = conn.prepare("WITH RECURSIVE connected(id,depth) AS (SELECT ?1,0 UNION SELECT CASE WHEN e.source_node_id=c.id THEN e.target_node_id ELSE e.source_node_id END,c.depth+1 FROM edges e JOIN connected c ON (e.source_node_id=c.id OR e.target_node_id=c.id) WHERE c.depth<3) SELECT DISTINCT n.id,n.node_type,n.title,COALESCE(n.url,'') FROM nodes n JOIN connected c ON c.id=n.id LIMIT ?2").map_err(|error| error.to_string())?;
-        let values = statement.query_map(rusqlite::params![root,bounded], |row| Ok(DbNode{id:row.get(0)?,node_type:row.get(1)?,title:row.get(2)?,url:row.get(3)?})).map_err(|error| error.to_string())?;
-        for value in values { nodes.push(value.map_err(|error| error.to_string())?); }
+        let values = statement
+            .query_map(rusqlite::params![root, bounded], |row| {
+                Ok(DbNode {
+                    id: row.get(0)?,
+                    node_type: row.get(1)?,
+                    title: row.get(2)?,
+                    url: row.get(3)?,
+                })
+            })
+            .map_err(|error| error.to_string())?;
+        for value in values {
+            nodes.push(value.map_err(|error| error.to_string())?);
+        }
     } else {
         let mut statement=conn.prepare("SELECT id,node_type,title,COALESCE(url,'') FROM nodes ORDER BY rowid DESC LIMIT ?1").map_err(|error|error.to_string())?;
-        let values=statement.query_map([bounded],|row|Ok(DbNode{id:row.get(0)?,node_type:row.get(1)?,title:row.get(2)?,url:row.get(3)?})).map_err(|error|error.to_string())?;
-        for value in values { nodes.push(value.map_err(|error|error.to_string())?); }
+        let values = statement
+            .query_map([bounded], |row| {
+                Ok(DbNode {
+                    id: row.get(0)?,
+                    node_type: row.get(1)?,
+                    title: row.get(2)?,
+                    url: row.get(3)?,
+                })
+            })
+            .map_err(|error| error.to_string())?;
+        for value in values {
+            nodes.push(value.map_err(|error| error.to_string())?);
+        }
     }
     let ids: std::collections::HashSet<&str> = nodes.iter().map(|node| node.id.as_str()).collect();
-    let mut statement=conn.prepare("SELECT id,source_node_id,target_node_id,edge_type FROM edges LIMIT 2000").map_err(|error|error.to_string())?;
-    let values=statement.query_map([],|row|Ok(DbEdge{id:row.get(0)?,source_id:row.get(1)?,target_id:row.get(2)?,edge_type:row.get(3)?})).map_err(|error|error.to_string())?;
-    let mut edges=Vec::new();for value in values { let edge=value.map_err(|error|error.to_string())?;if ids.contains(edge.source_id.as_str())&&ids.contains(edge.target_id.as_str()){edges.push(edge);} }
-    Ok(GraphData{nodes,edges})
+    let mut statement = conn
+        .prepare("SELECT id,source_node_id,target_node_id,edge_type FROM edges LIMIT 2000")
+        .map_err(|error| error.to_string())?;
+    let values = statement
+        .query_map([], |row| {
+            Ok(DbEdge {
+                id: row.get(0)?,
+                source_id: row.get(1)?,
+                target_id: row.get(2)?,
+                edge_type: row.get(3)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+    let mut edges = Vec::new();
+    for value in values {
+        let edge = value.map_err(|error| error.to_string())?;
+        if ids.contains(edge.source_id.as_str()) && ids.contains(edge.target_id.as_str()) {
+            edges.push(edge);
+        }
+    }
+    Ok(GraphData { nodes, edges })
 }
 
 #[tauri::command]

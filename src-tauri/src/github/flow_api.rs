@@ -1,8 +1,8 @@
 use crate::auth::secure_store::get_token;
 use reqwest::Client;
+use serde::Deserialize;
 use serde_json::json;
 use std::error::Error;
-use serde::Deserialize;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 
@@ -17,7 +17,8 @@ pub struct SourcePageRequest {
     pub page_size: i32,
 }
 
-pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn Error + Send + Sync>>
+{
     let token = get_token()?.ok_or("No token")?;
     let client = Client::new();
 
@@ -103,7 +104,9 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
         }
     "#;
 
-    let cutoff = (chrono::Utc::now() - chrono::Duration::days(7)).format("%Y-%m-%d").to_string();
+    let cutoff = (chrono::Utc::now() - chrono::Duration::days(7))
+        .format("%Y-%m-%d")
+        .to_string();
     let variables = json!({
         "recentlyMerged": format!("is:pr is:merged author:@me merged:>={cutoff} sort:updated-desc"),
         "incoming": "is:open is:pr user:@me -author:@me sort:updated-desc"
@@ -249,7 +252,7 @@ pub async fn fetch_source_page(
                 "first": req.page_size,
                 "cursor": req.cursor
             }),
-            true
+            true,
         )
     } else {
         let search_query = match req.source_type.as_str() {
@@ -259,7 +262,7 @@ pub async fn fetch_source_page(
             "authored_issues" => "is:issue is:open author:@me".to_string(),
             "assigned_issues" => "is:issue is:open assignee:@me".to_string(),
             "merged_prs" => "is:pr is:merged author:@me sort:updated-desc".to_string(),
-            _ => "".to_string()
+            _ => "".to_string(),
         };
 
         if search_query.is_empty() {
@@ -309,13 +312,14 @@ pub async fn fetch_source_page(
                     }
                 }
             }
-            "#.to_string(),
+            "#
+            .to_string(),
             json!({
                 "search": search_query,
                 "first": req.page_size,
                 "cursor": req.cursor
             }),
-            false
+            false,
         )
     };
 

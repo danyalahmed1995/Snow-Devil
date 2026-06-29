@@ -1,8 +1,8 @@
 use crate::auth::secure_store::get_token;
 use reqwest::Client;
 use serde_json::json;
-use std::error::Error;
 use std::collections::HashSet;
+use std::error::Error;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 const VIEWER_REPOSITORIES_QUERY: &str = r#"
@@ -56,13 +56,20 @@ pub async fn fetch_viewer_profile() -> Result<serde_json::Value, Box<dyn Error +
     }
 
     let mut profile = json_res["data"]["viewer"].clone();
-    profile["pullRequests"] = json!({ "totalCount": json_res["data"]["authoredPullRequests"]["issueCount"] });
+    profile["pullRequests"] =
+        json!({ "totalCount": json_res["data"]["authoredPullRequests"]["issueCount"] });
     profile["issues"] = json!({ "totalCount": json_res["data"]["assignedIssues"]["issueCount"] });
     let login = profile["login"].as_str().unwrap_or_default();
     profile["organizations"] = match fetch_active_organization_memberships(&client, &token).await {
         Ok(memberships) => {
-            let public = fetch_public_organizations(&client, login).await.unwrap_or_default();
-            if memberships.is_empty() && !public.is_empty() { organization_restricted_summary(&public) } else { organization_summary(&memberships, &public) }
+            let public = fetch_public_organizations(&client, login)
+                .await
+                .unwrap_or_default();
+            if memberships.is_empty() && !public.is_empty() {
+                organization_restricted_summary(&public)
+            } else {
+                organization_summary(&memberships, &public)
+            }
         }
         Err(error) => organization_unavailable_summary(&error.to_string()),
     };
@@ -70,18 +77,21 @@ pub async fn fetch_viewer_profile() -> Result<serde_json::Value, Box<dyn Error +
 }
 
 fn organization_restricted_summary(public: &[serde_json::Value]) -> serde_json::Value {
-    let nodes: Vec<serde_json::Value> = public.iter().filter_map(|organization| {
-        let login = organization["login"].as_str()?;
-        Some(json!({
-            "id": organization["id"],
-            "login": login,
-            "avatarUrl": organization["avatar_url"],
-            "url": organization["html_url"],
-            "role": "member",
-            "state": "active",
-            "visibility": "public"
-        }))
-    }).collect();
+    let nodes: Vec<serde_json::Value> = public
+        .iter()
+        .filter_map(|organization| {
+            let login = organization["login"].as_str()?;
+            Some(json!({
+                "id": organization["id"],
+                "login": login,
+                "avatarUrl": organization["avatar_url"],
+                "url": organization["html_url"],
+                "role": "member",
+                "state": "active",
+                "visibility": "public"
+            }))
+        })
+        .collect();
     json!({
         "totalCount": nodes.len(),
         "publicCount": nodes.len(),
@@ -94,8 +104,18 @@ fn organization_restricted_summary(public: &[serde_json::Value]) -> serde_json::
     })
 }
 
-fn organization_summary(memberships: &[serde_json::Value], public: &[serde_json::Value]) -> serde_json::Value {
-    let public_logins: HashSet<String> = public.iter().filter_map(|organization| organization["login"].as_str().map(|value| value.to_ascii_lowercase())).collect();
+fn organization_summary(
+    memberships: &[serde_json::Value],
+    public: &[serde_json::Value],
+) -> serde_json::Value {
+    let public_logins: HashSet<String> = public
+        .iter()
+        .filter_map(|organization| {
+            organization["login"]
+                .as_str()
+                .map(|value| value.to_ascii_lowercase())
+        })
+        .collect();
     let nodes: Vec<serde_json::Value> = memberships.iter().filter(|membership| membership["state"] == "active").filter_map(|membership| {
         let organization = membership.get("organization")?;
         let org_login = organization["login"].as_str().unwrap_or_default();
@@ -109,7 +129,10 @@ fn organization_summary(memberships: &[serde_json::Value], public: &[serde_json:
             "visibility": if public_logins.contains(&org_login.to_ascii_lowercase()) { "public" } else { "private" }
         }))
     }).collect();
-    let public_count = nodes.iter().filter(|organization| organization["visibility"] == "public").count();
+    let public_count = nodes
+        .iter()
+        .filter(|organization| organization["visibility"] == "public")
+        .count();
     json!({
         "totalCount": nodes.len(),
         "publicCount": public_count,
@@ -146,7 +169,10 @@ fn organization_unavailable_summary(error: &str) -> serde_json::Value {
     })
 }
 
-async fn fetch_active_organization_memberships(client: &Client, token: &str) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
+async fn fetch_active_organization_memberships(
+    client: &Client,
+    token: &str,
+) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
     let mut memberships = Vec::new();
     for page in 1..=10 {
         let response = client
@@ -159,33 +185,57 @@ async fn fetch_active_organization_memberships(client: &Client, token: &str) -> 
             .await?;
         if response.status() == reqwest::StatusCode::FORBIDDEN {
             let sso_required = response.headers().get("x-github-sso").is_some();
-            return Err(if sso_required { "organization_sso_required" } else { "organization_membership_scope_missing" }.into());
+            return Err(if sso_required {
+                "organization_sso_required"
+            } else {
+                "organization_membership_scope_missing"
+            }
+            .into());
         }
         if !response.status().is_success() {
-            return Err(format!("GitHub organization memberships failed with status {}", response.status()).into());
+            return Err(format!(
+                "GitHub organization memberships failed with status {}",
+                response.status()
+            )
+            .into());
         }
         let page_items: Vec<serde_json::Value> = response.json().await?;
         let count = page_items.len();
-        memberships.extend(page_items.into_iter().filter(|membership| membership["state"] == "active"));
-        if count < 100 { break; }
+        memberships.extend(
+            page_items
+                .into_iter()
+                .filter(|membership| membership["state"] == "active"),
+        );
+        if count < 100 {
+            break;
+        }
     }
     Ok(memberships)
 }
 
-async fn fetch_public_organizations(client: &Client, login: &str) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
+async fn fetch_public_organizations(
+    client: &Client,
+    login: &str,
+) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
     let mut organizations = Vec::new();
     for page in 1..=10 {
         let response = client
-            .get(format!("https://api.github.com/users/{login}/orgs?per_page=100&page={page}"))
+            .get(format!(
+                "https://api.github.com/users/{login}/orgs?per_page=100&page={page}"
+            ))
             .header("User-Agent", "github-graph-browser")
             .header("Accept", "application/vnd.github+json")
             .send()
             .await?;
-        if !response.status().is_success() { break; }
+        if !response.status().is_success() {
+            break;
+        }
         let page_items: Vec<serde_json::Value> = response.json().await?;
         let count = page_items.len();
         organizations.extend(page_items);
-        if count < 100 { break; }
+        if count < 100 {
+            break;
+        }
     }
     Ok(organizations)
 }
@@ -209,13 +259,21 @@ mod tests {
 
     #[test]
     fn organization_scope_and_sso_failures_remain_explicit_without_breaking_auth() {
-        assert_eq!(organization_unavailable_summary("organization_membership_scope_missing")["errorCode"], "missing_read_org");
-        assert_eq!(organization_unavailable_summary("organization_sso_required")["errorCode"], "sso_required");
+        assert_eq!(
+            organization_unavailable_summary("organization_membership_scope_missing")["errorCode"],
+            "missing_read_org"
+        );
+        assert_eq!(
+            organization_unavailable_summary("organization_sso_required")["errorCode"],
+            "sso_required"
+        );
     }
 
     #[test]
     fn restricted_oauth_memberships_fall_back_to_disclosed_public_organizations() {
-        let summary = organization_restricted_summary(&[json!({"id":1,"login":"public-org","avatar_url":"","html_url":"https://github.com/public-org"})]);
+        let summary = organization_restricted_summary(&[
+            json!({"id":1,"login":"public-org","avatar_url":"","html_url":"https://github.com/public-org"}),
+        ]);
         assert_eq!(summary["status"], "partial");
         assert_eq!(summary["totalCount"], 1);
         assert_eq!(summary["nodes"][0]["login"], "public-org");
@@ -231,7 +289,8 @@ mod tests {
         assert_eq!(maintained["accessKind"], "maintained");
         assert_eq!(maintained["maintainedByViewer"], true);
 
-        let mut read_only = json!({"owner":{"login":"acme","__typename":"Organization"},"viewerPermission":"READ"});
+        let mut read_only =
+            json!({"owner":{"login":"acme","__typename":"Organization"},"viewerPermission":"READ"});
         classify_repository(&mut read_only, "viewer", &organizations);
         assert_eq!(read_only["accessKind"], "read_only");
         assert_eq!(read_only["maintainedByViewer"], false);
@@ -266,8 +325,16 @@ pub async fn fetch_viewer_repositories() -> Result<serde_json::Value, Box<dyn Er
         }
         let viewer = &json_res["data"]["viewer"];
         let viewer_login = viewer["login"].as_str().unwrap_or_default();
-        let organizations: HashSet<String> = viewer["organizations"]["nodes"].as_array().into_iter().flatten()
-            .filter_map(|organization| organization["login"].as_str().map(|value| value.to_ascii_lowercase())).collect();
+        let organizations: HashSet<String> = viewer["organizations"]["nodes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|organization| {
+                organization["login"]
+                    .as_str()
+                    .map(|value| value.to_ascii_lowercase())
+            })
+            .collect();
         if let Some(nodes) = viewer["repositories"]["nodes"].as_array() {
             for node in nodes {
                 let mut normalized = node.clone();
@@ -276,26 +343,51 @@ pub async fn fetch_viewer_repositories() -> Result<serde_json::Value, Box<dyn Er
             }
         }
         let page_info = &viewer["repositories"]["pageInfo"];
-        if !page_info["hasNextPage"].as_bool().unwrap_or(false) { break; }
+        if !page_info["hasNextPage"].as_bool().unwrap_or(false) {
+            break;
+        }
         cursor = page_info["endCursor"].as_str().map(str::to_string);
-        if cursor.is_none() { break; }
+        if cursor.is_none() {
+            break;
+        }
     }
     Ok(serde_json::Value::Array(repositories))
 }
 
-fn classify_repository(repository: &mut serde_json::Value, viewer_login: &str, organizations: &HashSet<String>) {
-    let owner_login = repository["owner"]["login"].as_str().unwrap_or_default().to_string();
-    let owner_type = repository["owner"]["__typename"].as_str().unwrap_or_default().to_string();
-    let permission = repository["viewerPermission"].as_str().unwrap_or("UNKNOWN").to_string();
+fn classify_repository(
+    repository: &mut serde_json::Value,
+    viewer_login: &str,
+    organizations: &HashSet<String>,
+) {
+    let owner_login = repository["owner"]["login"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let owner_type = repository["owner"]["__typename"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    let permission = repository["viewerPermission"]
+        .as_str()
+        .unwrap_or("UNKNOWN")
+        .to_string();
     let ownership = if owner_login.eq_ignore_ascii_case(viewer_login) {
         "personal"
-    } else if owner_type == "Organization" || organizations.contains(&owner_login.to_ascii_lowercase()) {
+    } else if owner_type == "Organization"
+        || organizations.contains(&owner_login.to_ascii_lowercase())
+    {
         "organization"
     } else {
         "collaborator"
     };
     let maintained = matches!(permission.as_str(), "ADMIN" | "MAINTAIN" | "WRITE");
-    let access_kind = if maintained { "maintained" } else if permission == "TRIAGE" { "triage" } else { "read_only" };
+    let access_kind = if maintained {
+        "maintained"
+    } else if permission == "TRIAGE" {
+        "triage"
+    } else {
+        "read_only"
+    };
     repository["ownerLogin"] = json!(owner_login);
     repository["ownerType"] = json!(owner_type);
     repository["ownership"] = json!(ownership);

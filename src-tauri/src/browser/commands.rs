@@ -3,8 +3,8 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use tauri::{AppHandle, Manager};
 use tauri::webview::{DownloadEvent, NewWindowResponse, PageLoadEvent, WebviewBuilder};
+use tauri::{AppHandle, Manager};
 use tauri::{Emitter, WebviewUrl};
 use tauri_plugin_opener::OpenerExt;
 use url::Url;
@@ -17,9 +17,7 @@ use super::security::{self, NavigationDecision};
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn get_main_window(
-    app: &AppHandle,
-) -> Result<tauri::Window, String> {
+fn get_main_window(app: &AppHandle) -> Result<tauri::Window, String> {
     app.get_window("main")
         .ok_or_else(|| "Main window not found".to_string())
 }
@@ -37,32 +35,32 @@ fn enforce_pool_limits(app: &AppHandle, state: &mut BrowserWebviewManager) {
     if state.records.len() <= state.max_resident {
         return;
     }
-    
+
     // Find the LRU inactive tab
     let mut best_evict: Option<String> = None;
     let mut best_time = i64::MAX;
-    
+
     let mut oldest_id: Option<String> = None;
     let mut oldest_time = i64::MAX;
-    
+
     for (id, record) in &state.records {
         if Some(id.clone()) == state.active_tab_id {
             continue; // Never evict active
         }
-        
+
         if record.last_activated_at < oldest_time {
             oldest_time = record.last_activated_at;
             oldest_id = Some(id.clone());
         }
-        
+
         if !record.pinned && record.last_activated_at < best_time {
             best_time = record.last_activated_at;
             best_evict = Some(id.clone());
         }
     }
-    
+
     let target = best_evict.or(oldest_id);
-    
+
     if let Some(evict_id) = target {
         if let Some(record) = state.records.remove(&evict_id) {
             if let Some(wv) = app.get_webview(&record.webview_label) {
@@ -86,7 +84,10 @@ pub async fn browser_create(
 
     let decision = security::classify_navigation(&parsed_url);
     if decision != NavigationDecision::Allow {
-        return Err(format!("URL is not allowed in-app: {}", parsed_url.as_str()));
+        return Err(format!(
+            "URL is not allowed in-app: {}",
+            parsed_url.as_str()
+        ));
     }
 
     let label = security::sanitize_webview_label(&request.tab_id);
@@ -114,64 +115,123 @@ pub async fn browser_create(
     let download_app = app.clone();
     let download_tab_id = request.tab_id.clone();
 
-    let webview_builder = WebviewBuilder::new(
-        &label,
-        WebviewUrl::External(parsed_url.clone()),
-    )
-    .on_navigation(move |nav_url| {
-        let decision = security::classify_navigation(nav_url);
-        match decision {
-            NavigationDecision::OpenExternal => {
-                let _ = navigation_app.opener().open_url(nav_url.as_str(), None::<String>);
-                return false;
+    let webview_builder = WebviewBuilder::new(&label, WebviewUrl::External(parsed_url.clone()))
+        .on_navigation(move |nav_url| {
+            let decision = security::classify_navigation(nav_url);
+            match decision {
+                NavigationDecision::OpenExternal => {
+                    let _ = navigation_app
+                        .opener()
+                        .open_url(nav_url.as_str(), None::<String>);
+                    return false;
+                }
+                NavigationDecision::Block => {
+                    let _ = navigation_app.emit(
+                        "browser:error",
+                        BrowserErrorEvent {
+                            tab_id: navigation_tab_id.clone(),
+                            error: format!(
+                                "Unsupported or unsafe protocol blocked: {}",
+                                nav_url.scheme()
+                            ),
+                        },
+                    );
+                    return false;
+                }
+                NavigationDecision::Allow => {}
             }
-            NavigationDecision::Block => {
-                let _ = navigation_app.emit("browser:error", BrowserErrorEvent { tab_id: navigation_tab_id.clone(), error: format!("Unsupported or unsafe protocol blocked: {}", nav_url.scheme()) });
-                return false;
-            }
-            NavigationDecision::Allow => {}
-        }
 
-        if let Ok(mut manager) = navigation_app.state::<Mutex<BrowserWebviewManager>>().lock() {
-            if let Some(record) = manager.records.get_mut(&navigation_tab_id) { record.current_url = nav_url.clone(); }
-        }
-        let _ = navigation_app.emit(
-            "browser:navigation",
-            BrowserNavigationEvent {
-                tab_id: navigation_tab_id.clone(),
-                webview_label: navigation_label.clone(),
-                url: nav_url.to_string(),
-            },
-        );
-
-        true
-    })
-    .on_new_window(move |url, _features| {
-        match security::classify_navigation(&url) {
-            NavigationDecision::Allow => {
-                let _ = new_window_app.emit("browser:open-entity", BrowserNavigationEvent { tab_id: new_window_tab_id.clone(), webview_label: new_window_label.clone(), url: url.to_string() });
+            if let Ok(mut manager) = navigation_app
+                .state::<Mutex<BrowserWebviewManager>>()
+                .lock()
+            {
+                if let Some(record) = manager.records.get_mut(&navigation_tab_id) {
+                    record.current_url = nav_url.clone();
+                }
             }
-            NavigationDecision::OpenExternal => { let _ = new_window_app.opener().open_url(url.as_str(), None::<String>); }
-            NavigationDecision::Block => { let _ = new_window_app.emit("browser:error", BrowserErrorEvent { tab_id: new_window_tab_id.clone(), error: format!("Unsupported or unsafe protocol blocked: {}", url.scheme()) }); }
-        }
-        NewWindowResponse::Deny
-    })
-    .on_document_title_changed(move |_webview, title| {
-        let _ = title_app.emit("browser:title-changed", BrowserTitleEvent { tab_id: title_tab_id.clone(), title });
-    })
-    .on_page_load(move |_webview, payload| {
-        let event = match payload.event() { PageLoadEvent::Started => "browser:load-started", PageLoadEvent::Finished => "browser:load-finished" };
-        let _ = load_app.emit(event, BrowserTabEvent { tab_id: load_tab_id.clone() });
-    })
-    .on_download(move |_webview, event| {
-        let (url, status) = match event {
-            DownloadEvent::Requested { url, .. } => (url.to_string(), "requested".to_string()),
-            DownloadEvent::Finished { url, success, .. } => (url.to_string(), if success { "finished" } else { "failed" }.to_string()),
-            _ => return true,
-        };
-        let _ = download_app.emit("browser:download", BrowserDownloadEvent { tab_id: download_tab_id.clone(), url, status });
-        true
-    });
+            let _ = navigation_app.emit(
+                "browser:navigation",
+                BrowserNavigationEvent {
+                    tab_id: navigation_tab_id.clone(),
+                    webview_label: navigation_label.clone(),
+                    url: nav_url.to_string(),
+                },
+            );
+
+            true
+        })
+        .on_new_window(move |url, _features| {
+            match security::classify_navigation(&url) {
+                NavigationDecision::Allow => {
+                    let _ = new_window_app.emit(
+                        "browser:open-entity",
+                        BrowserNavigationEvent {
+                            tab_id: new_window_tab_id.clone(),
+                            webview_label: new_window_label.clone(),
+                            url: url.to_string(),
+                        },
+                    );
+                }
+                NavigationDecision::OpenExternal => {
+                    let _ = new_window_app
+                        .opener()
+                        .open_url(url.as_str(), None::<String>);
+                }
+                NavigationDecision::Block => {
+                    let _ = new_window_app.emit(
+                        "browser:error",
+                        BrowserErrorEvent {
+                            tab_id: new_window_tab_id.clone(),
+                            error: format!(
+                                "Unsupported or unsafe protocol blocked: {}",
+                                url.scheme()
+                            ),
+                        },
+                    );
+                }
+            }
+            NewWindowResponse::Deny
+        })
+        .on_document_title_changed(move |_webview, title| {
+            let _ = title_app.emit(
+                "browser:title-changed",
+                BrowserTitleEvent {
+                    tab_id: title_tab_id.clone(),
+                    title,
+                },
+            );
+        })
+        .on_page_load(move |_webview, payload| {
+            let event = match payload.event() {
+                PageLoadEvent::Started => "browser:load-started",
+                PageLoadEvent::Finished => "browser:load-finished",
+            };
+            let _ = load_app.emit(
+                event,
+                BrowserTabEvent {
+                    tab_id: load_tab_id.clone(),
+                },
+            );
+        })
+        .on_download(move |_webview, event| {
+            let (url, status) = match event {
+                DownloadEvent::Requested { url, .. } => (url.to_string(), "requested".to_string()),
+                DownloadEvent::Finished { url, success, .. } => (
+                    url.to_string(),
+                    if success { "finished" } else { "failed" }.to_string(),
+                ),
+                _ => return true,
+            };
+            let _ = download_app.emit(
+                "browser:download",
+                BrowserDownloadEvent {
+                    tab_id: download_tab_id.clone(),
+                    url,
+                    status,
+                },
+            );
+            true
+        });
 
     let position = tauri::LogicalPosition::new(request.bounds.x, request.bounds.y);
     let size = tauri::LogicalSize::new(request.bounds.width, request.bounds.height);
@@ -183,15 +243,18 @@ pub async fn browser_create(
     {
         let mut mgr = state.lock().map_err(|e| e.to_string())?;
         let now = current_time_ms();
-        mgr.records.insert(request.tab_id.clone(), BrowserWebviewRecord {
-            tab_id: request.tab_id.clone(),
-            webview_label: label,
-            current_url: parsed_url,
-            visible: false,
-            pinned: false,
-            created_at: now,
-            last_activated_at: now,
-        });
+        mgr.records.insert(
+            request.tab_id.clone(),
+            BrowserWebviewRecord {
+                tab_id: request.tab_id.clone(),
+                webview_label: label,
+                current_url: parsed_url,
+                visible: false,
+                pinned: false,
+                created_at: now,
+                last_activated_at: now,
+            },
+        );
     }
 
     Ok(())
@@ -232,7 +295,8 @@ pub async fn browser_activate(
 
     let other_labels: Vec<String> = {
         let mgr = state.lock().map_err(|e| e.to_string())?;
-        mgr.records.iter()
+        mgr.records
+            .iter()
             .filter(|(k, _)| **k != tab_id)
             .map(|(_, v)| v.webview_label.clone())
             .collect()
@@ -265,7 +329,7 @@ pub async fn browser_activate(
             }
         }
         mgr.active_tab_id = Some(tab_id.clone());
-        
+
         let visible_count = mgr.records.values().filter(|v| v.visible).count();
         if visible_count > 1 {
             eprintln!("ASSERTION FAILED: More than 1 webview marked visible!");
@@ -286,7 +350,10 @@ pub async fn browser_hide_all(
         for (_, record) in mgr.records.iter_mut() {
             record.visible = false;
         }
-        mgr.records.values().map(|v| v.webview_label.clone()).collect()
+        mgr.records
+            .values()
+            .map(|v| v.webview_label.clone())
+            .collect()
     };
 
     for label in labels {
@@ -294,7 +361,7 @@ pub async fn browser_hide_all(
             let _ = wv.hide();
         }
     }
-    
+
     Ok(())
 }
 
@@ -365,7 +432,8 @@ pub async fn browser_back(
     };
     if let Some(l) = label {
         if let Some(wv) = app.get_webview(&l) {
-            wv.eval("history.back()").map_err(|e| format!("Failed to go back: {e}"))?;
+            wv.eval("history.back()")
+                .map_err(|e| format!("Failed to go back: {e}"))?;
         }
     }
     Ok(())
@@ -383,7 +451,8 @@ pub async fn browser_forward(
     };
     if let Some(l) = label {
         if let Some(wv) = app.get_webview(&l) {
-            wv.eval("history.forward()").map_err(|e| format!("Failed to go forward: {e}"))?;
+            wv.eval("history.forward()")
+                .map_err(|e| format!("Failed to go forward: {e}"))?;
         }
     }
     Ok(())
@@ -401,7 +470,8 @@ pub async fn browser_reload(
     };
     if let Some(l) = label {
         if let Some(wv) = app.get_webview(&l) {
-            wv.eval("location.reload()").map_err(|e| format!("Failed to reload: {e}"))?;
+            wv.eval("location.reload()")
+                .map_err(|e| format!("Failed to reload: {e}"))?;
         }
     }
     Ok(())
@@ -415,11 +485,15 @@ pub async fn browser_stop(
 ) -> Result<(), String> {
     let label = {
         let mgr = state.lock().map_err(|e| e.to_string())?;
-        mgr.records.get(&tab_id).map(|record| record.webview_label.clone())
+        mgr.records
+            .get(&tab_id)
+            .map(|record| record.webview_label.clone())
     };
     if let Some(label) = label {
         if let Some(webview) = app.get_webview(&label) {
-            webview.eval("window.stop()").map_err(|e| format!("Failed to stop loading: {e}"))?;
+            webview
+                .eval("window.stop()")
+                .map_err(|e| format!("Failed to stop loading: {e}"))?;
         }
     }
     Ok(())
@@ -505,7 +579,8 @@ pub async fn browser_clear_data(
     };
     if let Some(l) = label {
         if let Some(wv) = app.get_webview(&l) {
-            wv.eval("location.reload(true)").map_err(|e| format!("Failed to clear data: {e}"))?;
+            wv.eval("location.reload(true)")
+                .map_err(|e| format!("Failed to clear data: {e}"))?;
         }
     }
     Ok(())

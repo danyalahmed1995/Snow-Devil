@@ -42,8 +42,11 @@ async fn test_graphql_success_response_normalization() {
 
 #[test]
 fn packaged_app_has_an_explicit_restrictive_csp() {
-    let config: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
-    let csp = config["app"]["security"]["csp"].as_str().expect("CSP must be explicit");
+    let config: serde_json::Value =
+        serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+    let csp = config["app"]["security"]["csp"]
+        .as_str()
+        .expect("CSP must be explicit");
     assert!(csp.contains("default-src 'self'"));
     assert!(csp.contains("object-src 'none'"));
     assert!(!csp.contains("script-src 'unsafe-inline'"));
