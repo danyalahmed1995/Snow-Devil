@@ -84,10 +84,7 @@ pub async fn browser_create(
 
     let decision = security::classify_navigation(&parsed_url);
     if decision != NavigationDecision::Allow {
-        return Err(format!(
-            "URL is not allowed in-app: {}",
-            parsed_url.as_str()
-        ));
+        return Err("URL is not allowed in-app".into());
     }
 
     let label = security::sanitize_webview_label(&request.tab_id);
@@ -399,7 +396,7 @@ pub async fn browser_navigate(
     let parsed = Url::parse(&url).map_err(|e| format!("Invalid URL: {e}"))?;
 
     if security::classify_navigation(&parsed) != NavigationDecision::Allow {
-        return Err(format!("URL not allowed in-app: {url}"));
+        return Err("URL is not allowed in-app".into());
     }
 
     let label = {

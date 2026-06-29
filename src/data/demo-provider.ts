@@ -1,6 +1,8 @@
 import type { ConnectedAccount } from '../stores/auth-store';
 import type { SimulatorEvent } from '../simulator/simulator-types';
 import type { FlowItem } from '../types/flow';
+import { canonicalizeSimulatorEvents } from '../simulator/canonical-event';
+import { canonicalPullRequestIdentity } from '../lib/canonical-identity';
 
 export interface DemoRepository { id: string; nameWithOwner: string; description?: string | null; archived: boolean; fork: boolean; stars: number; language?: string | null }
 export interface DemoManifest { schemaVersion: number; referenceDate: string; identity: ConnectedAccount; repositories: DemoRepository[]; coverage: string[]; fixtures: Record<string, string> }
@@ -59,7 +61,7 @@ const isPipeline = (v: unknown): v is DemoPipeline =>
 function accountOverflowEvents(): SimulatorEvent[] {
   return Array.from({ length: 14 }, (_, index) => {
     const number = 501 + index;
-    const subjectId = `pr-overflow-${number}`;
+    const subjectId = canonicalPullRequestIdentity('nova-labs/snow-devil', number);
     const shared = {
       source: 'demo-overflow',
       repositoryId: 'nova-labs/snow-devil',
@@ -106,7 +108,7 @@ export const DemoDataProvider = {
   manifest: () => fixture('manifest.json', manifest),
   home: () => fixture<DemoHome>('account/home.json', (v): v is DemoHome => object(v) && object(v.metrics) && Array.isArray(v.recentActivity) && Array.isArray(v.notifications) && Array.isArray(v.featuredRepositoryIds)),
   pipeline: () => fixture<DemoPipeline>('account/home-pipeline.json', isPipeline),
-  accountEvents: async () => [...await fixture('simulator/account-history.json', events), ...accountOverflowEvents()].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
-  repositoryEvents: async (repositoryId: string) => [...await fixture(`simulator/repositories/${repositoryId.replace('/', '--')}.json`, events), ...accountOverflowEvents()].filter(event => event.repositoryId === repositoryId).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+  accountEvents: async () => canonicalizeSimulatorEvents([...await fixture('simulator/account-history.json', events), ...accountOverflowEvents()]),
+  repositoryEvents: async (repositoryId: string) => canonicalizeSimulatorEvents([...await fixture(`simulator/repositories/${repositoryId.replace('/', '--')}.json`, events), ...accountOverflowEvents()].filter(event => event.repositoryId.toLowerCase() === repositoryId.toLowerCase())),
   clear: () => cache.clear(),
 };

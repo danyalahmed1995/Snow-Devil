@@ -138,7 +138,7 @@ export function Select<T extends string>({ value, options, onChange, ariaLabel, 
           aria-selected={option.value === value}
           aria-disabled={option.disabled}
           disabled={option.disabled}
-          title={option.disabledReason}
+          data-tooltip={option.disabledReason}
           className={index === activeIndex ? 'is-active' : ''}
           key={option.value}
           onMouseEnter={() => setActiveIndex(index)}
@@ -155,7 +155,7 @@ export function Select<T extends string>({ value, options, onChange, ariaLabel, 
 
   return <div className={`sd-select ${className}`}>
     <button ref={buttonRef} type="button" role="combobox" aria-label={ariaLabel} aria-expanded={open} aria-controls={`${overlayId}:menu`} disabled={disabled} className="sd-select__trigger" onClick={() => open ? close(false) : show()} onKeyDown={onKeyDown}>
-      <span title={selected?.label}>{selected?.label ?? 'Select…'}</span><ChevronDown size={13} />
+      <span data-tooltip={selected?.label}>{selected?.label ?? 'Select…'}</span><ChevronDown size={13} />
     </button>
     {menu}
   </div>;

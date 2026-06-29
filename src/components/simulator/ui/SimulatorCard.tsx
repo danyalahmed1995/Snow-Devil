@@ -7,15 +7,15 @@ export function SimulatorCard({ entity, isSelected, onClick }: { entity: Simulat
     <button type="button" className={`simulator-card${isSelected ? " is-selected" : ""}`} onClick={onClick} aria-pressed={isSelected}>
       <span className="simulator-card__edge" />
       <span className="simulator-card__topline">
-        <span className="simulator-card__reference" title={formatEntityReference(entity)}>{formatEntityReference(entity)}</span>
+        <span className="simulator-card__reference" data-tooltip={formatEntityReference(entity)}>{formatEntityReference(entity)}</span>
         {entity.subjectType === "release" && <Tag size={11} />}
       </span>
-      <span className="simulator-card__title" title={formatEntityTitle(entity)}>{formatEntityTitle(entity)}</span>
-      <span className="simulator-card__repository" title={entity.repositoryId}>{entity.repositoryId}</span>
+      <span className="simulator-card__title" data-tooltip={`${formatEntityTitle(entity)}\n${entity.repositoryId} · Select to inspect.`}>{formatEntityTitle(entity)}</span>
+      <span className="simulator-card__repository" data-tooltip={entity.repositoryId}>{entity.repositoryId}</span>
       <span className="simulator-card__date">{new Date(entity.updatedAt || entity.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
       {entity.baselineAtReplayStart && <span className="simulator-state simulator-state--review">{entity.baselineLabel ?? 'Existing at history start'}</span>}
       <span className="simulator-card__meta">
-        {entity.author?.avatarUrl ? <img src={entity.author.avatarUrl} alt="" title={entity.author.login} /> : entity.author?.login ? <span className="simulator-avatar" title={entity.author.login}>{entity.author.login[0].toUpperCase()}</span> : null}
+        {entity.author?.avatarUrl ? <img src={entity.author.avatarUrl} alt="" data-tooltip={`Author: ${entity.author.login}`} /> : entity.author?.login ? <span className="simulator-avatar" data-tooltip={`Author: ${entity.author.login}`}>{entity.author.login[0].toUpperCase()}</span> : null}
         {entity.commitCount > 0 && <span><GitCommitHorizontal size={12} />{entity.commitCount}</span>}
         {entity.commentCount > 0 && <span><MessageSquare size={11} />{entity.commentCount}</span>}
         {entity.checkState === "success" && <span className="simulator-state simulator-state--success"><Check size={10} /> Passed</span>}

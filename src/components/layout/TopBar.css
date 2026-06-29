@@ -85,6 +85,9 @@
 }
 .topbar-account{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border-standard);border-radius:50%;background:var(--surface);overflow:hidden}.topbar-account img{width:100%;height:100%;object-fit:cover}.topbar-account:hover{border-color:var(--border-strong);box-shadow:var(--shadow-focus)}
 .topbar-notifications{position:relative}.topbar-notifications span{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;display:grid;place-items:center;padding:0 3px;border:2px solid var(--surface-panel);border-radius:9px;background:var(--accent);color:#fff;font-size:8px;font-weight:800}
+.topbar-notifications.is-arriving{color:var(--danger);animation:notification-bell-pulse 560ms var(--ease-standard)}.topbar-notifications .arrival-count{background:var(--danger);white-space:nowrap}
+@keyframes notification-bell-pulse{0%,100%{transform:none}35%{transform:rotate(-9deg) scale(1.12)}65%{transform:rotate(8deg) scale(1.12)}}
+html[data-reduced-motion="true"] .topbar-notifications.is-arriving{animation:none}
 
 .topbar-search input:focus {
   border-color: var(--primary);

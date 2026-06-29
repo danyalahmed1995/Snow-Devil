@@ -32,7 +32,7 @@ import { resolveRepositoryTreeIcon, type RepositoryTreeIconKind } from '../../re
 
 export function TreeFileIcon({path,type,open=false}:{path:string;type:'tree'|'blob';open?:boolean}){
   const descriptor=resolveRepositoryTreeIcon(path,type,open);const Icon=ICON_COMPONENTS[descriptor.kind]??File;
-  return <span className={`repo-tree-icon repo-tree-icon--${descriptor.kind}`} data-tree-icon={descriptor.kind} title={descriptor.label} aria-hidden="true"><Icon size={15}/></span>;
+  return <span className={`repo-tree-icon repo-tree-icon--${descriptor.kind}`} data-tree-icon={descriptor.kind} data-tooltip={descriptor.label} aria-hidden="true"><Icon size={15}/></span>;
 }
 
 const ICON_COMPONENTS: Record<RepositoryTreeIconKind, typeof File> = {

@@ -3,7 +3,7 @@ import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
 import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
 import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
-import { activeNotifications, effectiveUnread, useNotificationStore } from '../../stores/notification-store';
+import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';
 import { useAccountRepositories } from '../../hooks/useAccountContext';
 
@@ -102,7 +102,7 @@ export function Navigator() {
       const isActive = activeTab?.id === shortcut.tabId;
       const countKey = shortcut.tabId === 'native:organizations' ? 'organizations' : shortcut.browserKind ? kindToCountKey[shortcut.browserKind] : undefined;
       let displayCount: string | number | null = null;
-      if(shortcut.tabId==='native:notifications')displayCount=unreadNotifications;
+      if(shortcut.tabId==='native:notifications')displayCount=formatNotificationCount(unreadNotifications);
       else if (session.status === 'checking' && countKey) displayCount = '…';
       else if (session.status === 'connected' && countKey && counts[countKey] !== undefined) displayCount = counts[countKey];
       else if (session.status === 'error' && countKey) displayCount = '!';
@@ -110,7 +110,7 @@ export function Navigator() {
       const partialOrganizations = shortcut.tabId === 'native:organizations' && session.status === 'connected' && session.account.organizations?.status === 'partial';
       if (unavailableOrganizations) displayCount = '!';
       if (partialOrganizations) displayCount = `${counts.organizations ?? 0}+`;
-      return <li key={shortcut.tabId}><button className={`nav-item ${isActive ? 'active' : ''}`} title={unavailableOrganizations || partialOrganizations ? session.status === 'connected' ? session.account.organizations?.message : undefined : countKey ? countSemantics[countKey] : undefined} onClick={() => handleSelect(shortcut)} aria-current={isActive ? 'page' : undefined}><span className="nav-item__label">{icons[shortcut.tabId]}<span>{shortcut.label}</span></span>{displayCount !== null && <span className="badge">{displayCount}</span>}</button></li>;
+      return <li key={shortcut.tabId}><button className={`nav-item ${isActive ? 'active' : ''}`} data-tooltip={unavailableOrganizations || partialOrganizations ? session.status === 'connected' ? session.account.organizations?.message : undefined : countKey ? countSemantics[countKey] : `${shortcut.label}\nOpen or activate this Snow Devil workspace.`} onClick={() => handleSelect(shortcut)} aria-current={isActive ? 'page' : undefined}><span className="nav-item__label">{icons[shortcut.tabId]}<span>{shortcut.label}</span></span>{displayCount !== null && <span className="badge">{displayCount}</span>}</button></li>;
     })}</ul>
   </section>;
 
@@ -123,10 +123,10 @@ export function Navigator() {
       </div>
       <footer className="navigator-account">
         {session.status === 'connected' ? <>
-          <button className="navigator-account__identity" onClick={() => handleSelect(SIDEBAR_SHORTCUTS.find(shortcut => shortcut.tabId === 'github:profile')!)} title="Open GitHub account">
+          <button className="navigator-account__identity" onClick={() => handleSelect(SIDEBAR_SHORTCUTS.find(shortcut => shortcut.tabId === 'github:profile')!)} data-tooltip="GitHub account\nOpen the connected account profile.">
             <img src={session.account.avatarUrl} alt="" /><span><strong>{session.account.name || session.account.login}</strong><small>@{session.account.login}</small></span><i aria-label="Online" />
           </button>
-          <button className="navigator-account__action" aria-label="Sign out" title="Sign out" onClick={() => void disconnect()}><LogOut size={14} /></button>
+          <button className="navigator-account__action" aria-label="Sign out" data-tooltip="Sign out\nDisconnect GitHub and clear account-scoped runtime state." onClick={() => void disconnect()}><LogOut size={14} /></button>
         </> : <div className="navigator-account__disconnected"><CircleUserRound size={24} /><span><strong>GitHub account</strong><small>{session.status === 'checking' ? 'Checking connection…' : 'Not connected'}</small></span></div>}
       </footer>
     </div>

@@ -6,12 +6,13 @@ import { TopBar } from './TopBar';
 import { Navigator } from '../navigator/Navigator';
 import { Workspace } from '../workspace/Workspace';
 import { Inspector } from '../inspector/Inspector';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { isNativeTab } from '../../browser/browser-tabs';
 import { useFlowStore } from '../../stores/flow-store';
 import { X } from 'lucide-react';
 
 export function Layout() {
+  const inspectorResizeCleanup = useRef<(() => void) | undefined>(undefined);
   const { isNavigatorOpen, navigatorWidth, isInspectorOpen, inspectorWidth, setInspectorWidth, setInspectorOpen } = useLayoutStore();
   const activeTabId = useTabsStore(s => s.activeTabId);
   const tabs = useTabsStore(s => s.tabs);
@@ -24,6 +25,7 @@ export function Layout() {
     if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'settings' || (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator') && !hasSelection)) setInspectorOpen(false);
     else if (hasSelection) setInspectorOpen(true);
   }, [activeTab, selection.selectedAnalyticsEntity, selection.selectedFlowItem, selection.selectedSimulatorEntity, selection.selectedSimulatorEvent, setInspectorOpen]);
+  useEffect(() => () => inspectorResizeCleanup.current?.(), []);
 
   // Hide inspector when a browser tab is active (webview fills the space)
   const showInspector = isInspectorOpen && !isBrowserActive;
@@ -44,14 +46,22 @@ export function Layout() {
         
         {showInspector && (
           <aside className="layout-inspector glass-panel" style={{ width: inspectorWidth }}>
-            <button className="layout-inspector-close" aria-label="Close Inspector" title="Close Inspector" onClick={() => setInspectorOpen(false)}><X size={15}/></button>
+            <button className="layout-inspector-close" aria-label="Close Inspector" data-tooltip="Close Inspector\nHide contextual details for the current selection." onClick={() => setInspectorOpen(false)}><X size={15}/></button>
             <div className="layout-inspector-resizer" role="separator" aria-label="Resize inspector" aria-orientation="vertical" onPointerDown={event => {
+              inspectorResizeCleanup.current?.();
               const startX = event.clientX;
               const startWidth = inspectorWidth;
               const move = (moveEvent: PointerEvent) => setInspectorWidth(startWidth + startX - moveEvent.clientX);
-              const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+              const up = () => {
+                window.removeEventListener('pointermove', move);
+                window.removeEventListener('pointerup', up);
+                window.removeEventListener('pointercancel', up);
+                inspectorResizeCleanup.current = undefined;
+              };
+              inspectorResizeCleanup.current = up;
               window.addEventListener('pointermove', move);
               window.addEventListener('pointerup', up);
+              window.addEventListener('pointercancel', up);
             }} />
             <Inspector />
           </aside>

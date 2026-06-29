@@ -35,7 +35,7 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
         <div><span>{sync.state?.current_stage?.replace(/_/g, ' ') ?? 'Cache ready'}</span><span>{syncSummary.accessibleNow} accessible · {syncSummary.includedBySettings} included · {syncSummary.eligibleForSync} eligible · {syncSummary.fullySynchronized} synchronized · {syncSummary.failed} failed</span><span>{syncSummary.skippedOrUnsupported} skipped/unsupported · {fetchedRecords.toLocaleString()} normalized records</span>{syncSummary.currentJob && <span>Current job: repository {syncSummary.currentJob.completedRepositories + 1} of {syncSummary.currentJob.totalRepositories}{syncSummary.currentJob.repository ? ` · ${syncSummary.currentJob.repository}` : ''}</span>}<span>{sync.state?.coverage_start ? `${new Date(sync.state.coverage_start).toLocaleDateString()} – ${sync.state.coverage_end ? new Date(sync.state.coverage_end).toLocaleDateString() : 'Current'}` : 'History unavailable'}</span></div>
         {sync.state?.error && <span className="analytics-sync__error">{sync.state.error.includes('rate_limited') ? 'GitHub rate limit reached; saved progress will resume safely.' : sync.state.error.includes('authentication_expired') ? 'GitHub authentication expired.' : 'Synchronization was interrupted.'}</span>}
         {!sync.state?.error && unsupported && <span className="analytics-sync__error">{unsupported}</span>}
-        {failedRepositories.length > 0 && <span className="analytics-sync__error" title={failedRepositories.map(value => typeof value === 'string' ? value : String((value as Record<string, unknown>).repository ?? 'Unknown repository')).join(', ')}>{failed} repository source{failed === 1 ? '' : 's'} failed</span>}
+        {failedRepositories.length > 0 && <span className="analytics-sync__error" data-tooltip={failedRepositories.map(value => typeof value === 'string' ? value : String((value as Record<string, unknown>).repository ?? 'Unknown repository')).join(', ')}>{failed} repository source{failed === 1 ? '' : 's'} failed</span>}
         <div className="analytics-sync__actions">{sync.syncing ? <button type="button" onClick={sync.cancel}><Square size={11} /> Cancel sync</button> : <button type="button" onClick={() => void sync.sync()} disabled={!sync.available}><RefreshCw size={11} /> {failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data'}</button>}</div>
       </section>}
       {children}
@@ -56,7 +56,7 @@ export function MetricGrid({ children }: { children: ReactNode }) {
 
 export function MetricCard({ label, value, detail, tone = 'neutral', title, onClick }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'neutral' | 'good' | 'warning' | 'danger' | 'info'; title?: string; onClick?: () => void }) {
   const content = <><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</>;
-  return onClick ? <button type="button" className={`analytics-metric analytics-metric--action analytics-tone--${tone}`} title={title} onClick={onClick}>{content}</button> : <article className={`analytics-metric analytics-tone--${tone}`} title={title}>{content}</article>;
+  return onClick ? <button type="button" className={`analytics-metric analytics-metric--action analytics-tone--${tone}`} data-tooltip={title} onClick={onClick}>{content}</button> : <article className={`analytics-metric analytics-tone--${tone}`} data-tooltip={title}>{content}</article>;
 }
 
 export function StatusPill({ status }: { status: CiStatus }) {

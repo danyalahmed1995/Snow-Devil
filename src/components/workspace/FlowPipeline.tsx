@@ -245,7 +245,7 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
     <div className="flow-workbench-lane">
       <div className="flow-stage-header">
         <h4>{stage.label}</h4>
-        <span className="flow-stage-count" title={typeof countDisplay === 'number' ? 'Exact total' : 'Loaded / Partial count'}>
+        <span className="flow-stage-count" data-tooltip={typeof countDisplay === 'number' ? 'Exact total\nAll matching items are loaded.' : 'Partial count\nShows loaded items while additional pages remain.'}>
           {countDisplay}
         </span>
       </div>

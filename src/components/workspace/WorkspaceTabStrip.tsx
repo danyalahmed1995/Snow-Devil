@@ -115,7 +115,7 @@ export function WorkspaceTabStrip() {
     if (event.key === 'End') { event.preventDefault(); items[items.length - 1]?.focus(); }
   };
   const popup = menu ? createPortal(<div ref={menuRef} className="workspace-tab-menu glass-panel-strong" style={{ left: menuLeft, top: menuTop }} role="menu" onKeyDown={menuKeyDown} onPointerDown={event => event.stopPropagation()}>
-    {menuTab ? <><button role="menuitem" disabled={!refreshCapability.available} title={refreshCapability.disabledReason} onClick={activateRefresh}><RotateCcw size={12} /> {refreshCapability.label}</button><button role="menuitem" disabled={!menuTab.closable} onClick={() => { closeTab(menuTab.id); closeMenu(); }}>Close tab</button><button role="menuitem" onClick={() => { closeOthers(menuTab.id); closeMenu(); }}>Close others</button><button role="menuitem" onClick={() => { closeTabsToRight(menuTab.id); closeMenu(); }}>Close tabs to the right</button></> : <>
+    {menuTab ? <><button role="menuitem" disabled={!refreshCapability.available} data-tooltip={refreshCapability.disabledReason} onClick={activateRefresh}><RotateCcw size={12} /> {refreshCapability.label}</button><button role="menuitem" disabled={!menuTab.closable} onClick={() => { closeTab(menuTab.id); closeMenu(); }}>Close tab</button><button role="menuitem" onClick={() => { closeOthers(menuTab.id); closeMenu(); }}>Close others</button><button role="menuitem" onClick={() => { closeTabsToRight(menuTab.id); closeMenu(); }}>Close tabs to the right</button></> : <>
       <strong>Open tabs</strong>{tabs.map(tab => <button role="menuitem" key={tab.id} onClick={() => { setActiveTab(tab.id); closeMenu(); }}>{isBrowserTab(tab) ? <Globe2 size={12} /> : <AppWindow size={12} />}{tab.title}</button>)}
     </>}
     <hr /><button role="menuitem" disabled={!closedTabs.length} onClick={() => { reopenClosedTab(); closeMenu(); }}><RotateCcw size={12} /> Reopen closed tab{closedTabs[0] ? ` · ${closedTabs[0].title}` : ''}</button>
@@ -138,7 +138,7 @@ export function WorkspaceTabStrip() {
               draggable={tab.id !== 'native:home'}
               aria-selected={isActive}
               aria-label={`${isBrowser ? 'Browser' : 'Native'} tab: ${tab.title}`}
-              title={tooltip}
+              data-tooltip={tooltip}
               tabIndex={isActive ? 0 : -1}
               onDragStart={event => event.dataTransfer.setData('text/snow-devil-tab', tab.id)}
               onDragOver={event => event.preventDefault()}
@@ -164,7 +164,7 @@ export function WorkspaceTabStrip() {
           );
         })}
       </div>
-      <button className="workspace-tab-add" aria-label="Open or switch tab" title="Open or switch tab" onClick={event => showMenu({ x: event.currentTarget.getBoundingClientRect().right - 220, y: event.currentTarget.getBoundingClientRect().bottom + 4 })}><Plus size={15}/></button>
+      <button className="workspace-tab-add" aria-label="Open or switch tab" data-tooltip="Open or switch tab\nOpen a fixed page or activate an existing workspace tab." onClick={event => showMenu({ x: event.currentTarget.getBoundingClientRect().right - 220, y: event.currentTarget.getBoundingClientRect().bottom + 4 })}><Plus size={15}/></button>
       <button ref={overflowRef} className="workspace-tab-overflow" aria-label="Tab overflow menu" onClick={event => showMenu({ x: event.currentTarget.getBoundingClientRect().right - 220, y: event.currentTarget.getBoundingClientRect().bottom + 4 })}><MoreHorizontal size={16} /></button>
       {popup}
     </div>

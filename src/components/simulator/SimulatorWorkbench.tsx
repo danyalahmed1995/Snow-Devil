@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, Pause, Play, RotateCcw, X } from 'lucide-react';
 import { useAccountSimulator } from '../../hooks/useAccountSimulator';
 import { useRepositorySimulator } from '../../hooks/useRepositorySimulator';
@@ -25,6 +25,9 @@ import { defaultHistoryView, useHistoryViewStore } from '../../stores/history-vi
 import { addCalendarDays, calendarDateInTimeZone, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
 import { summarizeHistoryStatus } from '../../simulator/history-status';
 import { loadingMotionClass } from '../../lib/data-state';
+import { entityMatchesHistorySearch, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
+import { CIWatcherPanel } from '../ci/CIWatcherPanel';
+import { formatEntityTitle } from '../../simulator/simulator-presentation';
 
 type HistoryMode = 'account' | 'repository';
 
@@ -36,7 +39,7 @@ function setRange(setSince: (value: string) => void, setUntil: (value: string) =
 }
 
 function HistoryMetric({ label, value, detail }: { label: string; value: number; detail: string }) {
-  return <div className="history-metric" title={detail}><span>{label}</span><strong>{value.toLocaleString()}</strong><small>{detail}</small></div>;
+  return <div className="history-metric" data-tooltip={`${label}\n${detail}`}><span>{label}</span><strong>{value.toLocaleString()}</strong><small>{detail}</small></div>;
 }
 
 function isCompleted(entity: SimulatorEntityState): boolean {
@@ -76,6 +79,15 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const filters = view.filters;
   const sourceDisclosureRef = useRef<HTMLButtonElement>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
+  const activeListRef = useRef<HTMLDivElement>(null);
+  const completedListRef = useRef<HTMLDivElement>(null);
+  const [activeSearch, setActiveSearch] = useState('');
+  const [completedSearch, setCompletedSearch] = useState('');
+  const [pendingRevealId, setPendingRevealId] = useState<string>();
+  const [flashEntityId, setFlashEntityId] = useState<string>();
+  const [revealAnnouncement, setRevealAnnouncement] = useState('');
+  const [revealConflict, setRevealConflict] = useState<{ entity: SimulatorEntityState; eventId: string; filterKeys: Array<keyof typeof filters>; search: boolean }>();
+  const flashTimerRef = useRef<number | undefined>(undefined);
 
   const [repoOwner = '', repoName = ''] = selectedRepo?.nameWithOwner.split('/') ?? [];
   const accountHistory = useAccountSimulator(login, timeZone);
@@ -103,7 +115,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const activeEntities = filteredEntities.filter(entity => !isCompleted(entity));
   const completedEntities = filteredEntities.filter(isCompleted);
   const visibleIds = useMemo(() => new Set(filteredEntities.map(entity => entity.id)), [filteredEntities]);
-  const visibleEvents = snapshot.events.filter(event => visibleIds.has(event.subjectId));
+  const visibleEvents = snapshot.events;
   const repositoryOptions = useMemo(() => [...new Set(events.map(event => event.repositoryId))].sort(), [events]);
   const historyStatus = summarizeHistoryStatus(loadState, details);
   const incompleteSourceCount = historyStatus.partial + historyStatus.failed + historyStatus.unsupported + historyStatus.skipped;
@@ -112,7 +124,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
 
   useEffect(() => {
     if (mode === 'repository' && requestedRepository && requestedRepository.id !== selectedRepoState?.id) setSelectedRepo(requestedRepository);
-  }, [mode, requestedRepository, selectedRepoState?.id]);
+  }, [mode, requestedRepository, selectedRepoState?.id, setSelectedRepo]);
 
   useEffect(() => {
     if (!showCoverage) return;
@@ -145,6 +157,79 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
       updateView({ selectedEntityId: undefined, selectedEventId: undefined });
     }
   }, [selectedEntityId, updateView, visibleIds]);
+
+  useEffect(() => () => { if (flashTimerRef.current !== undefined) window.clearTimeout(flashTimerRef.current); }, []);
+
+  const revealEntity = useCallback((entity: SimulatorEntityState) => {
+    const container = isCompleted(entity) ? completedListRef.current : activeListRef.current;
+    if (!container) return;
+    const row = [...container.querySelectorAll<HTMLElement>('[data-entity-id]')].find(value => value.dataset.entityId === entity.id);
+    if (!row) return;
+    const rowTop = row.offsetTop;
+    const rowBottom = rowTop + row.offsetHeight;
+    const visibleTop = container.scrollTop;
+    const visibleBottom = visibleTop + container.clientHeight;
+    if (rowTop < visibleTop || rowBottom > visibleBottom) {
+      const top = Math.max(0, rowTop - Math.max(0, (container.clientHeight - row.offsetHeight) / 2));
+      container.scrollTo({ top, behavior: reducedMotion ? 'auto' : 'smooth' });
+    }
+    row.focus({ preventScroll: true });
+    setFlashEntityId(entity.id);
+    setRevealAnnouncement(`${formatEntityTitle(entity)} revealed in ${isCompleted(entity) ? 'Completed by selected date' : 'Active on selected date'}.`);
+    if (flashTimerRef.current !== undefined) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashEntityId(current => current === entity.id ? undefined : current), reducedMotion ? 700 : 1600);
+    setPendingRevealId(undefined);
+  }, [reducedMotion]);
+
+  useEffect(() => {
+    if (!pendingRevealId) return;
+    const entity = snapshot.entities.find(value => value.id === pendingRevealId);
+    if (!entity || !visibleIds.has(entity.id)) return;
+    const query = isCompleted(entity) ? completedSearch : activeSearch;
+    if (!entityMatchesHistorySearch(entity, query)) return;
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => revealEntity(entity)));
+    return () => cancelAnimationFrame(frame);
+  }, [activeSearch, completedSearch, pendingRevealId, revealEntity, snapshot.entities, visibleIds]);
+
+  const selectHistoryEvent = useCallback((eventId: string) => {
+    const target = resolveHistoryNavigationTarget(eventId, snapshot.events, snapshot.entities);
+    if (!target) return;
+    updateView({ selectedEntityId: target.entity?.id, selectedEventId: eventId });
+    if (!target.entity) {
+      setRevealConflict(undefined);
+      setRevealAnnouncement('Event selected. No canonical entity snapshot is available at this cutoff.');
+      return;
+    }
+    const filterKeys = historyFilterConflicts(target.entity, filters, mode);
+    const search = !entityMatchesHistorySearch(target.entity, target.section === 'completed' ? completedSearch : activeSearch);
+    if (filterKeys.length || search) {
+      setRevealConflict({ entity: target.entity, eventId, filterKeys: filterKeys as Array<keyof typeof filters>, search });
+      setRevealAnnouncement('The related item is hidden by the current filters.');
+      return;
+    }
+    setRevealConflict(undefined);
+    setPendingRevealId(target.entity.id);
+  }, [activeSearch, completedSearch, filters, mode, snapshot.entities, snapshot.events, updateView]);
+
+  const revealHiddenEntity = useCallback(() => {
+    if (!revealConflict) return;
+    const defaults = defaultHistoryView(mode).filters;
+    const next = { ...filters };
+    for (const key of revealConflict.filterKeys) {
+      if (key === 'actor') {
+        next.actor = defaults.actor;
+        next.includeBots = defaults.includeBots;
+      } else if (key === 'includeBots') next.includeBots = defaults.includeBots;
+      else next[key] = defaults[key] as never;
+    }
+    if (revealConflict.search) {
+      if (isCompleted(revealConflict.entity)) setCompletedSearch('');
+      else setActiveSearch('');
+    }
+    updateView({ filters: next, selectedEntityId: revealConflict.entity.id, selectedEventId: revealConflict.eventId });
+    setPendingRevealId(revealConflict.entity.id);
+    setRevealConflict(undefined);
+  }, [filters, mode, revealConflict, updateView]);
 
   if (appMode !== 'demo' && session.status === 'checking') return <div className="simulator-load-state">Resolving authenticated account…</div>;
   if (appMode !== 'demo' && session.status !== 'connected') return <div className="simulator-load-state">Authentication required. Please sign in to GitHub to use history.</div>;
@@ -190,6 +275,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
       </section>}
 
       <section className="history-scope" aria-label="History scope explanation"><strong>{mode === 'account' ? `${selectedRepoCount} contributed repositor${selectedRepoCount === 1 ? 'y' : 'ies'}` : selectedRepo?.nameWithOwner}</strong><span>{mode === 'account' ? 'Direct account involvement and loaded account evidence.' : 'All loaded work targeting this base repository, regardless of author or fork origin.'}</span><span>{snapshot.currentAssertionsUsed ? 'Authoritative current assertions included for latest date.' : 'Historical evidence only; current assertions excluded.'}</span><span>{partial ? 'Partial coverage' : 'Complete configured coverage'} · {snapshot.duplicateEventsSuppressed} duplicate evidence record{snapshot.duplicateEventsSuppressed === 1 ? '' : 's'} suppressed.</span></section>
+      {mode === 'repository' && selectedRepo && <CIWatcherPanel repositoryId={selectedRepo.nameWithOwner} compact />}
 
       <section className="history-progress" aria-label="Progress by selected date">
         <HistoryMetric label="PRs opened" value={progress.pullRequestsOpened} detail="Unique pull requests opened by this date"/>
@@ -203,11 +289,13 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
         <HistoryMetric label="Recorded events" value={progress.recordedEvents} detail="Deduplicated evidence records, not entity count"/>
       </section>
 
+      {revealConflict && <div className="history-reveal-message" role="status"><span>This item is hidden by the current filters.</span><button type="button" onClick={revealHiddenEntity}>Reveal item</button></div>}
       <div className="history-entity-grid">
-        <SimulatorEntityList title="Active on selected date" emptyLabel="No active work is supported on this date." entities={activeEntities} selectedId={selectedEntityId} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
-        <SimulatorEntityList title="Completed by selected date" emptyLabel="No completed work is supported by this date." entities={completedEntities} selectedId={selectedEntityId} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
+        <SimulatorEntityList title="Active on selected date" emptyLabel="No active work is supported on this date." entities={activeEntities} selectedId={selectedEntityId} query={activeSearch} onQueryChange={setActiveSearch} scrollRef={activeListRef} revealId={pendingRevealId} flashId={flashEntityId} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
+        <SimulatorEntityList title="Completed by selected date" emptyLabel="No completed work is supported by this date." entities={completedEntities} selectedId={selectedEntityId} query={completedSearch} onQueryChange={setCompletedSearch} scrollRef={completedListRef} revealId={pendingRevealId} flashId={flashEntityId} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
       </div>
-      <SimulatorEventStream events={visibleEvents} cursor={snapshot.selectedDate} selectedEventId={selectedEventId} timeZone={timeZone} initialScrollTop={view.activityScrollTop} onScrollTop={value => updateView({ activityScrollTop: value })} onSelectEvent={id => { const selected = snapshot.events.find(event => event.id === id); updateView({ selectedEntityId: selected?.subjectId, selectedEventId: id }); }}/>
+      <SimulatorEventStream events={visibleEvents} cursor={snapshot.selectedDate} selectedEventId={selectedEventId} timeZone={timeZone} initialScrollTop={view.activityScrollTop} onScrollTop={value => updateView({ activityScrollTop: value })} onSelectEvent={selectHistoryEvent}/>
+      <span className="sr-only" aria-live="polite">{revealAnnouncement}</span>
     </div>;
   };
 

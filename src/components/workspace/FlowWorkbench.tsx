@@ -21,6 +21,7 @@ import '../saved-views/SavedViewsMenu.css';
 import { useAuthStore } from '../../stores/auth-store';
 import { queryClient } from '../../app/providers';
 import { useCurrentTabId } from './TabInstanceContext';
+import { CIWatcherPanel } from '../ci/CIWatcherPanel';
 
 function flattenSourcePages(
   data: any, 
@@ -409,7 +410,7 @@ export function FlowWorkbench() {
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       <div className="flow-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        {flowState.sourceContext && <button type="button" className="flow-context-chip" title="Remove Home context" onClick={() => setFlowState(activeTabId, { sourceContext: undefined })}>{flowState.sourceContext}<span aria-hidden="true">×</span></button>}
+        {flowState.sourceContext && <button type="button" className="flow-context-chip" data-tooltip="Remove Home context\nClear the Home-originated filter context." onClick={() => setFlowState(activeTabId, { sourceContext: undefined })}>{flowState.sourceContext}<span aria-hidden="true">×</span></button>}
         <label className="flow-field">Scope<Select ariaLabel="Flow scope" value={scope} onChange={value => setFlowState(activeTabId, { scope: value as 'account' | 'repository', filterStage: undefined })} options={[{ value: 'account', label: 'Account Flow' }, { value: 'repository', label: 'Repository Flow' }]} /></label>
 
         {scope === 'repository' && (
@@ -429,7 +430,7 @@ export function FlowWorkbench() {
         {scope === 'account' && <label className="flow-field">Involvement<Select ariaLabel="Flow involvement" value={involvementFilter} onChange={value => setFlowState(activeTabId, { involvementFilter: value as typeof involvementFilter })} options={[{ value: 'all', label: 'All activity' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'authored', label: 'Authored by me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participating' }]} /></label>}
         <label className="flow-field">Actor<Select ariaLabel="Flow actor" value={actorFilter} onChange={value => setFlowState(activeTabId, { actorFilter: value as typeof actorFilter })} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'humans', label: 'Humans only' }, { value: 'bots', label: 'Bots only' }, { value: 'dependabot', label: 'Dependabot' }, { value: 'renovate', label: 'Renovate' }]} /></label>
         {filterStage && <label className="flow-field">Sort<Select ariaLabel="Focused stage sort" value={sortOrder} onChange={value => setFlowState(activeTabId, { sortOrder: value as typeof sortOrder })} options={[{ value: 'newest', label: 'Newest activity' }, { value: 'oldest', label: 'Oldest activity' }, { value: 'repository', label: 'Repository' }, { value: 'attention', label: 'Attention first' }]} /></label>}
-        <SavedViewsMenu current={flowState}/><span className="flow-freshness" title="Flow shows the latest completed cached query snapshot.">Synced snapshot · {items.length} results</span>
+        <SavedViewsMenu current={flowState}/><span className="flow-freshness" data-tooltip="Synchronized snapshot\nFlow shows the latest completed cached query result.">Synced snapshot · {items.length} results</span>
       </div>
       
       <div className="flow-content" style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>
@@ -464,6 +465,7 @@ export function FlowWorkbench() {
           </div>
         )}
         {isRefreshing && <div className="flow-refreshing" role="status">Refreshing GitHub data · Displaying previous snapshot</div>}
+        {isRepo && selectedRepository && <CIWatcherPanel repositoryId={selectedRepository.nameWithOwner} compact />}
         {!isLoading && items.length > 0 && <section className="flow-detail-panels" aria-label="Flow operational context"><div className="flow-event-preview"><header><strong>Event Stream</strong><span>Latest cached activity</span></header>{[...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 3).map(item => <button key={item.id} onClick={() => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}><time>{new Date(item.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>{item.title}</span><small>{item.stage}</small></button>)}</div><div><div className="flow-supporting"><div><span>Visible</span><strong>{items.length}</strong></div><div><span>Attention</span><strong>{canonicalAttentionItems(items).length}</strong></div><div><span>Reviews</span><strong>{items.filter(item => item.stage === 'review').length}</strong></div><div><span>Merged</span><strong>{items.filter(item => item.stage === 'merged').length}</strong></div><div><span>Coverage</span><strong>{items.some(item => item.completeness !== 'complete') || error ? 'Partial' : 'Complete'}</strong></div></div>{isRepo && selectedRepository && <div className="flow-deep-links"><span>{selectedRepository.nameWithOwner}</span><button onClick={() => { setFlowState('native:repository-simulator', { selectedRepository }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}>Repository History</button><button onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Health', false, true)}>CI Health</button></div>}</div></section>}
       </div>
     </div>

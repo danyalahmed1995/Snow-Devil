@@ -90,7 +90,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                   <div className="code-display" style={{ marginBottom: 0, flex: 1 }}>{userCode}</div>
                   <button 
                     className="btn-secondary" 
-                    title="Copy to clipboard"
+                    data-tooltip="Copy code\nCopies the GitHub device authorization code."
                     onClick={() => {
                       navigator.clipboard.writeText(userCode || '');
                       const btn = document.getElementById('copy-code-btn');

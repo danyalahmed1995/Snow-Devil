@@ -3,6 +3,7 @@ import type { BrowserTabKind } from '../browser/browser-url';
 import type { SimulatorEntityState } from '../simulator/simulator-types';
 import type { AppMode } from '../stores/mode-store';
 import type { FlowItem } from '../types/flow';
+import { canonicalRepositoryIdentity } from './canonical-identity';
 
 export interface EntityTabTarget {
   id: string;
@@ -17,7 +18,7 @@ function validGitHubUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || (url.hostname !== 'github.com' && !url.hostname.endsWith('.github.com'))) return undefined;
+    if (url.protocol !== 'https:' || url.hostname !== 'github.com') return undefined;
     return url.toString();
   } catch {
     return undefined;
@@ -43,31 +44,57 @@ function sourceUrl(source: InspectorTargetSource): string | undefined {
   return 'url' in source ? source.url : undefined;
 }
 
+function repositoryPath(repository: string | undefined): string | undefined {
+  if (!repository) return undefined;
+  try {
+    return canonicalRepositoryIdentity(repository).split('/').map(encodeURIComponent).join('/');
+  } catch {
+    return undefined;
+  }
+}
+
+function explicitMatchesEntity(url: string | undefined, repository: string | undefined, type: string, number?: number): string | undefined {
+  const valid = validGitHubUrl(url);
+  if (!valid) return undefined;
+  if (!repository) return valid;
+  try {
+    const parsed = new URL(valid);
+    const parts = parsed.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+    if (parts.length < 2 || canonicalRepositoryIdentity(`${parts[0]}/${parts[1]}`) !== canonicalRepositoryIdentity(repository)) return undefined;
+    if (type === 'pull_request' && number != null && (parts[2] !== 'pull' || Number(parts[3]) !== number)) return undefined;
+    if (type === 'issue' && number != null && (parts[2] !== 'issues' || Number(parts[3]) !== number)) return undefined;
+    return valid;
+  } catch {
+    return undefined;
+  }
+}
+
 export function resolveEntityTabTarget(source: InspectorTargetSource | undefined, mode: AppMode): EntityTabTarget | undefined {
   if (!source || mode === 'demo') return undefined;
   const repository = sourceRepository(source);
+  const encodedRepository = repositoryPath(repository);
   const type = sourceType(source);
   const number = 'number' in source ? source.number : undefined;
-  const explicit = validGitHubUrl(sourceUrl(source));
+  const explicit = explicitMatchesEntity(sourceUrl(source), repository, type, number);
   let url = explicit;
   let kind: BrowserTabKind = 'repository';
 
   if (type === 'issue') {
     kind = 'issues';
-    if (!url && repository && number != null) url = validGitHubUrl(`https://github.com/${repository}/issues/${number}`);
+    if (!url && encodedRepository && number != null) url = validGitHubUrl(`https://github.com/${encodedRepository}/issues/${number}`);
   } else if (type === 'pull_request') {
     kind = 'pullRequests';
-    if (!url && repository && number != null) url = validGitHubUrl(`https://github.com/${repository}/pull/${number}`);
+    if (!url && encodedRepository && number != null) url = validGitHubUrl(`https://github.com/${encodedRepository}/pull/${number}`);
   } else if (type === 'repository' || type === 'ci_health') {
     kind = 'repository';
-    if (!url && repository) url = validGitHubUrl(`https://github.com/${repository}`);
-  } else if (type === 'branch' && repository) {
+    if (!url && encodedRepository) url = validGitHubUrl(`https://github.com/${encodedRepository}`);
+  } else if (type === 'branch' && encodedRepository) {
     kind = 'repository';
     const branchName = sourceTitle(source);
-    if (!url && branchName) url = validGitHubUrl(`https://github.com/${repository}/tree/${encodeURIComponent(branchName)}`);
-  } else if (type === 'release' && repository) {
+    if (!url && branchName) url = validGitHubUrl(`https://github.com/${encodedRepository}/tree/${encodeURIComponent(branchName)}`);
+  } else if (type === 'release' && encodedRepository) {
     kind = 'repository';
-    if (!url) url = validGitHubUrl(`https://github.com/${repository}/releases`);
+    if (!url) url = validGitHubUrl(`https://github.com/${encodedRepository}/releases`);
   } else if (type === 'commit' || type === 'deployment') {
     kind = 'repository';
   } else if (explicit) {

@@ -1,26 +1,59 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Bell, Clock3, Copy, ExternalLink, Filter, Search } from 'lucide-react';
-import { activeNotifications, effectiveUnread, type NativeNotification, useNotificationStore } from '../../stores/notification-store';
-import { useModeStore } from '../../stores/mode-store';
+import { Bell, Clock3, Copy, ExternalLink, Filter, RefreshCw, Search } from 'lucide-react';
+import { activeNotifications, effectiveUnread, notificationDestination, useNotificationStore, type NativeNotification } from '../../stores/notification-store';
+import { notificationNavigationTarget } from '../../services/notification-navigation';
 import { useTabsStore } from '../../stores/tabs-store';
 import { Select } from '../ui/Select';
 import './NotificationsPage.css';
 
-interface ApiNotification {id?:string;unread?:boolean;reason?:string;updated_at?:string;last_read_at?:string;subject?:{title?:string;type?:string;url?:string;latest_comment_url?:string};repository?:{full_name?:string;html_url?:string}}
-const DEMO:NativeNotification[]=[
-  {id:'demo-review',unread:true,reason:'review_requested',updatedAt:'2026-02-15T10:30:00Z',subject:{title:'Improve repository explorer performance',type:'PullRequest',apiUrl:'https://api.github.com/repos/snow-devil/example/pulls/42'},repository:{fullName:'snow-devil/example',htmlUrl:'https://github.com/snow-devil/example'}},
-  {id:'demo-ci',unread:true,reason:'ci_activity',updatedAt:'2026-02-15T09:20:00Z',subject:{title:'Checks failed on feature/search',type:'CheckSuite'},repository:{fullName:'snow-devil/example',htmlUrl:'https://github.com/snow-devil/example'}},
-  {id:'demo-mention',unread:false,reason:'mention',updatedAt:'2026-02-14T18:10:00Z',subject:{title:'Document evidence confidence',type:'Issue',apiUrl:'https://api.github.com/repos/snow-devil/example/issues/17'},repository:{fullName:'snow-devil/example',htmlUrl:'https://github.com/snow-devil/example'}},
-];
-function normalize(values:ApiNotification[]):NativeNotification[]{return values.flatMap(value=>value.id&&value.subject?.title&&value.repository?.full_name?[{id:value.id,unread:!!value.unread,reason:value.reason??'subscribed',updatedAt:value.updated_at??new Date().toISOString(),lastReadAt:value.last_read_at,subject:{title:value.subject.title,type:value.subject.type??'Unknown',apiUrl:value.subject.url,latestCommentUrl:value.subject.latest_comment_url},repository:{fullName:value.repository.full_name,htmlUrl:value.repository.html_url}}]:[])}
-function webUrl(record:NativeNotification){const api=record.subject.apiUrl;if(api){const match=/api\.github\.com\/repos\/([^/]+)\/([^/]+)\/(issues|pulls)\/(\d+)/.exec(api);if(match)return`https://github.com/${match[1]}/${match[2]}/${match[3]==='pulls'?'pull':'issues'}/${match[4]}`}return record.repository.htmlUrl}
+export function NotificationsPage() {
+  const records = useNotificationStore(state => state.records);
+  const localRead = useNotificationStore(state => state.localRead);
+  const snoozed = useNotificationStore(state => state.snoozedUntil);
+  const newlyArrivedIds = useNotificationStore(state => state.newlyArrivedIds);
+  const pollingStatus = useNotificationStore(state => state.pollingStatus);
+  const pollingMessage = useNotificationStore(state => state.pollingMessage);
+  const setRead = useNotificationStore(state => state.setRead);
+  const snooze = useNotificationStore(state => state.snooze);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [writeStatus, setWriteStatus] = useState<Record<string, string>>({});
+  const visible = useMemo(() => activeNotifications(records, snoozed).filter(record =>
+    (filter === 'all' || filter === 'unread' && effectiveUnread(record, localRead) || record.reason === filter)
+    && `${record.subject.title} ${record.repository.fullName} ${record.reason}`.toLowerCase().includes(search.toLowerCase()),
+  ), [filter, localRead, records, search, snoozed]);
+  const reasons = [...new Set(records.map(record => record.reason))].sort();
+  const open = (record: NativeNotification) => {
+    const target = notificationNavigationTarget(record);
+    if (!target) return;
+    if (target.family === 'native-pr') useTabsStore.getState().openNativeTab(target.id, 'pullRequestDiff', target.title, false, true, { type: 'pullRequest', repository: target.repository, number: target.number });
+    else useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+  };
+  const statusLabel = pollingStatus === 'checking' ? 'Checking GitHub…' : pollingStatus === 'ready' ? 'Background polling active' : pollingMessage ?? pollingStatus.replace(/_/g, ' ');
+  const markRead = async (record: NativeNotification, unread: boolean) => {
+    if (!unread) { setRead(record.id, false); return; }
+    if (record.isTestNotification || !/^\d+$/.test(record.id)) { setRead(record.id, true); setWriteStatus(state => ({ ...state, [record.id]: 'Marked read locally.' })); return; }
+    setWriteStatus(state => ({ ...state, [record.id]: 'Updating GitHub…' }));
+    try {
+      await invoke('mark_github_notification_read', { threadId: record.id });
+      setRead(record.id, true);
+      setWriteStatus(state => ({ ...state, [record.id]: 'Marked read on GitHub.' }));
+    } catch {
+      setWriteStatus(state => ({ ...state, [record.id]: 'GitHub rejected the update; read state was unchanged.' }));
+    }
+  };
 
-export function NotificationsPage(){
-  const mode=useModeStore(state=>state.mode);const records=useNotificationStore(state=>state.records);const localRead=useNotificationStore(state=>state.localRead);const snoozed=useNotificationStore(state=>state.snoozedUntil);const setRecords=useNotificationStore(state=>state.setRecords);const setRead=useNotificationStore(state=>state.setRead);const snooze=useNotificationStore(state=>state.snooze);const[loading,setLoading]=useState(false);const[error,setError]=useState('');const[search,setSearch]=useState('');const[filter,setFilter]=useState('all');
-  useEffect(()=>{let live=true;setLoading(true);setError('');(mode==='demo'?Promise.resolve(DEMO):invoke<ApiNotification[]>('execute_rest',{endpoint:'/notifications?all=true&participating=false&per_page=100'}).then(normalize)).then(value=>{if(live)setRecords(value)}).catch(cause=>{if(live)setError(String(cause))}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[mode,setRecords]);
-  const visible=useMemo(()=>activeNotifications(records,snoozed).filter(record=>(filter==='all'||filter==='unread'&&effectiveUnread(record,localRead)||record.reason===filter)&&`${record.subject.title} ${record.repository.fullName} ${record.reason}`.toLowerCase().includes(search.toLowerCase())),[filter,localRead,records,search,snoozed]);
-  const reasons=[...new Set(records.map(record=>record.reason))].sort();
-  const open=(record:NativeNotification)=>{const url=webUrl(record);if(!url)return;const pr=/github\.com\/([^/]+\/[^/]+)\/pull\/(\d+)/.exec(url);if(pr)useTabsStore.getState().openNativeTab(`native:pr:${pr[1]}:${pr[2]}`,'pullRequestDiff',`PR #${pr[2]}`,false,true,{type:'pullRequest',repository:pr[1],number:Number(pr[2])});else useTabsStore.getState().openBrowserTab(`github:notification:${record.id}`,record.subject.type==='Issue'?'issue':'githubPage',record.subject.title,url,false,true)};
-  return <main className="notifications-page"><header><div><span>Personal inbox</span><h1><Bell size={19}/>Notifications</h1><p>Read-only GitHub activity connected to your Snow Devil workspace.</p></div><div className="notifications-controls"><label><Search size={13}/><input aria-label="Search notifications" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Search notifications"/></label><Filter size={13}/><Select ariaLabel="Notification filter" value={filter} onChange={setFilter} options={[{value:'all',label:'All active'},{value:'unread',label:'Unread'},...reasons.map(reason=>({value:reason,label:reason.replace(/_/g,' ')}))]}/></div></header>{loading&&records.length===0&&<div className="notifications-state">Loading notifications…</div>}{error&&<div className="notifications-state notifications-state--error"><strong>Notifications unavailable</strong><span>{error}</span></div>}<section className="notifications-list" aria-label={`${visible.length} notifications`}>{visible.map(record=>{const unread=effectiveUnread(record,localRead);const url=webUrl(record);return <article className={unread?'is-unread':''} key={record.id}><button className="notification-main" onClick={()=>open(record)}><i/><span><strong>{record.subject.title}</strong><small>{record.repository.fullName} · {record.reason.replace(/_/g,' ')} · {new Date(record.updatedAt).toLocaleString()}</small></span></button><div><button onClick={()=>setRead(record.id,unread)}>{unread?'Mark read':'Mark unread'}</button><button onClick={()=>snooze(record.id,new Date(Date.now()+4*3600000).toISOString())}><Clock3 size={12}/>Snooze 4h</button>{url&&<><button aria-label="Copy notification link" onClick={()=>navigator.clipboard.writeText(url)}><Copy size={12}/></button><button aria-label="Open notification on GitHub" onClick={()=>useTabsStore.getState().openBrowserTab(`github:notification:${record.id}`,'githubPage',record.subject.title,url,false,true)}><ExternalLink size={12}/></button></>}</div></article>})}{!loading&&visible.length===0&&<div className="notifications-state"><strong>No active notifications</strong><span>Change the filter or return after the next synchronization.</span></div>}</section></main>;
+  return <main className="notifications-page">
+    <header><div><span>Personal inbox</span><h1><Bell size={19}/>Notifications</h1><p>GitHub activity synchronized in the background while Snow Devil is open.</p></div><div className="notifications-controls"><span className={`notification-poll-status notification-poll-status--${pollingStatus}`}>{statusLabel}</span><button aria-label="Refresh notifications" data-tooltip="Refresh notifications\nChecks GitHub now when the server-provided minimum polling interval allows." onClick={() => window.dispatchEvent(new Event('snow-devil:notification-refresh'))}><RefreshCw size={13}/></button><label><Search size={13}/><input aria-label="Search notifications" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search notifications"/></label><Filter size={13}/><Select ariaLabel="Notification filter" value={filter} onChange={setFilter} options={[{ value: 'all', label: 'All active' }, { value: 'unread', label: 'Unread' }, ...reasons.map(reason => ({ value: reason, label: reason.replace(/_/g, ' ') }))]}/></div></header>
+    {import.meta.env.DEV && <p className="notification-dev-hint">Space: simulate notification · Shift+Space: clear test notifications</p>}
+    <section className="notifications-list" aria-label={`${visible.length} notifications`}>{visible.map(record => {
+      const unread = effectiveUnread(record, localRead);
+      const url = notificationDestination(record);
+      return <article className={`${unread ? 'is-unread ' : ''}${newlyArrivedIds.includes(record.id) ? 'is-new ' : ''}${record.isTestNotification ? 'is-test' : ''}`} key={record.id}>
+        <button className="notification-main" onClick={() => open(record)} data-tooltip={`${record.subject.title}\n${record.repository.fullName} · Open the canonical ${record.subject.type.toLowerCase()} destination in Snow Devil.`}><i/><span><strong>{record.subject.title}{record.isTestNotification && <em>Development test</em>}</strong><small>{record.repository.fullName} · {record.reason.replace(/_/g, ' ')} · {new Date(record.updatedAt).toLocaleString()}</small></span></button>
+        <div><button data-tooltip={unread && !record.isTestNotification && /^\d+$/.test(record.id) ? 'Mark read on GitHub\nUses the notification authorization and changes GitHub only after a successful response.' : 'Local read state\nChanges only Snow Devil.'} onClick={() => void markRead(record, unread)}>{unread && !record.isTestNotification && /^\d+$/.test(record.id) ? 'Mark read on GitHub' : unread ? 'Mark read locally' : 'Mark unread locally'}</button><button data-tooltip="Snooze locally\nHides this row in Snow Devil for four hours without changing GitHub." onClick={() => snooze(record.id, new Date(Date.now() + 4 * 3600000).toISOString())}><Clock3 size={12}/>Snooze 4h</button>{url && <><button aria-label="Copy notification link" data-tooltip="Copy canonical GitHub link" onClick={() => navigator.clipboard.writeText(url)}><Copy size={12}/></button><button aria-label="Open notification in Snow Devil" data-tooltip="Open canonical destination in a Snow Devil tab" onClick={() => open(record)}><ExternalLink size={12}/></button></>}<span className="sr-only" aria-live="polite">{writeStatus[record.id]}</span></div>
+      </article>;
+    })}{visible.length === 0 && <div className="notifications-state"><strong>No active notifications</strong><span>Change the filter or wait for the next background synchronization.</span></div>}</section>
+  </main>;
 }

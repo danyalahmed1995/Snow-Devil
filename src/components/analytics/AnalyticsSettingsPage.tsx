@@ -11,6 +11,7 @@ import { exportSafeDiagnostics } from '../../services/export-diagnostics';
 import { AuthModal } from '../auth/AuthModal';
 import { Select } from '../ui/Select';
 import { buildSyncCoverageSummary, normalizeSyncFailure } from '../../analytics/sync-summary';
+import { useNotificationStore } from '../../stores/notification-store';
 
 function SettingRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return <div className="analytics-setting-row"><span>{label}<small>{description}</small></span><div className="analytics-setting-control">{children}</div></div>;
@@ -53,6 +54,13 @@ export function AnalyticsSettingsPage() {
   const selectedEffective = selectedRepository ? effectiveRepositorySettings(settings, selectedRepository.id) : undefined;
   const failedRepositories = parseJsonArray(sync.state?.failed_repositories_json);
   const syncSummary = buildSyncCoverageSummary(sync.state, repositories.length, includedCount);
+  const notificationSettings = useNotificationStore(state => state.settings);
+  const updateNotificationSettings = useNotificationStore(state => state.updateSettings);
+  const notificationPollingStatus = useNotificationStore(state => state.pollingStatus);
+  const notificationPollingMessage = useNotificationStore(state => state.pollingMessage);
+  const notificationActiveAccount = useNotificationStore(state => state.activeAccount);
+  const notificationSync = useNotificationStore(state => notificationActiveAccount ? state.syncByAccount[notificationActiveAccount] : undefined);
+  const clearTestNotifications = useNotificationStore(state => state.clearTestNotifications);
 
   const updateBusinessDay = (day: number) => updateSettings({ businessDays: settings.businessDays.includes(day) ? settings.businessDays.filter(value => value !== day) : [...settings.businessDays, day].sort() });
 
@@ -62,6 +70,22 @@ export function AnalyticsSettingsPage() {
       <SectionCard title="General" action={<span className="analytics-status analytics-status--healthy">Auto-save</span>}><div className="analytics-settings-group">
         <SettingRow label="Application behavior" description="Settings apply across live and demo workspaces.">Snow Devil keeps tabs and preferences across restart.</SettingRow>
         <SettingRow label="Reduced motion" description="Minimizes animated transitions and smooth scrolling throughout the app."><input type="checkbox" checked={settings.reducedMotion} onChange={event => updateSettings({ reducedMotion: event.target.checked })} /></SettingRow>
+      </div></SectionCard>
+
+      <SectionCard title="Notifications" action={<span className={`analytics-status analytics-status--${notificationPollingStatus === 'ready' ? 'healthy' : notificationPollingStatus === 'checking' ? 'warning' : 'unknown'}`}>{notificationPollingStatus.replace(/_/g, ' ')}</span>}><div className="analytics-settings-group">
+        <SettingRow label="In-app notification alerts" description="Shows one bounded, aggregated Snow Devil alert for a newly arrived batch."><input type="checkbox" checked={notificationSettings.inAppAlerts} onChange={event => updateNotificationSettings({ inAppAlerts: event.target.checked })}/></SettingRow>
+        <SettingRow label="Notification sounds" description="Plays one short sound per new batch after the silent baseline synchronization."><input type="checkbox" checked={notificationSettings.sounds} onChange={event => updateNotificationSettings({ sounds: event.target.checked })}/></SettingRow>
+        <SettingRow label="Desktop notifications" description="Unavailable until a least-privilege native permission flow is implemented safely."><input type="checkbox" disabled checked={false}/></SettingRow>
+        <SettingRow label="Notify while Snow Devil is focused" description="When disabled, focused polling still updates the inbox but suppresses arrival alerts."><input type="checkbox" checked={notificationSettings.notifyWhileFocused} onChange={event => updateNotificationSettings({ notifyWhileFocused: event.target.checked })}/></SettingRow>
+        <h3 className="settings-subheading">Notification reasons</h3>
+        <SettingRow label="Review requests" description="Alerts when GitHub requests your review."><input type="checkbox" checked={notificationSettings.reviewRequests} onChange={event => updateNotificationSettings({ reviewRequests: event.target.checked })}/></SettingRow>
+        <SettingRow label="Assignments" description="Alerts when an issue or pull request is assigned to you."><input type="checkbox" checked={notificationSettings.assignments} onChange={event => updateNotificationSettings({ assignments: event.target.checked })}/></SettingRow>
+        <SettingRow label="Mentions" description="Alerts for direct and team mentions."><input type="checkbox" checked={notificationSettings.mentions} onChange={event => updateNotificationSettings({ mentions: event.target.checked })}/></SettingRow>
+        <SettingRow label="CI activity" description="Allows new failure or watched-run completion alerts from CI Watcher."><input type="checkbox" checked={notificationSettings.ciActivity} onChange={event => updateNotificationSettings({ ciActivity: event.target.checked })}/></SettingRow>
+        <SettingRow label="Subscribed thread updates" description="Alerts for other GitHub subscribed-thread reasons."><input type="checkbox" checked={notificationSettings.subscribedUpdates} onChange={event => updateNotificationSettings({ subscribedUpdates: event.target.checked })}/></SettingRow>
+        <SettingRow label="Polling status" description={notificationPollingMessage ?? 'One application-level poller honors GitHub conditional validators and minimum intervals.'}>{notificationPollingStatus.replace(/_/g, ' ')}</SettingRow>
+        <SettingRow label="Last successful notification check" description="The last completed conditional GitHub notification synchronization.">{notificationSync?.lastSuccessAt ? new Date(notificationSync.lastSuccessAt).toLocaleString() : 'Not yet synchronized'}</SettingRow>
+        {import.meta.env.DEV && <SettingRow label="Clear local test notifications" description="Removes only development simulator records and resets the temporary arrival badge."><button className="analytics-button" onClick={clearTestNotifications}>Clear test notifications</button></SettingRow>}
       </div></SectionCard>
 
       <SectionCard title="Account & Privacy" action={<span className={`analytics-status analytics-status--${session.status === 'connected' ? 'excellent' : 'warning'}`}>{session.status}</span>}><div className="analytics-settings-group">
