@@ -46,8 +46,9 @@ export function PullRequestView({ nodeId }: { nodeId: string }) {
             borderRadius: '16px', 
             fontSize: '12px',
             fontWeight: '600',
-            background: pr.state === 'OPEN' ? '#238636' : (pr.state === 'MERGED' ? '#8957e5' : '#da3633'),
-            color: '#fff'
+            border: '1px solid color-mix(in srgb, currentColor 22%, transparent)',
+            background: pr.state === 'OPEN' ? 'var(--status-success-bg)' : (pr.state === 'MERGED' ? 'var(--status-review-bg)' : 'var(--status-danger-bg)'),
+            color: pr.state === 'OPEN' ? 'var(--status-success-fg)' : (pr.state === 'MERGED' ? 'var(--status-review-fg)' : 'var(--status-danger-fg)')
           }}>
             {pr.state}
           </span>

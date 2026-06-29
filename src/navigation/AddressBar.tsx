@@ -76,6 +76,10 @@ export function AddressBar() {
     [handleSubmit, currentUrl],
   );
 
+  const openPalette = useCallback(() => {
+    if (!activeBrowserTab) window.dispatchEvent(new CustomEvent('snow-devil:open-palette', { detail: 'search' }));
+  }, [activeBrowserTab]);
+
   const placeholder = activeBrowserTab
     ? 'Enter GitHub URL or search…'
     : 'Search GitHub or enter URL…';
@@ -89,6 +93,11 @@ export function AddressBar() {
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => {
+          if (!activeBrowserTab) {
+            inputRef.current?.blur();
+            openPalette();
+            return;
+          }
           setIsFocused(true);
           // Select all on focus for easy replacement
           setTimeout(() => inputRef.current?.select(), 0);
@@ -98,8 +107,9 @@ export function AddressBar() {
           // Restore to current URL if user didn't submit
           setInputValue(currentUrl);
         }}
-        placeholder={placeholder}
+        placeholder={activeBrowserTab ? placeholder : 'Search repositories, files, issues, pull requests…'}
         aria-label="Address bar"
+        readOnly={!activeBrowserTab}
       />
     </div>
   );

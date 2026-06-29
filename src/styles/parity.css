@@ -1,0 +1,30 @@
+/* Cross-surface canonical polish. Component files retain behavior-specific
+   layout; this layer owns the shared visual proportions from the reference. */
+.analytics-page{padding:20px;background:radial-gradient(circle at 14% -8%,rgba(53,107,210,.14),transparent 32%),var(--surface-content)}
+.analytics-header h1{font-size:var(--type-page-title);letter-spacing:-.02em}.analytics-header p{font-size:var(--type-page-subtitle)}
+.analytics-button,.analytics-controls select,.analytics-controls input,.analytics-filterbar select,.analytics-filterbar input,.analytics-settings input,.analytics-settings select{min-height:var(--control-height);border-radius:var(--radius-button);background:var(--surface-card-nested)}
+.analytics-metric{min-height:88px;padding:var(--card-padding);border-color:rgba(155,190,232,.11);border-radius:var(--radius-card);background:linear-gradient(145deg,rgba(26,50,82,.64),rgba(10,25,43,.8));box-shadow:var(--inner-highlight),0 9px 22px rgba(0,7,20,.16)}
+.analytics-metric>span{font-size:var(--type-label)}.analytics-metric strong{font-size:22px}.analytics-metric small{font-size:var(--type-meta)}
+.analytics-card{border-color:rgba(155,190,232,.11);border-radius:var(--radius-card);background:linear-gradient(145deg,rgba(20,42,70,.64),rgba(9,23,40,.84));box-shadow:var(--inner-highlight),0 10px 24px rgba(0,7,20,.15)}
+.analytics-card>header{min-height:48px;padding:9px 13px;background:rgba(21,43,71,.44)}.analytics-card>header h2{font-size:var(--type-section-title)}
+.analytics-table{font-size:11px}.analytics-table th{font-size:9px}.analytics-table td{padding:10px}.analytics-list strong{font-size:11px}.analytics-list small{font-size:9px}
+
+.sd-select__trigger{min-height:var(--control-height);border-radius:var(--radius-button);background:var(--surface-card-nested);font-size:var(--type-body)}
+.sd-select__menu{border-radius:var(--radius-popover);background:var(--surface-popover);box-shadow:var(--popover-shadow)}
+.sd-select__options>button{min-height:36px;border-radius:6px}.sd-select__options strong{font-size:11px}.sd-select__options small{font-size:9px}
+
+.notifications-page{background:radial-gradient(circle at 12% -8%,rgba(53,107,210,.16),transparent 32%),var(--surface-content)}
+.notifications-page>header{padding:19px 20px;background:rgba(14,31,53,.72)}.notifications-page h1{font-size:var(--type-page-title)}.notifications-page header p{font-size:var(--type-page-subtitle)}
+.notifications-controls label{height:var(--control-height);border-radius:var(--radius-button);background:var(--surface-card-nested)}.notifications-controls input{font-size:11px}
+.notifications-list{padding:14px}.notifications-list article{min-height:66px;padding:9px 10px;border-color:rgba(155,190,232,.1);border-radius:var(--radius-card);background:linear-gradient(145deg,rgba(23,46,76,.58),rgba(9,24,42,.78));box-shadow:var(--inner-highlight)}
+.notification-main strong{font-size:12px}.notification-main small{font-size:10px}.notifications-list article>div button{min-height:30px;font-size:9px}
+
+.evidence-graph{background:radial-gradient(circle at 14% -8%,rgba(53,107,210,.17),transparent 33%),var(--surface-content)}
+.evidence-graph>header{padding:18px 20px;background:rgba(14,31,53,.72)}.evidence-graph h1{font-size:var(--type-page-title)}.evidence-graph header p{font-size:var(--type-page-subtitle)}
+.evidence-graph header select,.evidence-graph header button{height:var(--control-height);border-radius:var(--radius-button);background:var(--surface-card-nested);font-size:10px}
+.graph-workspace aside{width:250px;padding:14px;border-radius:var(--radius-card);background:var(--surface-popover);box-shadow:var(--popover-shadow)}.graph-workspace aside header strong{font-size:13px}.graph-workspace aside p{font-size:10px}.graph-workspace aside button{min-height:33px;font-size:10px}
+
+.saved-views__list article.is-unavailable{border:1px solid color-mix(in srgb,var(--warning) 25%,var(--border-subtle));background:color-mix(in srgb,var(--warning) 6%,transparent)}
+.saved-views__list article.is-unavailable small{color:var(--status-warning-fg);white-space:normal;line-height:1.35}
+
+@media(max-width:1380px){.analytics-page{padding:13px}.analytics-metric{min-height:78px;padding:10px}.analytics-card>header{min-height:42px}.analytics-header h1{font-size:21px}.notifications-page>header,.evidence-graph>header{padding:13px}}

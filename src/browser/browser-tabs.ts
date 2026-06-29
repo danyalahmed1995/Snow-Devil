@@ -13,7 +13,26 @@ import type { BrowserTabKind } from './browser-url';
 // ---------------------------------------------------------------------------
 
 /** Sub-kinds for native (non-webview) tabs. */
-export type NativeTabKind = "home" | "flow" | "settings";
+export type NativeTabKind =
+  | "home"
+  | "flow"
+  | "ciHealth"
+  | "inventory"
+  | "flowAnalytics"
+  | "personalFocus"
+  | "settings"
+  | "accountSimulator"
+  | "repositorySimulator"
+  | "repositoryExplorer"
+  | "pullRequestDiff"
+  | "notifications"
+  | "organizations"
+  | "evidenceGraph";
+
+export type NativeTabContext =
+  | { type: "repository"; repository: string; ref?: string; path?: string }
+  | { type: "pullRequest"; repository: string; number: number }
+  | { type: "evidenceGraph"; rootId?: string; repository?: string };
 
 /** A tab backed by a built-in React view. */
 export type NativeTab = {
@@ -25,6 +44,7 @@ export type NativeTab = {
   closable: boolean;
   createdAt: number;
   lastActivatedAt: number;
+  context?: NativeTabContext;
 };
 
 // ---------------------------------------------------------------------------
@@ -50,6 +70,9 @@ export type BrowserTab = {
   currentUrl: string;
   history: string[];
   historyIndex: number;
+  isLoading?: boolean;
+  error?: string;
+  parentTabId?: string;
   lifecycle: BrowserLifecycle;
   pinned: boolean;
   closable: boolean;

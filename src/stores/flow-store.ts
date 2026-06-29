@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import type { AnalyticsInspectable } from '../analytics/types';
+import type { SimulatorEntityState, SimulatorEvent } from '../simulator/simulator-types';
+import type { FlowItem } from '../types/flow';
 
 
 export interface TabFlowState {
@@ -6,12 +9,29 @@ export interface TabFlowState {
   mode: 'live' | 'replay';
   selectedRepository?: { id: string; nameWithOwner: string };
   selectedItemId?: string;
-  timeRange: '24h' | '7d' | '30d';
+  selectedFlowItem?: FlowItem;
+  selectedSimulatorEntity?: SimulatorEntityState;
+  selectedSimulatorCurrentEntity?: SimulatorEntityState;
+  selectedSimulatorEvent?: SimulatorEvent;
+  selectedAnalyticsEntity?: AnalyticsInspectable;
+  timeRange: '24h' | '7d' | '30d' | 'custom';
+  customRangeStart?: string;
+  customRangeEnd?: string;
   rangeStart: number;
   rangeEnd: number;
   cursorTime: number;
   isPlaying: boolean;
   playbackSpeed: number;
+  search: string;
+  activeOnly: boolean;
+  hideEmptyStages: boolean;
+  filterStage?: FlowItem['stage'];
+  statusFilter: 'all' | 'attention' | 'waiting_review' | 'failing' | 'merged';
+  involvementFilter: 'all' | 'assigned' | 'authored' | 'review_requested' | 'mentioned' | 'participating';
+  actorFilter: 'everyone' | 'humans' | 'bots' | 'dependabot' | 'renovate';
+  accountRepositoryFilter: string;
+  sortOrder: 'newest' | 'oldest' | 'repository' | 'attention';
+  sourceContext?: string;
 }
 
 const DEFAULT_FLOW_STATE: TabFlowState = {
@@ -23,6 +43,14 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
   cursorTime: Date.now() - 7 * 24 * 60 * 60 * 1000,
   isPlaying: false,
   playbackSpeed: 1,
+  search: '',
+  activeOnly: false,
+  hideEmptyStages: false,
+  statusFilter: 'all',
+  involvementFilter: 'all',
+  actorFilter: 'everyone',
+  accountRepositoryFilter: 'all',
+  sortOrder: 'newest',
 };
 
 interface FlowStore {

@@ -3,8 +3,8 @@
  */
 
 import { useCallback } from 'react';
-import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-react';
-import { browserNavigate, browserReload } from './browser-commands';
+import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react';
+import { browserBack, browserForward, browserReload, browserStop } from './browser-commands';
 import { useTabsStore } from '../stores/tabs-store';
 import type { BrowserTab } from './browser-tabs';
 
@@ -22,29 +22,20 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
     if (!activeTab) return;
     const store = useTabsStore.getState();
     const newGen = store.browserNavigateBack();
-    if (newGen !== undefined) {
-       const tab = store.getActiveBrowserTab();
-       if (tab) {
-         browserNavigate(tab.id, tab.currentUrl).catch(console.error);
-       }
-    }
+    if (newGen !== undefined) browserBack(activeTab.id).catch(console.error);
   }, [activeTab]);
 
   const handleForward = useCallback(() => {
     if (!activeTab) return;
     const store = useTabsStore.getState();
     const newGen = store.browserNavigateForward();
-    if (newGen !== undefined) {
-       const tab = store.getActiveBrowserTab();
-       if (tab) {
-         browserNavigate(tab.id, tab.currentUrl).catch(console.error);
-       }
-    }
+    if (newGen !== undefined) browserForward(activeTab.id).catch(console.error);
   }, [activeTab]);
 
   const handleReload = useCallback(() => {
     if (activeTab) browserReload(activeTab.id).catch(console.error);
   }, [activeTab]);
+  const handleStop = useCallback(() => { if (activeTab) browserStop(activeTab.id).catch(console.error); }, [activeTab]);
 
   return (
     <div className="browser-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -69,12 +60,13 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
       <button
         className="icon-button"
         disabled={disabled}
-        onClick={handleReload}
-        title="Reload"
-        aria-label="Reload page"
+        onClick={activeTab?.isLoading ? handleStop : handleReload}
+        title={activeTab?.isLoading ? 'Stop loading' : 'Reload'}
+        aria-label={activeTab?.isLoading ? 'Stop loading' : 'Reload page'}
       >
-        <RotateCw size={16} />
+        {activeTab?.isLoading ? <X size={16}/> : <RotateCw size={16} />}
       </button>
+      {activeTab?.error && <span className="browser-toolbar__error" role="alert" title={activeTab.error}>{activeTab.error}</span>}
     </div>
   );
 }

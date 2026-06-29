@@ -31,6 +31,12 @@ pub async fn get_repo_file(
 }
 
 #[tauri::command]
+pub async fn get_repo_file_content(owner: String, name: String, expression: String, path: String) -> Result<Value, String> {
+    crate::github::repo_api::fetch_repo_file_content(&owner, &name, &expression, &path)
+        .await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_repo_prs(owner: String, name: String) -> Result<Value, String> {
     crate::github::repo_api::fetch_repo_prs(&owner, &name)
         .await
@@ -75,6 +81,27 @@ pub async fn get_viewer_pull_requests() -> Result<Value, String> {
 #[tauri::command]
 pub async fn get_viewer_issues() -> Result<Value, String> {
     crate::github::user_api::fetch_viewer_issues()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn execute_graphql(query: String, variables: Value) -> Result<Value, String> {
+    crate::github::repo_api::execute_graphql(&query, variables)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn execute_rest(endpoint: String) -> Result<Value, String> {
+    crate::github::repo_api::execute_rest(&endpoint)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn search_repository(owner: String, name: String, query: String, page: u32, per_page: u32) -> Result<Value, String> {
+    crate::github::repo_api::search_repository(&owner, &name, &query, page, per_page)
         .await
         .map_err(|e| e.to_string())
 }

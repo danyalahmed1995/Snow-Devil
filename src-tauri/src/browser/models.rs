@@ -22,6 +22,7 @@ pub struct BrowserCreateRequest {
 
 /// Snapshot of a browser tab's current state (returned to the frontend).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserState {
     pub tab_id: String,
     pub current_url: String,
@@ -32,6 +33,7 @@ pub struct BrowserState {
 
 /// Emitted when a browser tab navigates to a new URL.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserNavigationEvent {
     pub tab_id: String,
     pub webview_label: String,
@@ -40,6 +42,7 @@ pub struct BrowserNavigationEvent {
 
 /// Emitted when a browser tab's document title changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserTitleEvent {
     pub tab_id: String,
     pub title: String,
@@ -47,7 +50,22 @@ pub struct BrowserTitleEvent {
 
 /// Emitted when a browser tab encounters an error.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BrowserErrorEvent {
     pub tab_id: String,
     pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserTabEvent {
+    pub tab_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BrowserDownloadEvent {
+    pub tab_id: String,
+    pub url: String,
+    pub status: String,
 }

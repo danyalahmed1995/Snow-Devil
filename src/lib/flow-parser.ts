@@ -1,5 +1,6 @@
 import type { FlowItem, ActorSummary, LabelSummary, ChecksSummary, ReviewSummary } from '../types/flow';
 import { determineFlowStageAndStatus } from './flow-mapping';
+import { deriveViewerRelationship, type RepositoryRelationshipInput } from './product-model';
 
 function parseActor(actor: any): ActorSummary | undefined {
   if (!actor) return undefined;
@@ -8,6 +9,10 @@ function parseActor(actor: any): ActorSummary | undefined {
     avatarUrl: actor.avatarUrl,
     isBot: actor.__typename === 'Bot',
   };
+}
+
+function parseActors(connection: any): ActorSummary[] {
+  return (connection?.nodes || []).filter(Boolean).map((actor: any) => parseActor(actor)).filter(Boolean) as ActorSummary[];
 }
 
 function parseLabels(labelsNode: any): LabelSummary[] {
@@ -48,7 +53,27 @@ function parseReviews(pr: any): ReviewSummary | undefined {
   };
 }
 
-export function parseGitHubIssueOrPR(node: any, type: 'issue' | 'pull_request'): FlowItem {
+export function parseGitHubIssueOrPR(node: any, type: 'issue' | 'pull_request', viewerLogin?: string): FlowItem {
+  const baseRepository: RepositoryRelationshipInput = {
+    nameWithOwner: node.repository?.nameWithOwner,
+    ownerLogin: node.repository?.owner?.login,
+    viewerPermission: node.repository?.viewerPermission,
+    isFork: node.repository?.isFork,
+  };
+  const headRepository: RepositoryRelationshipInput | undefined = type === 'pull_request' ? {
+    nameWithOwner: node.headRepository?.nameWithOwner,
+    ownerLogin: node.headRepository?.owner?.login,
+    isFork: node.headRepository?.isFork,
+  } : undefined;
+  const relationship = deriveViewerRelationship({
+    viewerLogin,
+    authorLogin: node.author?.login,
+    authorType: node.author?.__typename,
+    assignees: (node.assignees?.nodes ?? []).map((actor: any) => actor?.login).filter(Boolean),
+    requestedReviewers: (node.reviewRequests?.nodes ?? []).map((request: any) => request.requestedReviewer?.login).filter(Boolean),
+    baseRepository,
+    headRepository,
+  });
   const base: Partial<FlowItem> = {
     id: node.id,
     type,
@@ -64,12 +89,24 @@ export function parseGitHubIssueOrPR(node: any, type: 'issue' | 'pull_request'):
     updatedAt: node.updatedAt,
     mergedAt: node.mergedAt,
     closedAt: node.closedAt,
+    assignees: parseActors(node.assignees),
+    commentCount: node.comments?.totalCount,
+    isBot: !['human', 'unknown'].includes(relationship.actorClassification),
+    actorClassification: relationship.actorClassification,
+    viewerRelationship: relationship,
+    inclusionReason: relationship.primary === 'unrelated' ? undefined : relationship.label,
+    baseRepository,
+    headRepository,
   };
 
   if (type === 'pull_request') {
     base.isDraft = node.isDraft;
     base.checksSummary = parseChecks(node.commits);
     base.reviewSummary = parseReviews(node);
+    base.baseBranch = node.baseRefName;
+    base.headBranch = node.headRefName;
+    base.commitCount = node.commits?.totalCount;
+    base.requestedReviewers = (node.reviewRequests?.nodes || []).map((request: any) => parseActor(request.requestedReviewer)).filter(Boolean);
     
     // Normalize status strings for mapping
     if (node.state === 'MERGED') {
@@ -103,16 +140,17 @@ export interface HomeSummary {
   previews: Record<string, FlowItem[]>;
 }
 
-export function parseHomeSummaryResponse(data: any): HomeSummary {
+export function parseHomeSummaryResponse(data: any, viewerLogin?: string): HomeSummary {
   if (!data) return { metrics: { needsAttention: 0, waitingReview: 0, failingChecks: 0, recentlyMerged: 0 }, exactTotals: { merged: 0 }, previews: {} };
 
-  const authored = (data.authoredPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request'));
-  const reviewRequested = (data.reviewRequestedPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request'));
-  const assigned = (data.assignedIssues?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'issue'));
-  const merged = (data.mergedPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request'));
+  const authored = (data.authoredPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request', viewerLogin));
+  const reviewRequested = (data.reviewRequestedPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request', viewerLogin));
+  const assigned = (data.assignedIssues?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'issue', viewerLogin));
+  const merged = (data.mergedPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request', viewerLogin));
+  const incoming = (data.incomingPrs?.nodes || []).filter(Boolean).map((n: any) => parseGitHubIssueOrPR(n, 'pull_request', viewerLogin)).filter((item: FlowItem) => item.viewerRelationship?.flags.includes('incoming_to_maintained_repository'));
 
   const allItemsMap = new Map<string, FlowItem>();
-  [...authored, ...reviewRequested, ...assigned, ...merged].forEach(item => {
+  [...authored, ...reviewRequested, ...assigned, ...merged, ...incoming].forEach(item => {
      allItemsMap.set(item.id, item);
   });
   const allItems = Array.from(allItemsMap.values());

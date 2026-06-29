@@ -1,17 +1,28 @@
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
+import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
+import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
+import { activeNotifications, effectiveUnread, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';
+import { useAccountRepositories } from '../../hooks/useAccountContext';
 
 export function Navigator() {
-  const { session } = useAuthStore();
+  const { session, disconnect } = useAuthStore();
   const { openNativeTab, openBrowserTab, activeTabId, tabs } = useTabsStore();
+  const savedViews = useSavedViewsStore(state => state.views);
+  const pinnedViews = savedViews.filter(view => view.pinned);
+  const notificationRecords = useNotificationStore(state => state.records);
+  const notificationRead = useNotificationStore(state => state.localRead);
+  const notificationSnoozed = useNotificationStore(state => state.snoozedUntil);
+  const unreadNotifications = activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
+  const accountRepositories = useAccountRepositories();
 
   // Build API counts from the connected session
   let counts: Record<string, number> = {};
   if (session.status === 'connected') {
     counts = {
-      repositories: session.account.repositories?.totalCount || 0,
+      repositories: accountRepositories.data?.length ?? session.account.repositories?.totalCount ?? 0,
       organizations: session.account.organizations?.totalCount || 0,
       pullRequests: session.account.pullRequests?.totalCount || 0,
       issues: session.account.issues?.totalCount || 0,
@@ -49,7 +60,7 @@ export function Navigator() {
       if (existingTab && existingTab.family === 'browser') {
         import('../../browser/browser-commands').then(({ browserNavigate, browserGetState }) => {
           browserGetState(shortcut.tabId).then((state) => {
-            if (state.url !== targetUrl && state.url !== targetUrl + '/') {
+            if (state && state.currentUrl !== targetUrl && state.currentUrl !== targetUrl + '/') {
               browserNavigate(shortcut.tabId, targetUrl).catch(console.error);
             }
           }).catch(console.error);
@@ -65,51 +76,59 @@ export function Navigator() {
     pullRequests: 'pullRequests',
     issues: 'issues',
   };
+  const countSemantics: Record<string, string> = {
+    repositories: 'Accessible repositories: personal, organization-member, and direct collaborator access.',
+    organizations: 'Active authenticated organization memberships.',
+    pullRequests: 'Open pull requests authored by the connected account.',
+    issues: 'Open issues assigned to the connected account.',
+  };
+
+  const icons: Record<string, React.ReactNode> = {
+    'native:home': <Home size={15} />, 'native:flow': <Workflow size={15} />, 'native:ci-health': <Gauge size={15} />,
+    'native:inventory': <PackageSearch size={15} />, 'native:flow-analytics': <ChartNoAxesCombined size={15} />,
+    'native:personal-focus': <Activity size={15} />, 'native:account-simulator': <SlidersHorizontal size={15} />,
+    'native:repository-simulator': <Boxes size={15} />, 'native:settings': <Settings size={15} />,
+    'github:profile': <CircleUserRound size={15} />, 'github:repositories': <FolderGit2 size={15} />,
+    'github:pull-requests': <GitPullRequest size={15} />, 'github:issues': <PackageSearch size={15} />,
+    'native:notifications': <Bell size={15} />, 'native:organizations': <Building2 size={15} />,
+  };
+
+  const navigation = SIDEBAR_SHORTCUTS.filter(shortcut => shortcut.family === 'native' && !['native:notifications', 'native:organizations'].includes(shortcut.tabId));
+  const management = SIDEBAR_SHORTCUTS.filter(shortcut => ['native:notifications', 'native:organizations'].includes(shortcut.tabId) || shortcut.family === 'browser' && shortcut.tabId !== 'github:profile');
+
+  const renderGroup = (label: string, shortcuts: typeof SIDEBAR_SHORTCUTS) => <section className="navigator-group" aria-label={label}>
+    <h4>{label}</h4>
+    <ul className="nav-list">{shortcuts.map(shortcut => {
+      const isActive = activeTab?.id === shortcut.tabId;
+      const countKey = shortcut.tabId === 'native:organizations' ? 'organizations' : shortcut.browserKind ? kindToCountKey[shortcut.browserKind] : undefined;
+      let displayCount: string | number | null = null;
+      if(shortcut.tabId==='native:notifications')displayCount=unreadNotifications;
+      else if (session.status === 'checking' && countKey) displayCount = '…';
+      else if (session.status === 'connected' && countKey && counts[countKey] !== undefined) displayCount = counts[countKey];
+      else if (session.status === 'error' && countKey) displayCount = '!';
+      const unavailableOrganizations = shortcut.tabId === 'native:organizations' && session.status === 'connected' && session.account.organizations?.status === 'unavailable';
+      const partialOrganizations = shortcut.tabId === 'native:organizations' && session.status === 'connected' && session.account.organizations?.status === 'partial';
+      if (unavailableOrganizations) displayCount = '!';
+      if (partialOrganizations) displayCount = `${counts.organizations ?? 0}+`;
+      return <li key={shortcut.tabId}><button className={`nav-item ${isActive ? 'active' : ''}`} title={unavailableOrganizations || partialOrganizations ? session.status === 'connected' ? session.account.organizations?.message : undefined : countKey ? countSemantics[countKey] : undefined} onClick={() => handleSelect(shortcut)} aria-current={isActive ? 'page' : undefined}><span className="nav-item__label">{icons[shortcut.tabId]}<span>{shortcut.label}</span></span>{displayCount !== null && <span className="badge">{displayCount}</span>}</button></li>;
+    })}</ul>
+  </section>;
 
   return (
     <div className="navigator">
-      <div className="navigator-header">
-        <h3>Navigator</h3>
-      </div>
       <div className="navigator-content">
-        <ul className="nav-list">
-          {SIDEBAR_SHORTCUTS.map(shortcut => {
-            const isActive = activeTab?.id === shortcut.tabId;
-            const countKey = shortcut.browserKind
-              ? kindToCountKey[shortcut.browserKind]
-              : undefined;
-
-            let displayCount: string | number | null = null;
-            if (
-              session.status === 'checking' &&
-              countKey
-            ) {
-              displayCount = '...';
-            } else if (
-              session.status === 'connected' &&
-              countKey &&
-              counts[countKey] !== undefined
-            ) {
-              displayCount = counts[countKey];
-            } else if (session.status === 'error' && countKey) {
-              displayCount = '!';
-            }
-
-            return (
-              <li
-                key={shortcut.tabId}
-                className={`nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => handleSelect(shortcut)}
-              >
-                <span>{shortcut.label}</span>
-                {displayCount !== null && (
-                  <span className="badge">{displayCount}</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {renderGroup('Navigation', navigation)}
+        {renderGroup('Management', management)}
+        {pinnedViews.length>0&&<section className="navigator-group" aria-label="Saved views"><h4>Saved views</h4><ul className="nav-list">{pinnedViews.map(view=><li key={view.id}><button className={`nav-item ${activeTabId===`native:saved-view:${view.id}`?'active':''}`} onClick={()=>openSavedView(view)}><span className="nav-item__label"><Bookmark size={15}/><span>{view.name}</span></span></button></li>)}</ul></section>}
       </div>
+      <footer className="navigator-account">
+        {session.status === 'connected' ? <>
+          <button className="navigator-account__identity" onClick={() => handleSelect(SIDEBAR_SHORTCUTS.find(shortcut => shortcut.tabId === 'github:profile')!)} title="Open GitHub account">
+            <img src={session.account.avatarUrl} alt="" /><span><strong>{session.account.name || session.account.login}</strong><small>@{session.account.login}</small></span><i aria-label="Online" />
+          </button>
+          <button className="navigator-account__action" aria-label="Sign out" title="Sign out" onClick={() => void disconnect()}><LogOut size={14} /></button>
+        </> : <div className="navigator-account__disconnected"><CircleUserRound size={24} /><span><strong>GitHub account</strong><small>{session.status === 'checking' ? 'Checking connection…' : 'Not connected'}</small></span></div>}
+      </footer>
     </div>
   );
 }

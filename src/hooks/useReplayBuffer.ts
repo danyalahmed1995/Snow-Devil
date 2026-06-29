@@ -161,8 +161,8 @@ export function useReplayBuffer({ items, repositoryOwner, repositoryName, timeRa
 
               const parsedEvents = parseTimelineEvents(item.id, repositoryName, timelineNodes);
               allEvents.push(...parsedEvents);
-            } catch (err) {
-              console.warn(`Failed to fetch timeline for ${item.number}`, err);
+            } catch {
+              console.warn('A replay timeline could not be loaded.');
               reasons.add('timeline_request_failed');
             }
           }

@@ -4,6 +4,10 @@
   height: 100%;
   width: 100%;
   background: var(--bg-primary);
+  border:1px solid var(--border-subtle);
+  border-radius:11px;
+  overflow:hidden;
+  color: var(--text-primary);
 }
 
 /* ── New tab strip ── */
@@ -15,14 +19,16 @@
   border-right: none;
   border-top: none;
   border-radius: 0;
+  background:linear-gradient(180deg,rgba(19,40,68,.94),rgba(10,25,43,.94));
   padding: 0 8px;
   align-items: flex-end;
   gap: 4px;
   z-index: 5;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   scrollbar-width: thin;
+  scroll-behavior: smooth;
 }
+.workspace-tab-scroll{min-width:0;flex:1;display:flex;align-items:flex-end;gap:4px;overflow-x:auto;overflow-y:hidden}.workspace-tab-overflow{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;margin-bottom:3px;border-radius:5px;color:var(--text-muted)}.workspace-tab-overflow:hover{background:var(--surface-hover);color:var(--text-primary)}.workspace-tab__family{flex:0 0 auto}.workspace-tab--browser .workspace-tab__family{color:var(--info)}.workspace-tab--native .workspace-tab__family{color:var(--text-muted)}.workspace-tab-menu{position:fixed;z-index:5000;width:220px;max-height:300px;overflow:auto;padding:5px;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-elevated);box-shadow:var(--shadow-lg)}.workspace-tab-menu>strong{display:block;padding:6px 8px;color:var(--text-muted);font-size:9px;text-transform:uppercase}.workspace-tab-menu>button{width:100%;min-height:30px;display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:4px;text-align:left;font-size:10px}.workspace-tab-menu>button:hover:not(:disabled),.workspace-tab-menu>button:focus-visible{background:var(--surface-hover);outline:1px solid var(--border-focus);outline-offset:-1px}.workspace-tab-menu>button:disabled{opacity:.45;cursor:not-allowed}.workspace-tab-menu__message{display:block;padding:6px 8px;color:var(--status-danger-fg);font-size:10px;line-height:1.35}.workspace-tab-menu hr{border:0;border-top:1px solid var(--border-subtle)}
 
 .workspace-tab {
   display: inline-flex;
@@ -32,7 +38,7 @@
   height: 34px;
   min-width: 110px;
   max-width: 220px;
-  padding: 0 12px;
+  padding: 0 4px 0 12px;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -46,6 +52,11 @@
   border-bottom: none;
   margin-bottom: -1px;
   gap: 6px;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    max-width var(--motion-fast) var(--ease-standard);
 }
 
 .workspace-tab--active {
@@ -57,6 +68,7 @@
 
 .workspace-tab:hover:not(.workspace-tab--active) {
   background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .workspace-tab__title {
@@ -66,6 +78,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.2;
+  flex: 1 1 auto;
 }
 
 .workspace-tab__close {
@@ -73,23 +86,31 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  margin-left: 5px;
   color: var(--text-muted);
-  opacity: 0.5;
-  transition: all 0.2s;
+  opacity: 0.62;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .workspace-tab:hover .workspace-tab__close {
   opacity: 1;
 }
 
+.workspace-tab--active .workspace-tab__close { opacity: .9; }
+
 .workspace-tab__close:hover {
   background: var(--surface-hover);
   color: var(--danger);
 }
+.workspace-tab__close:active { transform: scale(.92); }
+.workspace-tab__close:focus-visible { outline: 0; box-shadow: inset 0 0 0 1px var(--border-focus), var(--shadow-focus); }
 
 /* ── Legacy compat: keep old selectors working ── */
 
@@ -162,6 +183,32 @@
   overflow: hidden;
   min-width: 0;
   min-height: 0;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.workspace-native-surface {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-native-surface[hidden] { display: none !important; }
+
+.workspace-content > * {
+  animation: workspace-content-enter var(--motion-normal) var(--ease-standard);
+}
+
+@keyframes workspace-content-enter {
+  from { opacity: .82; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-tab-strip { scroll-behavior: auto; }
+  .workspace-content > * { animation: none; }
 }
 
 .entity-view {
@@ -169,3 +216,15 @@
   height: 100%;
   overflow-y: auto;
 }
+
+/* Canonical compact desktop tabs. */
+.workspace{background:var(--surface-content);border-color:var(--border-subtle);border-radius:var(--radius-card);box-shadow:var(--inner-highlight)}
+.workspace-tab-strip{height:43px;align-items:center;padding:0 7px;gap:5px;background:linear-gradient(180deg,rgba(25,49,81,.56),rgba(10,24,42,.72)),var(--surface-tabstrip);border-bottom:1px solid var(--divider)}
+.workspace-tab-scroll{align-items:center;gap:5px}
+.workspace-tab{height:32px;min-width:92px;max-width:190px;margin:0;padding:0 5px 0 10px;border:1px solid transparent;border-radius:8px;font-size:11px;transition:background var(--motion-tab),border-color var(--motion-tab),color var(--motion-tab),box-shadow var(--motion-tab)}
+.workspace-tab--active{color:var(--text-primary);background:linear-gradient(145deg,rgba(50,89,145,.48),rgba(18,39,67,.9));border-color:rgba(116,157,218,.2);box-shadow:var(--inner-highlight),0 6px 16px rgba(0,8,25,.2)}
+.workspace-tab__close{width:23px;height:23px;margin-left:2px;border-radius:6px}.workspace-tab__close svg{width:13px;height:13px}
+.workspace-tab-add,.workspace-tab-overflow{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;margin:0;border-radius:7px;color:var(--text-muted)}
+.workspace-tab-add:hover,.workspace-tab-overflow:hover{background:var(--surface-hover);color:var(--text-primary)}
+.workspace-tab-menu{border-radius:var(--radius-popover);background:var(--surface-popover);box-shadow:var(--popover-shadow)}
+.workspace-loading{height:100%;display:grid;place-items:center;color:var(--text-muted);font-size:var(--type-body)}

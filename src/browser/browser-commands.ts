@@ -20,12 +20,11 @@ export type BrowserBounds = {
 
 /** State snapshot returned by `browser_get_state`. */
 export type BrowserStateSnapshot = {
-  tab_id: string;
-  url: string;
-  title: string;
-  can_go_back: boolean;
-  can_go_forward: boolean;
-  is_loading: boolean;
+  tabId: string;
+  currentUrl: string;
+  canGoBack: boolean | null;
+  canGoForward: boolean | null;
+  loading: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -79,6 +78,10 @@ export async function browserForward(tabId: string): Promise<void> {
 /** Reload the current page in the webview. */
 export async function browserReload(tabId: string): Promise<void> {
   return invoke('browser_reload', { tabId });
+}
+
+export async function browserStop(tabId: string): Promise<void> {
+  return invoke('browser_stop', { tabId });
 }
 
 /** Resize / reposition the webview to match new bounds. */

@@ -1,9 +1,22 @@
 import { useAuthStore } from '../../stores/auth-store';
 import { ExternalLink, Globe } from 'lucide-react';
 import './AuthModal.css';
+import { useEffect } from 'react';
+import { useOverlayStore } from '../../stores/overlay-store';
 
 export function AuthModal({ onClose }: { onClose: () => void }) {
+  const overlayId = 'auth-modal';
+  const openOverlay = useOverlayStore(state => state.openOverlay);
+  const closeOverlay = useOverlayStore(state => state.closeOverlay);
+  const activeOverlayId = useOverlayStore(state => state.activeOverlayId);
   const { isConnecting, userCode, verificationUri, startDeviceFlow, manualPoll, pollError, isAuthenticated, clientId, setClientId } = useAuthStore();
+  useEffect(() => { openOverlay(overlayId); return () => closeOverlay(overlayId); }, [openOverlay, closeOverlay]);
+  useEffect(() => {
+    if (activeOverlayId && activeOverlayId !== overlayId) onClose();
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, [activeOverlayId, onClose]);
 
   if (isAuthenticated) {
     return (
@@ -41,11 +54,11 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 placeholder="Client ID (e.g. Iv1.xxx)" 
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
-                style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: '#fff', borderRadius: '4px' }}
+                style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: '4px' }}
               />
             </div>
             {pollError && (
-              <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'rgba(248, 81, 73, 0.1)', padding: '8px', borderRadius: '4px' }}>
+              <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
                 {pollError}
               </div>
             )}
@@ -94,7 +107,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
                 </div>
                 <p className="waiting-text">Waiting for authorization...</p>
                 {pollError && (
-                  <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'rgba(248, 81, 73, 0.1)', padding: '8px', borderRadius: '4px' }}>
+                  <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
                     {pollError}
                   </div>
                 )}

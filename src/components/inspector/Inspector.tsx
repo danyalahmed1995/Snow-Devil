@@ -1,259 +1,132 @@
-import React, { useMemo } from 'react';
-import { useTabsStore, isNativeTab } from '../../stores/tabs-store';
-import { useFlowStore } from '../../stores/flow-store';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
+import { Copy, ExternalLink } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { resolveEntityTabTarget } from '../../lib/entity-target';
+import { githubLabelStyle } from '../../lib/color-contrast';
 import { parseGitHubIssueOrPR, parseRelease } from '../../lib/flow-parser';
+import { formatEntityTitle, formatEventTitle, formatSubjectType, humanizeSimulatorValue } from '../../simulator/simulator-presentation';
+import { useFlowStore } from '../../stores/flow-store';
+import { useModeStore } from '../../stores/mode-store';
+import { isNativeTab, useTabsStore } from '../../stores/tabs-store';
 import type { FlowItem } from '../../types/flow';
+import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-presentation';
+import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
 import './Inspector.css';
+
+function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
+
+function nodesFromPage(page: unknown): Record<string, unknown>[] {
+  if (!record(page)) return [];
+  for (const key of ['search', 'releases', 'pullRequests', 'issues']) {
+    const connection = page[key];
+    if (!record(connection) || !Array.isArray(connection.nodes)) continue;
+    return connection.nodes.filter(record);
+  }
+  return [];
+}
 
 function useResolvedFlowItem(selectedItemId?: string): FlowItem | undefined {
   const queryClient = useQueryClient();
-  
   return useMemo(() => {
     if (!selectedItemId) return undefined;
-
-    const flowQueries = queryClient.getQueriesData<any>({ queryKey: ['flow'] });
-    
-    for (const [key, data] of flowQueries) {
-      if (!data || !data.pages) continue;
-      
+    for (const [key, data] of queryClient.getQueriesData<unknown>({ queryKey: ['flow'] })) {
+      if (!record(data) || !Array.isArray(data.pages)) continue;
       for (const page of data.pages) {
-        const nodes = page?.search?.nodes || page?.releases?.nodes || page?.pullRequests?.nodes || page?.issues?.nodes || [];
-        for (const node of nodes) {
-          if (node && node.id === selectedItemId) {
-            const isRelease = key.includes('releases');
-            if (isRelease) {
-               return parseRelease(node, '', '', '');
-            } else {
-               const type = node.__typename === 'Issue' ? 'issue' : 'pull_request';
-               return parseGitHubIssueOrPR(node, type);
-            }
-          }
-        }
+        const node = nodesFromPage(page).find(item => item.id === selectedItemId);
+        if (!node) continue;
+        return key.includes('releases') ? parseRelease(node, '', '', '') : parseGitHubIssueOrPR(node, node.__typename === 'Issue' ? 'issue' : 'pull_request');
       }
     }
-
-    const homeQueries = queryClient.getQueriesData<any>({ queryKey: ['homeSummary'] });
-    for (const [_, data] of homeQueries) {
-      if (!data) continue;
-      if (data.previews) {
-        for (const stageId of Object.keys(data.previews)) {
-          const items = data.previews[stageId];
-          const found = items.find((i: FlowItem) => i.id === selectedItemId);
-          if (found) return found;
-        }
+    for (const [, data] of queryClient.getQueriesData<unknown>({ queryKey: ['homeSummary'] })) {
+      if (!record(data) || !record(data.previews)) continue;
+      for (const items of Object.values(data.previews)) {
+        if (!Array.isArray(items)) continue;
+        const found = items.find(item => record(item) && item.id === selectedItemId);
+        if (found) return found as FlowItem;
       }
     }
-
     return undefined;
   }, [selectedItemId, queryClient]);
 }
 
+function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'good' | 'warning' | 'danger' | 'info' }) {
+  return <span className={`inspector-entity-badge inspector-entity-badge--${tone}`}>{children}</span>;
+}
+
+function Meta({ label, children }: { label: string; children: ReactNode }) { return <div className="meta-row"><span className="meta-key">{label}</span><span className="meta-val">{children}</span></div>; }
+type InspectorTab = 'details' | 'timeline';
+
+function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
+  const activeTabId = useTabsStore(state => state.activeTabId);
+  const selected = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity);
+  if (!selected) return <p className="inspector-empty">Select a row or work item to view its evidence</p>;
+  return <div className={`inspector-details inspector-details--${tab}`}>
+    <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={selected.kind === 'inventory' ? 'warning' : selected.kind === 'ci_health' ? 'info' : 'good'}>{selected.kind.replace(/_/g, ' ')}</Badge>{selected.state && <span className="inspector-stage-badge">{selected.state}</span>}</div><h4 className="inspector-title">{selected.title}</h4>{selected.repositoryId && <p className="inspector-repository">{selected.repositoryId}{selected.number ? ` #${selected.number}` : ''}</p>}</section>
+    <section className="inspector-section"><h5 className="section-title">Why it appears</h5><p className="meta-val">{selected.reason ?? 'Selected from delivery analytics.'}</p><div className="metadata">{selected.confidence && <Meta label="Confidence">{selected.confidence}</Meta>}{selected.coverage && <Meta label="Coverage">{selected.coverage}</Meta>}{selected.sampleCount != null && <Meta label="Qualifying samples">{selected.sampleCount}</Meta>}{selected.excludedCount != null && <Meta label="Excluded / incomplete">{selected.excludedCount}</Meta>}{selected.occurredAt && <Meta label="Last activity">{new Date(selected.occurredAt).toLocaleString()}</Meta>}{selected.relatedEntityIds && <Meta label="Related entities">{selected.relatedEntityIds.length}</Meta>}</div>{selected.definition && <p className="inspector-partial">{selected.definition}</p>}</section>
+    {selected.lineage && <section className="inspector-section inspector-lineage"><h5 className="section-title">Metric lineage</h5><div className="metadata"><Meta label="Formula">{selected.lineage.formula}</Meta><Meta label="Numerator">{selected.lineage.numerator}</Meta><Meta label="Denominator">{selected.lineage.denominator}</Meta><Meta label="Time basis">{selected.lineage.timeBasis}</Meta><Meta label="Coverage">{selected.lineage.coverageStart ? new Date(selected.lineage.coverageStart).toLocaleDateString() : 'Unavailable'} – {selected.lineage.coverageEnd ? new Date(selected.lineage.coverageEnd).toLocaleDateString() : 'current'}</Meta><Meta label="Sample quality">{selected.lineage.sampleCount} included · {selected.lineage.excludedOrIncompleteCount} excluded/incomplete</Meta></div><div><strong className="meta-key">Included repositories</strong><p className="meta-val">{selected.lineage.repositoriesIncluded.join(', ') || 'None'}</p></div><div><strong className="meta-key">Included entity types</strong><p className="meta-val">{selected.lineage.includedEntityTypes.join(', ')}</p></div><div><strong className="meta-key">Evidence sources</strong><p className="meta-val">{selected.lineage.evidenceSources.join(' · ')}</p></div>{selected.lineage.failedOrSkipped.length>0&&<p className="inspector-partial">Failed, skipped, or partial: {selected.lineage.failedOrSkipped.join(' · ')}</p>}</section>}
+    {selected.evidence && selected.evidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Evidence</h5>{selected.evidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</section>}
+    {selected.missingEvidence && selected.missingEvidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Missing evidence</h5>{selected.missingEvidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</section>}
+    {selected.timeline && selected.timeline.length > 0 && <section className="inspector-section inspector-timeline-section"><h5 className="section-title">Delivery timeline</h5><div className="inspector-timeline">{selected.timeline.map(item => <div key={`${item.label}-${item.occurredAt}`}><i /><span><strong>{item.label}</strong><small>{new Date(item.occurredAt).toLocaleString()} | {item.confidence}</small></span></div>)}</div></section>}
+  </div>;
+}
+
+function FlowDetails({ item, mode, tab }: { item: FlowItem; mode: 'live' | 'demo'; tab: InspectorTab }) {
+  const value = normalizeWorkflowItem(item, mode);
+  const tone = value.status === 'failing' ? 'danger' : value.status === 'changes_requested' ? 'warning' : value.stage === 'ready' || value.stage === 'merged' || value.stage === 'released' || value.stage === 'deployed' ? 'good' : 'info';
+  return <div className={`inspector-details inspector-details--${tab}`}>
+    <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={tone}>{value.type === 'pull_request' ? 'Pull Request' : value.type}</Badge><span className="inspector-stage-badge">{value.stage.replace(/_/g, ' ')}</span>{value.isDraft && <Badge>Draft</Badge>}{value.isBot && <Badge>Bot</Badge>}</div><h4 className="inspector-title">{value.title}</h4><p className="inspector-repository">{value.repositoryName}{value.number ? ` #${value.number}` : ''}</p></section>
+    <section className="inspector-section inspector-why"><h5 className="section-title">Why it's here</h5><p className="meta-val">{value.stageReason}</p>{value.attentionReasons && value.attentionReasons.length > 0 && <p className="inspector-partial">Attention: {value.attentionReasons.join(', ').replace(/_/g, ' ')}</p>}</section>
+    <section className="inspector-section"><h5 className="section-title">Details</h5><div className="metadata"><Meta label="Author">{value.author?.login ?? 'Not reported'}</Meta><Meta label="Actor">{value.actorClassification ?? 'unknown'}</Meta><Meta label="Created">{new Date(value.createdAt).toLocaleString()}</Meta><Meta label="Updated">{new Date(value.updatedAt).toLocaleString()}</Meta><Meta label="Time in stage">{formatTimeInStage(value)}</Meta>{value.baseBranch && <Meta label="Base branch">{value.baseBranch}</Meta>}{value.headBranch && <Meta label="Head branch">{value.headBranch}</Meta>}<Meta label="Checks">{value.checksSummary?.state ?? 'Not reported'}</Meta><Meta label="Review">{value.reviewSummary?.state.replace(/_/g, ' ') ?? 'Not reported'}</Meta>{value.reviewSummary && <Meta label="Approval progress">{value.reviewSummary.reviews.filter(review => review.state === 'APPROVED').length} approvals</Meta>}{value.assignees && <Meta label="Assignees">{value.assignees.map(actor => actor.login).join(', ') || 'Unassigned'}</Meta>}{value.reviewSummary?.requestedReviewers && <Meta label="Requested reviewers">{value.reviewSummary.requestedReviewers.join(', ') || 'None'}</Meta>}{value.commentCount != null && <Meta label="Comments">{value.commentCount}</Meta>}{value.commitCount != null && <Meta label="Commits">{value.commitCount}</Meta>}{value.environment && <Meta label="Environment">{value.environment}</Meta>}<Meta label="Confidence">{value.confidence ?? 'unavailable'}</Meta><Meta label="Completeness">{value.completeness ?? 'unknown'}</Meta></div>{value.completenessReason && <p className="inspector-partial">{value.completenessReason}</p>}{value.missingEvidence && value.missingEvidence.length > 0 && <p className="inspector-partial">{value.missingEvidence.join('. ')}</p>}</section>
+    {value.labels && value.labels.length > 0 && <section className="inspector-section"><h5 className="section-title">Labels</h5><div className="labels-container">{value.labels.map(label => <span key={label.name} className="label-badge" style={githubLabelStyle(label.color)} title={label.name} aria-label={`Label: ${label.name}`}>{label.name}</span>)}</div></section>}
+    <section className="inspector-section inspector-timeline-section"><h5 className="section-title">Stage History</h5>{value.stageHistory?.length ? <div className="inspector-timeline">{value.stageHistory.map(entry => <div key={entry.id}><i /><span><strong>{entry.label}</strong><small>{new Date(entry.occurredAt).toLocaleString()}{entry.inferred ? ' · inferred' : ''}</small></span></div>)}</div> : <p className="meta-val">No synchronized stage history is available.</p>}</section>
+  </div>;
+}
+
 export function Inspector() {
-  const { tabs, activeTabId, openBrowserTab } = useTabsStore();
-  const flowState = useFlowStore(s => s.getTabState(activeTabId));
-  const activeTab = tabs.find(t => t.id === activeTabId);
+  const [copyStatus, setCopyStatus] = useState('');
+  const [inspectorTabState, setInspectorTabState] = useState<{ entityKey:string; tab:InspectorTab }>({ entityKey:'', tab:'details' });
+  const appMode = useModeStore(state => state.mode);
+  const { tabs, activeTabId, openBrowserTab, openNativeTab } = useTabsStore();
+  const flowState = useFlowStore(state => state.getTabState(activeTabId));
+  const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const resolvedItem = useResolvedFlowItem(flowState.selectedItemId);
+  const selectedItem = flowState.selectedFlowItem ?? resolvedItem;
+  const simulatorEntity = flowState.selectedSimulatorEntity;
+  const simulatorCurrentEntity = flowState.selectedSimulatorCurrentEntity;
+  const simulatorEvent = flowState.selectedSimulatorEvent;
+  const analyticsKinds = new Set(['ciHealth', 'inventory', 'flowAnalytics', 'personalFocus']);
+  const isAnalytics = activeTab && isNativeTab(activeTab) && analyticsKinds.has(activeTab.kind);
+  const isSimulator = activeTab && isNativeTab(activeTab) && (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator');
+  const homeRepositoryContext = activeTab && isNativeTab(activeTab) && activeTab.kind === 'home' && !selectedItem ? flowState.selectedAnalyticsEntity : undefined;
+  const targetSource = isAnalytics ? flowState.selectedAnalyticsEntity : isSimulator ? simulatorEntity : selectedItem ?? homeRepositoryContext;
+  const target = resolveEntityTabTarget(targetSource, appMode);
+  const demoUnavailableTarget = appMode === 'demo' && !!resolveEntityTabTarget(targetSource, 'live');
+  const hasTimeline = Boolean(selectedItem?.stageHistory?.length || flowState.selectedAnalyticsEntity?.timeline?.length);
+  const entityKey = flowState.selectedItemId ?? flowState.selectedAnalyticsEntity?.id ?? simulatorEntity?.id ?? simulatorEvent?.id ?? 'empty';
+  const inspectorTab: InspectorTab = inspectorTabState.entityKey === entityKey && (hasTimeline || inspectorTabState.tab === 'details') ? inspectorTabState.tab : 'details';
+  let content: ReactNode;
 
-  const selectedItem = useResolvedFlowItem(flowState.selectedItemId);
-
-  let content: React.ReactNode;
-
-  if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'flow' || activeTab.kind === 'home')) {
-    if (!selectedItem) {
-      content = <p className="inspector-empty">Select a card to view details</p>;
-    } else {
-      const isPR = selectedItem.type === 'pull_request';
-      const isIssue = selectedItem.type === 'issue';
-      const isRelease = selectedItem.type === 'release';
-
-      content = (
-        <div className="inspector-details">
-          <section className="inspector-section inspector-header-section">
-            <div className="inspector-entity-row">
-              <span className="inspector-entity-badge" style={{ backgroundColor: isPR ? 'var(--success-color)' : isIssue ? 'var(--accent-primary)' : isRelease ? 'var(--warning-color)' : 'var(--bg-tertiary)' }}>
-                {selectedItem.type === 'pull_request' ? 'Pull Request' : selectedItem.type === 'issue' ? 'Issue' : 'Release'}
-              </span>
-              <span className="inspector-stage-badge" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>
-                {selectedItem.stage}
-              </span>
-              {selectedItem.isDraft && (
-                <span className="inspector-stage-badge" style={{ backgroundColor: 'var(--bg-tertiary)', border: '1px dashed var(--text-muted)', color: 'var(--text-primary)' }}>Draft</span>
-              )}
-              {selectedItem.isPrerelease && (
-                <span className="inspector-stage-badge" style={{ backgroundColor: 'var(--accent-secondary)' }}>Pre-release</span>
-              )}
-            </div>
-            <h4 className="inspector-title">{selectedItem.title}</h4>
-            <p className="inspector-repository">
-              {selectedItem.repositoryName} {selectedItem.number ? `#${selectedItem.number}` : ''}
-            </p>
-          </section>
-
-          <section className="inspector-section">
-            <h5 className="section-title">Activity</h5>
-            <div className="metadata">
-              {selectedItem.author && (
-                <div className="meta-row">
-                  <span className="meta-key">Author:</span>
-                  <span className="meta-val" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {selectedItem.author.avatarUrl && <img src={selectedItem.author.avatarUrl} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%' }} />}
-                    {selectedItem.author.login}
-                  </span>
-                </div>
-              )}
-              <div className="meta-row">
-                <span className="meta-key">Status:</span>
-                <span className="meta-val">{selectedItem.status}</span>
-              </div>
-              <div className="meta-row">
-                <span className="meta-key">Created:</span>
-                <span className="meta-val">{new Date(selectedItem.createdAt).toLocaleString()}</span>
-              </div>
-              {selectedItem.updatedAt && (
-                <div className="meta-row">
-                  <span className="meta-key">Updated:</span>
-                  <span className="meta-val">{new Date(selectedItem.updatedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {selectedItem.mergedAt && (
-                <div className="meta-row">
-                  <span className="meta-key">Merged:</span>
-                  <span className="meta-val">{new Date(selectedItem.mergedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {isRelease && selectedItem.publishedAt && (
-                <div className="meta-row">
-                  <span className="meta-key">Published:</span>
-                  <span className="meta-val">{new Date(selectedItem.publishedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {isRelease && selectedItem.tagName && (
-                <div className="meta-row">
-                  <span className="meta-key">Tag:</span>
-                  <span className="meta-val" style={{ fontFamily: 'monospace' }}>{selectedItem.tagName}</span>
-                </div>
-              )}
-            </div>
-          </section>
-
-          {selectedItem.inclusionReason && (
-            <section className="inspector-section">
-              <h5 className="section-title">Why it's here</h5>
-              <div className="meta-row">
-                <span className="meta-val" style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{selectedItem.inclusionReason}</span>
-              </div>
-            </section>
-          )}
-
-          {isPR && selectedItem.reviewSummary && selectedItem.reviewSummary.state !== 'NONE' && (
-            <section className="inspector-section">
-              <h5 className="section-title">Reviews</h5>
-              <div className="metadata">
-                <div className="meta-row">
-                  <span className="meta-key">State:</span>
-                  <span className="meta-val">{selectedItem.reviewSummary.state.replace('_', ' ')}</span>
-                </div>
-                {selectedItem.reviewSummary.requestedReviewers && selectedItem.reviewSummary.requestedReviewers.length > 0 && (
-                  <div className="meta-row" style={{ gridColumn: '1 / -1' }}>
-                    <span className="meta-key">Requested:</span>
-                    <span className="meta-val">{selectedItem.reviewSummary.requestedReviewers.join(', ')}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {isPR && selectedItem.checksSummary && selectedItem.checksSummary.state !== 'MISSING' && (
-            <section className="inspector-section">
-              <h5 className="section-title">Checks</h5>
-              <div className="metadata">
-                <div className="meta-row">
-                  <span className="meta-key">State:</span>
-                  <span className="meta-val">{selectedItem.checksSummary.state}</span>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {selectedItem.labels && selectedItem.labels.length > 0 && (
-            <section className="inspector-section">
-              <h5 className="section-title">Labels</h5>
-              <div className="labels-container">
-                {selectedItem.labels.map((lbl: any) => {
-                  const hex = (lbl.color || '888888').replace(/^#/, '').padEnd(6, '0').substring(0, 6);
-                  const r = parseInt(hex.substring(0, 2), 16) || 136;
-                  const g = parseInt(hex.substring(2, 4), 16) || 136;
-                  const b = parseInt(hex.substring(4, 6), 16) || 136;
-                  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-                  const isPale = luminance > 0.8;
-                  const textColor = luminance > 0.5 ? '#111827' : '#ffffff';
-                  
-                  return (
-                    <span 
-                      key={lbl.name} 
-                      className="label-badge" 
-                      style={{ 
-                        backgroundColor: `#${hex}`, 
-                        color: textColor,
-                        border: isPale ? '1px solid rgba(0,0,0,0.15)' : '1px solid transparent'
-                      }}
-                      title={lbl.name}
-                    >
-                      {lbl.name}
-                    </span>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {selectedItem.url && (
-            <button 
-              className="open-link" 
-              onClick={() => openBrowserTab(
-                `github:${selectedItem.type}:${selectedItem.repositoryName}:${selectedItem.number || selectedItem.title}`,
-                selectedItem.type === 'issue' ? 'issues' : selectedItem.type === 'pull_request' ? 'pullRequests' : 'repository',
-                `${selectedItem.type === 'issue' ? 'Issue' : selectedItem.type === 'pull_request' ? 'PR' : 'Release'} ${selectedItem.number ? `#${selectedItem.number}` : ''}`,
-                selectedItem.url!,
-                false,
-                true
-              )}
-              style={{
-                marginTop: 'auto',
-                padding: '8px 16px',
-                background: 'var(--accent-primary, #58a6ff)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-                width: '100%'
-              }}
-            >
-              Open in Tab
-            </button>
-          )}
-        </div>
-      );
-    }
+  if (isAnalytics || homeRepositoryContext) {
+    content = <AnalyticsDetails tab={inspectorTab} />;
+  } else if (simulatorEvent && isSimulator) {
+    content = <div className="inspector-details"><section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge>Event</Badge></div><h4 className="inspector-title">{humanizeSimulatorValue(simulatorEvent.eventType)}</h4><p className="inspector-repository">{formatEventTitle(simulatorEvent)}</p></section><section className="inspector-section"><h5 className="section-title">Event Details</h5><div className="metadata"><Meta label="Timestamp">{new Date(simulatorEvent.occurredAt).toLocaleString()}</Meta><Meta label="Actor">{simulatorEvent.actor?.login ?? 'Unknown'}</Meta><Meta label="Provenance">{simulatorEvent.metadata.nativeOrDerived === 'derived' ? 'Derived' : 'Native'}</Meta><Meta label="Source API">{simulatorEvent.source}</Meta></div></section></div>;
+  } else if (simulatorEntity && isSimulator) {
+    const tone = simulatorEntity.checkState === 'failure' ? 'danger' : simulatorEntity.reviewState === 'changes_requested' ? 'warning' : 'good';
+    content = <div className="inspector-details"><section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={tone}>{formatSubjectType(simulatorEntity.subjectType)}</Badge><span className="inspector-stage-badge">{humanizeSimulatorValue(simulatorEntity.stage)}</span></div><h4 className="inspector-title">{formatEntityTitle(simulatorEntity)}</h4><p className="inspector-repository">{simulatorEntity.repositoryId}{simulatorEntity.number ? ` #${simulatorEntity.number}` : ''}</p></section><section className="inspector-section"><h5 className="section-title">State at cursor</h5><div className="metadata"><Meta label="Status">{humanizeSimulatorValue(simulatorEntity.status)}</Meta><Meta label="Updated">{new Date(simulatorEntity.updatedAt).toLocaleString()}</Meta><Meta label="Checks">{humanizeSimulatorValue(simulatorEntity.checkState)}</Meta><Meta label="Review">{humanizeSimulatorValue(simulatorEntity.reviewState)}</Meta><Meta label="Commits">{simulatorEntity.commitCount}</Meta><Meta label="Comments">{simulatorEntity.commentCount}</Meta><Meta label="Completeness">{simulatorEntity.sourceCompleteness ?? 'unknown'}</Meta></div></section>{simulatorCurrentEntity && <section className="inspector-section"><h5 className="section-title">Current GitHub state</h5><div className="metadata"><Meta label="Stage">{humanizeSimulatorValue(simulatorCurrentEntity.stage)}</Meta><Meta label="Status">{humanizeSimulatorValue(simulatorCurrentEntity.status)}</Meta><Meta label="Updated">{new Date(simulatorCurrentEntity.updatedAt).toLocaleString()}</Meta><Meta label="Checks">{humanizeSimulatorValue(simulatorCurrentEntity.checkState)}</Meta><Meta label="Review">{humanizeSimulatorValue(simulatorCurrentEntity.reviewState)}</Meta></div></section>}{simulatorEntity.inclusionReason && <section className="inspector-section"><h5 className="section-title">Why it appears</h5><p className="meta-val">{humanizeSimulatorValue(simulatorEntity.inclusionReason)}</p></section>}</div>;
+  } else if (selectedItem && activeTab && isNativeTab(activeTab) && (activeTab.kind === 'home' || activeTab.kind === 'flow')) {
+    content = <FlowDetails item={selectedItem} mode={appMode} tab={inspectorTab} />;
   } else {
-    content = (
-      <div className="inspector-details">
-        <p className="inspector-empty">
-          Inspector is inactive for {activeTab?.title || 'this view'}. Switch to Flow or Home to inspect items.
-        </p>
-      </div>
-    );
+    content = <p className="inspector-empty">{activeTab && isNativeTab(activeTab) ? 'Select a card, row, or event to view details' : `Inspector is inactive for ${activeTab?.title ?? 'this view'}.`}</p>;
   }
 
-  return (
-    <div className="inspector">
-      <div className="inspector-header">
-        <h3>Inspector</h3>
-      </div>
-      <div className="inspector-content">
-        {content}
-      </div>
-    </div>
-  );
+  return <div className="inspector">
+    <header className="inspector-header"><h3>Inspector</h3>{(targetSource || isSimulator) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections"><button role="tab" aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>{hasTimeline && <button role="tab" aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}</header>
+    <div className="inspector-content">{content}</div>
+    {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
+      {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context"><button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}>Open in Flow</button>{flowState.selectedAnalyticsEntity.kind === 'ci_health' && <button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}>Repository History</button>}</div>}
+      {target && <div className="inspector-actions"><button className="open-link inspector-open-tab" type="button" onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button><button type="button" onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><ExternalLink size={12} /> Open in Default Browser</button><button type="button" onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button></div>}
+      {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open in Tab unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
+    </footer>}
+  </div>;
 }

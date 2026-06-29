@@ -5,7 +5,7 @@ export function useAccountFlow() {
   return useQuery({
     queryKey: ['accountFlow'],
     queryFn: async () => {
-      const data = await invoke('get_account_flow');
+      const data = await invoke('get_account_home_summary');
       return data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes

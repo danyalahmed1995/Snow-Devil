@@ -2,6 +2,7 @@ use crate::auth::secure_store::get_token;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
+use base64::Engine;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 const REST_URL: &str = "https://api.github.com";
@@ -149,6 +150,7 @@ pub async fn fetch_repo_file(
                     ... on Blob {
                         text
                         byteSize
+                        isBinary
                     }
                 }
             }
@@ -176,6 +178,48 @@ pub async fn fetch_repo_file(
     }
 
     Ok(json_res["data"]["repository"]["object"].clone())
+}
+
+pub async fn fetch_repo_file_content(
+    owner: &str,
+    name: &str,
+    expression: &str,
+    path: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let mut value = fetch_repo_file(owner, name, expression).await?;
+    value["path"] = json!(path);
+    let extension = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+    let mime_type = match extension.as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "svg" => Some("image/svg+xml"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    };
+    value["mimeType"] = json!(mime_type);
+    let byte_size = value.get("byteSize").and_then(|item| item.as_u64()).unwrap_or(0);
+    if mime_type.is_none() || extension == "svg" || byte_size > 5_000_000 {
+        return Ok(value);
+    }
+
+    let token = get_token()?.ok_or("No token")?;
+    let encoded_path = path.split('/').map(|segment| {
+        url::form_urlencoded::byte_serialize(segment.as_bytes()).collect::<String>()
+    }).collect::<Vec<_>>().join("/");
+    let branch = expression.split_once(':').map(|(reference, _)| reference).unwrap_or("HEAD");
+    let response = Client::new()
+        .get(format!("{}/repos/{}/{}/contents/{}?ref={}", REST_URL, owner, name, encoded_path, url::form_urlencoded::byte_serialize(branch.as_bytes()).collect::<String>()))
+        .bearer_auth(&token)
+        .header("User-Agent", "snow-devil")
+        .header("Accept", "application/vnd.github.raw+json")
+        .send().await?;
+    if !response.status().is_success() {
+        return Err(format!("GitHub image request failed ({})", response.status()).into());
+    }
+    let bytes = response.bytes().await?;
+    if bytes.len() > 5_000_000 { return Ok(value); }
+    value["contentBase64"] = json!(base64::engine::general_purpose::STANDARD.encode(bytes));
+    Ok(value)
 }
 
 pub async fn fetch_repo_prs(
@@ -275,6 +319,8 @@ pub async fn fetch_pr_details(
                     author { login }
                     createdAt
                     reviewDecision
+                    baseRefName
+                    headRefName
                     commits(last: 1) {
                         nodes {
                             commit {
@@ -371,4 +417,84 @@ pub async fn fetch_issue_details(
     }
 
     Ok(json_res["data"]["repository"]["issue"].clone())
+}
+
+pub async fn execute_graphql(
+    query: &str,
+    variables: serde_json::Value,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let res = client
+        .post(GRAPHQL_URL)
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .json(&json!({
+            "query": query,
+            "variables": variables
+        }))
+        .send()
+        .await?;
+
+    let json_res: serde_json::Value = res.json().await?;
+    if let Some(errors) = json_res.get("errors") {
+        return Err(format!("GraphQL errors: {}", errors).into());
+    }
+
+    Ok(json_res)
+}
+
+pub async fn execute_rest(
+    endpoint: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let res = client
+        .get(&format!("{}{}", REST_URL, endpoint))
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await?;
+
+    let json_res: serde_json::Value = res.json().await?;
+    Ok(json_res)
+}
+
+pub async fn search_repository(
+    owner: &str,
+    name: &str,
+    query: &str,
+    page: u32,
+    per_page: u32,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let bounded_page = page.max(1);
+    let bounded_per_page = per_page.clamp(1, 100);
+    let repository_qualifier = format!("repo:{}/{}", owner, name);
+    let effective_query = if query.contains(&repository_qualifier) {
+        query.to_string()
+    } else {
+        format!("{} {}", query, repository_qualifier)
+    };
+    let mut url = url::Url::parse(&format!("{}/search/code", REST_URL))?;
+    url.query_pairs_mut()
+        .append_pair("q", &effective_query)
+        .append_pair("page", &bounded_page.to_string())
+        .append_pair("per_page", &bounded_per_page.to_string());
+    let response = Client::new()
+        .get(url)
+        .bearer_auth(&token)
+        .header("User-Agent", "snow-devil")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?;
+    let status = response.status();
+    if !status.is_success() {
+        let message = response.text().await.unwrap_or_default();
+        return Err(format!("GitHub repository search failed ({}): {}", status, message).into());
+    }
+    Ok(response.json().await?)
 }

@@ -66,3 +66,6 @@ vi.mock('@tauri-apps/api/event', () => ({
     return () => {};
   }),
 }));
+vi.mock('@tauri-apps/plugin-opener', () => ({
+  openUrl: vi.fn(async () => undefined),
+}));

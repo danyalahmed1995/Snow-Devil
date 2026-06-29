@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useAuthStore } from './auth-store';
 import { invoke } from '@tauri-apps/api/core';
+import { useTabsStore } from './tabs-store';
 
 describe('Auth Store', () => {
   beforeEach(() => {
@@ -25,7 +26,8 @@ describe('Auth Store', () => {
     const state = useAuthStore.getState();
     expect(state.session.status).toBe('error');
     if (state.session.status === 'error') {
-      expect(state.session.message).toContain('Network error');
+      expect(state.session.kind).toBe('offline');
+      expect(state.session.message).toContain('Cached data');
     }
   });
 
@@ -33,6 +35,24 @@ describe('Auth Store', () => {
     (invoke as any).mockResolvedValueOnce({ isAuthenticated: false });
     
     await useAuthStore.getState().checkAuthStatus();
+    expect(useAuthStore.getState().session.status).toBe('disconnected');
+  });
+
+  it('replaces the shared organization dataset after account refresh', async () => {
+    (invoke as any).mockResolvedValueOnce({ isAuthenticated: true, account: { login: 'testuser', organizations: { totalCount: 0, status: 'ready', nodes: [] } } });
+    await useAuthStore.getState().checkAuthStatus();
+    (invoke as any).mockResolvedValueOnce({ isAuthenticated: true, account: { login: 'testuser', organizations: { totalCount: 2, status: 'ready', nodes: [{ id: 1, login: 'one' }, { id: 2, login: 'two' }] } } });
+    await useAuthStore.getState().checkAuthStatus();
+    const session = useAuthStore.getState().session;
+    expect(session.status === 'connected' ? session.account.organizations?.totalCount : 0).toBe(2);
+  });
+
+  it('sign-out removes account-scoped tabs before private content can remain visible', async () => {
+    const now=Date.now();
+    useTabsStore.setState({tabs:[{id:'native:home',family:'native',kind:'home',title:'Home',pinned:true,closable:false,createdAt:now,lastActivatedAt:now},{id:'private',family:'browser',kind:'repository',title:'Private repo',currentUrl:'https://github.com/private/repo',history:['https://github.com/private/repo'],historyIndex:0,lifecycle:'resident',pinned:false,closable:true,createdAt:now,lastActivatedAt:now}],activeTabId:'private'});
+    (invoke as any).mockResolvedValue(undefined);
+    await useAuthStore.getState().disconnect();
+    expect(useTabsStore.getState().tabs.map(tab=>tab.id)).toEqual(['native:home']);
     expect(useAuthStore.getState().session.status).toBe('disconnected');
   });
 });
