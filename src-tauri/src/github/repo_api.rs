@@ -1,8 +1,8 @@
 use crate::auth::secure_store::get_token;
+use base64::Engine;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
-use base64::Engine;
 
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 const REST_URL: &str = "https://api.github.com";
@@ -197,27 +197,45 @@ pub async fn fetch_repo_file_content(
         _ => None,
     };
     value["mimeType"] = json!(mime_type);
-    let byte_size = value.get("byteSize").and_then(|item| item.as_u64()).unwrap_or(0);
+    let byte_size = value
+        .get("byteSize")
+        .and_then(|item| item.as_u64())
+        .unwrap_or(0);
     if mime_type.is_none() || extension == "svg" || byte_size > 5_000_000 {
         return Ok(value);
     }
 
     let token = get_token()?.ok_or("No token")?;
-    let encoded_path = path.split('/').map(|segment| {
-        url::form_urlencoded::byte_serialize(segment.as_bytes()).collect::<String>()
-    }).collect::<Vec<_>>().join("/");
-    let branch = expression.split_once(':').map(|(reference, _)| reference).unwrap_or("HEAD");
+    let encoded_path = path
+        .split('/')
+        .map(|segment| url::form_urlencoded::byte_serialize(segment.as_bytes()).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("/");
+    let branch = expression
+        .split_once(':')
+        .map(|(reference, _)| reference)
+        .unwrap_or("HEAD");
     let response = Client::new()
-        .get(format!("{}/repos/{}/{}/contents/{}?ref={}", REST_URL, owner, name, encoded_path, url::form_urlencoded::byte_serialize(branch.as_bytes()).collect::<String>()))
+        .get(format!(
+            "{}/repos/{}/{}/contents/{}?ref={}",
+            REST_URL,
+            owner,
+            name,
+            encoded_path,
+            url::form_urlencoded::byte_serialize(branch.as_bytes()).collect::<String>()
+        ))
         .bearer_auth(&token)
         .header("User-Agent", "snow-devil")
         .header("Accept", "application/vnd.github.raw+json")
-        .send().await?;
+        .send()
+        .await?;
     if !response.status().is_success() {
         return Err(format!("GitHub image request failed ({})", response.status()).into());
     }
     let bytes = response.bytes().await?;
-    if bytes.len() > 5_000_000 { return Ok(value); }
+    if bytes.len() > 5_000_000 {
+        return Ok(value);
+    }
     value["contentBase64"] = json!(base64::engine::general_purpose::STANDARD.encode(bytes));
     Ok(value)
 }

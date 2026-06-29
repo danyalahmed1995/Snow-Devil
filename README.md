@@ -203,6 +203,16 @@ The browser-only Vite build is useful for frontend development and automated tes
 | `pnpm lint` | Run ESLint over TypeScript/React source |
 | `cargo test --manifest-path src-tauri/Cargo.toml` | Run Rust tests |
 
+## Continuous Integration
+
+Pull requests and pushes to `main` run four required checks: **Frontend Quality**, **Rust Quality**, **Playwright E2E**, and **Windows Tauri Build**. CI has read-only repository permission and never creates or publishes a release.
+
+## Releases
+
+A matching semantic-version tag such as `v0.1.0` builds one draft release with Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel assets. The tag must match the versions in `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`. Apple Silicon and Intel are separate architecture-verified DMGs.
+
+Release builds are unsigned and are not notarized. Windows may show an unrecognized-publisher warning, and macOS users may need to approve Snow Devil in **System Settings → Privacy & Security**. Only the release workflow's final publication job receives write permission.
+
 ## Latest verification
 
 The History controls, loading truthfulness, and persistent-tab final patch was verified with:

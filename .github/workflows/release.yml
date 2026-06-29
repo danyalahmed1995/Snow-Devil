@@ -1,0 +1,178 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build, for example v0.1.0
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  release-preflight:
+    name: Release Preflight
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Validate release tag and project versions
+        id: release
+        env:
+          REQUESTED_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node scripts/check-release-version.mjs "$REQUESTED_TAG"
+          git rev-parse --verify "refs/tags/$REQUESTED_TAG^{commit}"
+          if gh release view "$REQUESTED_TAG" >/dev/null 2>&1; then
+            echo "A release already exists for $REQUESTED_TAG; refusing to overwrite it."
+            exit 1
+          fi
+          echo "tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${REQUESTED_TAG#v}" >> "$GITHUB_OUTPUT"
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf wget
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: release-preflight-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+
+  build-release:
+    name: Build ${{ matrix.label }}
+    needs: release-preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: windows-x64
+            bundles: nsis msi
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: linux-x64
+            bundles: appimage deb
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macos-apple-silicon
+            bundles: dmg
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macos-intel
+            bundles: dmg
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-preflight.outputs.tag }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          shared-key: release-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+      - name: Install Tauri Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential curl file libayatana-appindicator3-dev libssl-dev \
+            librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf wget
+      - name: Build Tauri bundles
+        uses: tauri-apps/tauri-action@v1
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Verify, rename, and checksum release assets
+        run: node scripts/collect-release-artifacts.mjs "${{ matrix.label }}" "${{ matrix.target }}" "${{ needs.release-preflight.outputs.version }}"
+      - name: Upload verified platform assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.label }}
+          path: release-assets/${{ matrix.label }}/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-release:
+    name: Create Draft Release
+    needs: [release-preflight, build-release]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify downloaded checksums and asset count
+        run: |
+          mapfile -d '' CHECKSUMS < <(find release-assets -type f -name '*.sha256' -print0)
+          if [ "${#CHECKSUMS[@]}" -ne 6 ]; then
+            echo "Expected 6 checksum files, found ${#CHECKSUMS[@]}."
+            exit 1
+          fi
+          for checksum in "${CHECKSUMS[@]}"; do
+            (cd "$(dirname "$checksum")" && sha256sum -c "$(basename "$checksum")")
+          done
+          find release-assets -type f -printf '%P %s bytes\n' | sort
+      - name: Create one draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "A release already exists for $RELEASE_TAG; refusing to overwrite it."
+            exit 1
+          fi
+          mapfile -d '' ASSETS < <(find release-assets -type f -print0)
+          gh release create "$RELEASE_TAG" "${ASSETS[@]}" \
+            --draft \
+            --verify-tag \
+            --title "Snow Devil $RELEASE_TAG" \
+            --notes "Unsigned Snow Devil desktop builds for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. macOS users may need to approve the app in Privacy & Security."

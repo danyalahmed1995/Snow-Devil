@@ -181,7 +181,10 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             ",
         )?;
 
-        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (2)", [])?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (2)",
+            [],
+        )?;
     }
     if current_version < 3 {
         tx.execute_batch(
@@ -195,7 +198,10 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             ",
         )?;
 
-        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (3)", [])?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (3)",
+            [],
+        )?;
     }
     if current_version < 4 {
         tx.execute_batch(
@@ -231,7 +237,10 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             CREATE INDEX IF NOT EXISTS idx_analytics_records_updated ON analytics_records(account_login, updated_at);
             ",
         )?;
-        tx.execute("INSERT OR REPLACE INTO schema_version (version) VALUES (4)", [])?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (4)",
+            [],
+        )?;
     }
 
     tx.commit()?;

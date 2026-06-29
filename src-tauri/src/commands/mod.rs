@@ -1,9 +1,9 @@
+pub mod analytics;
 pub mod auth;
 pub mod db;
+pub mod diagnostics;
+pub mod flow;
 pub mod repo;
 pub mod reset;
-pub mod sync;
-pub mod flow;
 pub mod simulator;
-pub mod analytics;
-pub mod diagnostics;
+pub mod sync;

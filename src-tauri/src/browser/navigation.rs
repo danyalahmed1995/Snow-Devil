@@ -97,9 +97,7 @@ pub fn normalize_github_url(input: &str) -> Result<Url, String> {
         if let Some((owner, repo)) = owner_repo.split_once('/') {
             if !owner.is_empty() && !repo.is_empty() && repo.chars().all(|c| c != '/') {
                 if let Ok(num) = fragment.parse::<u64>() {
-                    let full = format!(
-                        "https://github.com/{owner}/{repo}/issues/{num}"
-                    );
+                    let full = format!("https://github.com/{owner}/{repo}/issues/{num}");
                     return Url::parse(&full).map_err(|e| e.to_string());
                 }
             }
@@ -111,8 +109,12 @@ pub fn normalize_github_url(input: &str) -> Result<Url, String> {
         if !owner.is_empty()
             && !repo.is_empty()
             && !repo.contains('/')
-            && owner.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
-            && repo.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            && owner
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            && repo
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
         {
             let full = format!("https://github.com/{owner}/{repo}");
             return Url::parse(&full).map_err(|e| e.to_string());
@@ -128,10 +130,7 @@ pub fn normalize_github_url(input: &str) -> Result<Url, String> {
 
 /// Classify a GitHub URL by its path structure.
 pub fn classify_github_url(url: &Url) -> BrowserTabKind {
-    let segments: Vec<&str> = url
-        .path_segments()
-        .map(|s| s.collect())
-        .unwrap_or_default();
+    let segments: Vec<&str> = url.path_segments().map(|s| s.collect()).unwrap_or_default();
 
     // Filter out empty trailing segments
     let segments: Vec<&str> = segments.into_iter().filter(|s| !s.is_empty()).collect();
@@ -158,7 +157,6 @@ pub fn classify_github_url(url: &Url) -> BrowserTabKind {
 
         // /:user (profile page or org page)
         [_user] => BrowserTabKind::Profile,
-
     }
 }
 
