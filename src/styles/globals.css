@@ -12,11 +12,13 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  background: radial-gradient(circle at 14% -12%, rgba(48, 103, 202, 0.2), transparent 34%), radial-gradient(circle at 82% 0%, rgba(48, 84, 150, 0.1), transparent 30%), var(--surface-app);
+  background: radial-gradient(circle at 14% -12%, rgba(0, 229, 255, 0.16), transparent 36%), radial-gradient(circle at 82% 0%, rgba(42, 130, 230, 0.1), transparent 32%), var(--surface-app);
   color: var(--text-primary);
   overflow: hidden; /* Desktop app layout */
   user-select: none; /* Desktop feel */
 }
+
+/* Static organic ice block shaping is applied inside individual CSS files for zero layout-repaint cost. */
 
 h1, h2, h3, h4, h5, h6, p {
   margin: 0;
@@ -89,11 +91,11 @@ button, input, select, textarea, [tabindex] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar, var(--surface-hover));
+  background: var(--scrollbar);
   border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-hover, var(--text-muted));
+  background: var(--scrollbar-hover);
 }
 .fresh-launch { display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; box-sizing: border-box; padding: 24px; animation: fresh-fade-in 300ms ease-out; }
 .fresh-launch__card { max-width: 580px; width: 100%; padding: 48px; border: 1px solid var(--border-strong, var(--border)); border-radius: 16px; background: linear-gradient(145deg, rgba(34,62,99,0.3), rgba(14,31,53,0.4)); backdrop-filter: blur(8px); box-shadow: 0 16px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05); text-align: center; }

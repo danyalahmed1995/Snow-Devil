@@ -5,9 +5,9 @@
   color: inherit;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: border-color var(--motion-normal) var(--ease-standard), background-color var(--motion-normal) var(--ease-standard), box-shadow var(--motion-normal) var(--ease-standard), transform var(--motion-normal) var(--ease-standard);
+  transition: all var(--motion-normal) var(--ease-standard);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -36,9 +36,10 @@
 }
 
 .flow-card:hover {
-  border-color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  border-radius: 11px 7px 12px 6px / 7px 10px 8px 11px;
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-sm), 0 0 12px rgba(0, 213, 255, 0.18);
+  transform: translateY(-1.5px);
 }
 
 .flow-card.selected {
