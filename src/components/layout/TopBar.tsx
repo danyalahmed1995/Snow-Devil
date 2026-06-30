@@ -26,6 +26,7 @@ export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
   const { isAuthenticated, checkAuthStatus, session } = useAuthStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { mode, exitDemo, resetDemo } = useModeStore();
   const notificationRecords=useNotificationStore(state=>state.records);const notificationRead=useNotificationStore(state=>state.localRead);const notificationSnoozed=useNotificationStore(state=>state.snoozedUntil);const unreadNotifications=activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
   const notificationArrivalCount = useNotificationStore(state => state.arrivalCount);
@@ -97,11 +98,11 @@ export function TopBar() {
           )}
 
           <div className="topbar-actions">
-            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => resetLocalAppData().catch(console.error)} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} /></button>}
+            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>}
             {mode === 'demo' ? (
               <>
                 <span className="demo-mode-badge">Demo Mode</span>
-                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={resetDemo}><RotateCcw size={16}/></button>
+                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>
                 <button className="icon-button" aria-label="Exit demo" onClick={exitDemo} data-tooltip="Exit Demo\nReturn to the authenticated live workspace."><LogOut size={16} /></button>
               </>
             ) : isAuthenticated && session.status === 'connected' ? (

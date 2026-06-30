@@ -66,6 +66,20 @@
 }
 .icon-button:active{transform:translateY(1px)}
 
+@keyframes icon-spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes icon-spin-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+.icon-spin-cw {
+  animation: icon-spin-cw 0.8s linear infinite;
+}
+.icon-spin-ccw {
+  animation: icon-spin-ccw 0.8s linear infinite;
+}
 .topbar-search {
   flex: 1;
   max-width: 600px;
