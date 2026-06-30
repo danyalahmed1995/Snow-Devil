@@ -48,6 +48,7 @@ test('fixed Home tab reactivates its mounted instance with scroll and no duplica
   let historyRequests = 0;
   page.on('request', request => { if (request.url().includes('/demo-data/simulator/account-history.json')) historyRequests += 1; });
   const home = page.locator('.home-command-center');
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(home).toBeVisible();
   await home.evaluate(element => { element.scrollTop = 240; element.dispatchEvent(new Event('scroll')); });
   const before = await home.evaluate(element => ({ top: element.scrollTop, max: element.scrollHeight - element.clientHeight }));

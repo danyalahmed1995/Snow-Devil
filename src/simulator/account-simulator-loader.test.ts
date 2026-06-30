@@ -64,7 +64,7 @@ describe('account simulator source collection', () => {
     expect(result.loadedSources).toBe(2);
     expect(result.sourceFailures).toHaveLength(0);
     expect(result.sourceStatuses?.every(status => status.status === 'loaded')).toBe(true);
-    expect(result.events.map(event => event.subjectId)).toEqual(['octo/repo:issue-1']);
+    expect(result.events.map(event => event.subjectId)).toEqual(['issue:octo/repo:1']);
   });
 
   it('keeps successful account sources when one source fails', async () => {
@@ -229,7 +229,7 @@ describe('repository simulator compatibility', () => {
       return page([]);
     });
     const events = await fetchRepositoryActivity('octo', 'repo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z');
-    expect(events).toEqual([expect.objectContaining({ repositoryId: 'octo/repo', subjectId: 'pull_request-7', eventType: 'opened' })]);
+    expect(events).toEqual([expect.objectContaining({ repositoryId: 'octo/repo', subjectId: 'pull-request:octo/repo:7', eventType: 'opened' })]);
   });
 
   it('keeps an older current incoming fork PR despite partial replay history', async () => {
@@ -242,8 +242,8 @@ describe('repository simulator compatibility', () => {
     });
     const events = await fetchRepositoryActivity('octo', 'repo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z');
     expect(events).toEqual(expect.arrayContaining([
-      expect.objectContaining({ subjectId: 'pull_request-2', eventType: 'opened', source: 'github-current-state' }),
-      expect.objectContaining({ subjectId: 'pull_request-2', eventType: 'reopened', source: 'github-current-state' }),
+      expect.objectContaining({ subjectId: 'pull-request:octo/repo:2', eventType: 'opened', source: 'github-current-state' }),
+      expect.objectContaining({ subjectId: 'pull-request:octo/repo:2', eventType: 'reopened', source: 'github-current-state' }),
     ]));
   });
 });

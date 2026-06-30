@@ -9,6 +9,7 @@ import {
   SimulatorSourceStatus,
 } from "./simulator-types";
 import { SimulatorSafeError, retryableSimulatorCategory, safeSimulatorExplanation, sanitizedDiagnostic, toSimulatorFailure } from "./simulator-errors";
+import { canonicalEntityIdentity } from '../lib/canonical-identity';
 
 async function fetchGraphQL(query: string, variables: any): Promise<any> {
   try {
@@ -91,7 +92,7 @@ export async function fetchRepositoryActivity(
       for (const pr of prs.nodes) {
         if (!pr || !pr.number || !pr.title) continue; // Reject malformed
 
-        const subjectId = `pull_request-${pr.number}`;
+        const subjectId = canonicalEntityIdentity('pull_request', repoId, pr.number);
         const snapshotAt = pr.createdAt >= since ? pr.createdAt : since;
         const currentAt = until;
         const baseEvent = {
@@ -217,7 +218,7 @@ export async function fetchRepositoryActivity(
       for (const issue of issues.nodes) {
         if (!issue || !issue.number || !issue.title) continue;
 
-        const subjectId = `issue-${issue.number}`;
+        const subjectId = canonicalEntityIdentity('issue', repoId, issue.number);
         const baseEvent = {
           source: "github-graphql",
           repositoryId: repoId,
@@ -309,7 +310,7 @@ export async function fetchRepositoryActivity(
       for (const release of releases.nodes) {
         if (!release || !release.tagName) continue;
 
-        const subjectId = `release-${release.tagName}`;
+        const subjectId = canonicalEntityIdentity('release', repoId, release.id || release.tagName);
         const baseEvent = {
           source: "github-graphql",
           repositoryId: repoId,
@@ -487,7 +488,6 @@ function accountBaseEvent(
     throw new SimulatorSafeError("normalization_failed", "Account simulator source returned an unusable item.", false);
   }
   const subjectType = node.mergedAt !== undefined ? "pull_request" : "issue";
-  const shortSubjectId = `${subjectType}-${node.number}`;
   const repoId = node.repository.nameWithOwner;
   const inclusionReason = node.author?.login === login ? "authored_by_you" : source.reason;
   return {
@@ -495,7 +495,7 @@ function accountBaseEvent(
     repositoryId: repoId,
     repositoryName: node.repository.name,
     repositoryOwner: node.repository.owner.login,
-    subjectId: `${repoId}:${shortSubjectId}`,
+    subjectId: canonicalEntityIdentity(subjectType, repoId, node.number),
     subjectType: subjectType as SimulatorSubjectType,
     subjectNumber: node.number,
     subjectTitle: node.title,
@@ -525,7 +525,7 @@ function accountEventsForNode(
   if (node.createdAt >= since && node.createdAt <= until) {
     events.push({
       ...base,
-      id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:opened`,
+      id: `${base.subjectId}:opened`,
       occurredAt: node.createdAt,
       actor: node.author,
       eventType: "opened",
@@ -538,7 +538,7 @@ function accountEventsForNode(
   if (existedAtReplayStart) {
     events.push({
       ...base,
-      id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:baseline`,
+      id: `${base.subjectId}:baseline`,
       occurredAt: since,
       actor: node.author,
       eventType: 'opened',
@@ -589,7 +589,7 @@ function accountEventsForNode(
     if (evtType) {
       events.push({
         ...base,
-        id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:${evtType}:${item.createdAt}`,
+        id: `${base.subjectId}:${evtType}:${item.createdAt}`,
         occurredAt: item.createdAt,
         actor: item.actor || item.author,
         eventType: evtType,
@@ -602,15 +602,15 @@ function accountEventsForNode(
 
   if (source.currentState && String(node.state).toUpperCase() === 'OPEN') {
     const currentMetadata = { ...base.baseMetadata, currentSnapshot: true, actualCreatedAt: node.createdAt, actualUpdatedAt: node.updatedAt };
-    events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-open`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'reopened', metadata: currentMetadata, inclusionReason: base.inclusionReason });
+    events.push({ ...base, id: `${base.subjectId}:current-open`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'reopened', metadata: currentMetadata, inclusionReason: base.inclusionReason });
     if (base.subjectType === 'pull_request' && node.isDraft) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-draft`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'converted_to_draft', metadata: currentMetadata, inclusionReason: base.inclusionReason });
     if (base.subjectType === 'pull_request' && node.reviewDecision === 'CHANGES_REQUESTED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-changes`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'changes_requested', metadata: currentMetadata, inclusionReason: base.inclusionReason });
     else if (base.subjectType === 'pull_request' && node.reviewDecision === 'APPROVED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-approved`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'approved', metadata: currentMetadata, inclusionReason: base.inclusionReason });
     else if (base.subjectType === 'pull_request' && node.reviewRequests?.nodes?.length) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-review-requested`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'review_requested', metadata: { ...currentMetadata, requestedReviewers: node.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) }, inclusionReason: base.inclusionReason });
     const checkState = node.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
     const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
-    if (checkEvent) events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-${checkEvent}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: checkEvent, metadata: { ...currentMetadata, checkState }, inclusionReason: base.inclusionReason });
-    for (const assignee of node.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...base, id: `${base.repositoryId}:${base.subjectType}-${base.subjectNumber}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'assigned', metadata: { ...currentMetadata, assignee: assignee.login }, inclusionReason: assignee.login === login ? 'assigned_to_you' : base.inclusionReason });
+    if (checkEvent) events.push({ ...base, id: `${base.subjectId}:current-${checkEvent}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: checkEvent, metadata: { ...currentMetadata, checkState }, inclusionReason: base.inclusionReason });
+    for (const assignee of node.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...base, id: `${base.subjectId}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'assigned', metadata: { ...currentMetadata, assignee: assignee.login }, inclusionReason: assignee.login === login ? 'assigned_to_you' : base.inclusionReason });
   }
 
   return events;

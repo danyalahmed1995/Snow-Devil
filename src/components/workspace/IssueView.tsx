@@ -94,7 +94,7 @@ export function IssueView({ nodeId }: { nodeId: string }) {
              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                {issue.labels?.nodes?.length > 0
                  ? issue.labels.nodes.map((l: any) => (
-                    <span key={l.name} style={{ ...githubLabelStyle(l.color), padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} title={l.name} aria-label={`Label: ${l.name}`}>
+                    <span key={l.name} style={{ ...githubLabelStyle(l.color), padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} data-tooltip={l.name} aria-label={`Label: ${l.name}`}>
                       {l.name}
                     </span>
                  ))

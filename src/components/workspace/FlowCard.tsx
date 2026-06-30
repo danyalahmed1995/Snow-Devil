@@ -32,12 +32,12 @@ export function FlowCard({ item, isSelected, onClick, onOpen, variant = 'workben
         )}
       </div>
       
-      <div className="flow-card-title" title={item.title}>{item.title}</div>
-      {item.inclusionReason && <div className="flow-card-relationship" title={item.viewerRelationship?.explanation}>{item.inclusionReason}</div>}
+      <div className="flow-card-title" data-tooltip={`${item.title}\n${item.repositoryName}${item.number ? ` #${item.number}` : ''} · Select to inspect; open for the canonical GitHub item.`}>{item.title}</div>
+      {item.inclusionReason && <div className="flow-card-relationship" data-tooltip={item.viewerRelationship?.explanation}>{item.inclusionReason}</div>}
       
       <div className="flow-card-footer">
         {item.author && (
-          <div className="flow-card-author" title={`Author: ${item.author.login}`}>
+          <div className="flow-card-author" data-tooltip={`Author: ${item.author.login}`}>
             {item.author.avatarUrl ? (
               <img src={item.author.avatarUrl} alt={item.author.login} className="avatar-small" />
             ) : null}
@@ -47,32 +47,32 @@ export function FlowCard({ item, isSelected, onClick, onOpen, variant = 'workben
         <div className="flow-card-badges">
           {item.isDraft && <span className="badge badge-neutral">Draft</span>}
           {item.isBot && <span className="badge badge-neutral">Bot</span>}
-          {item.confidence && <span className="badge badge-neutral" title={item.missingEvidence?.join('. ')}>{item.confidence}</span>}
+          {item.confidence && <span className="badge badge-neutral" data-tooltip={`${item.confidence}\n${item.missingEvidence?.join('. ') || 'Evidence confidence reported by the synchronized source.'}`}>{item.confidence}</span>}
           {item.type === 'release' && item.tagName && (
-            <span className="badge badge-info" title="Tag Name">
+            <span className="badge badge-info" data-tooltip="Tag name\nThe Git tag associated with this release.">
               Tag {item.tagName}
             </span>
           )}
           {item.type === 'release' && item.isPrerelease && (
-            <span className="badge badge-warning" title="Pre-release">
+            <span className="badge badge-warning" data-tooltip="Pre-release\nGitHub marks this release as not generally available.">
               Pre-release
             </span>
           )}
           {isPR && item.reviewSummary && item.reviewSummary.state !== 'NONE' && (
-            <span className={`badge badge-review badge-${item.reviewSummary.state.toLowerCase()}`} title={`Review: ${item.reviewSummary.state}`}>
+            <span className={`badge badge-review badge-${item.reviewSummary.state.toLowerCase()}`} data-tooltip={`Review state: ${item.reviewSummary.state}\nSelect the card to inspect review evidence.`}>
               {item.reviewSummary.state === 'APPROVED' ? 'Approved' :
                item.reviewSummary.state === 'CHANGES_REQUESTED' ? 'Changes Req' :
                item.reviewSummary.state === 'REVIEW_REQUIRED' ? 'Review Req' : 'Review'}
             </span>
           )}
           {isPR && item.checksSummary && item.checksSummary.state !== 'MISSING' && (
-            <span className={`badge badge-checks badge-${item.checksSummary.state.toLowerCase()}`} title={`Checks: ${item.checksSummary.state}`}>
+            <span className={`badge badge-checks badge-${item.checksSummary.state.toLowerCase()}`} data-tooltip={`Checks: ${item.checksSummary.state}\nSelect the card to inspect CI evidence.`}>
               {item.checksSummary.state === 'SUCCESS' ? 'Checks passed' :
                item.checksSummary.state === 'FAILURE' ? 'Checks failed' : 'Checks running'}
             </span>
           )}
         </div>
-        <span className="flow-card-age" title={item.stageEnteredAt ? `Entered stage ${new Date(item.stageEnteredAt).toLocaleString()}` : 'Stage entry not reported'}>{formatTimeInStage(item)}</span>
+        <span className="flow-card-age" data-tooltip={item.stageEnteredAt ? `Entered stage ${new Date(item.stageEnteredAt).toLocaleString()}` : 'Stage entry not reported'}>{formatTimeInStage(item)}</span>
       </div>
     </button>
   );

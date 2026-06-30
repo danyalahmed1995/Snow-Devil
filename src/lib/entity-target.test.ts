@@ -27,4 +27,13 @@ describe('Inspector entity tab resolution', () => {
     expect(resolveEntityTabTarget(flow({ repositoryName: '', number: undefined, url: 'javascript:alert(1)' }), 'live')).toBeUndefined();
     expect(resolveEntityTabTarget(flow({ url: 'https://github.com/octo/repo/issues/42' }), 'demo')).toBeUndefined();
   });
+
+  it('rejects a mismatched explicit repository and routes from canonical entity identity', () => {
+    const entity = { id: 'pull-request:danyalahmed1995/snow-devil:2', repositoryId: 'danyalahmed1995/Snow-Devil', subjectType: 'pull_request', number: 2, title: 'Snow Devil PR', url: 'https://github.com/danyalahmed1995/EXT/pull/2' } as SimulatorEntityState;
+    expect(resolveEntityTabTarget(entity, 'live')?.url).toBe('https://github.com/danyalahmed1995/snow-devil/pull/2');
+  });
+
+  it('rejects entity routes on GitHub subdomains', () => {
+    expect(resolveEntityTabTarget(flow({ type: 'pull_request', number: 2, url: 'https://api.github.com/octo/repo/pull/2' }), 'live')?.url).toBe('https://github.com/octo/repo/pull/2');
+  });
 });

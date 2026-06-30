@@ -1,8 +1,9 @@
 import type { FlowItem } from '../types/flow';
 import type { SimulatorEntityState } from './simulator-types';
+import { canonicalEntityIdentity, type CanonicalEntityType } from '../lib/canonical-identity';
 
 export function canonicalAccountItemId(repositoryId: string, type: string, number?: number): string {
-  return `${repositoryId.toLowerCase()}:${type}:${number ?? 'un-numbered'}`;
+  return canonicalEntityIdentity(type as CanonicalEntityType, repositoryId, number ?? 'un-numbered');
 }
 
 export function reconcileLatestAccountState(flowItems: FlowItem[], simulatorEntities: SimulatorEntityState[], intentionalExclusions: string[] = []) {

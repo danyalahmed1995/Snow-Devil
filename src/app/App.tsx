@@ -10,6 +10,9 @@ import { CommandPalette } from '../components/palette/CommandPalette';
 import { ThemeProvider } from '../components/theme/ThemeProvider';
 import { AppErrorBoundary } from '../components/error/AppErrorBoundary';
 import { ActiveBrowserRuntimeSync } from '../browser/ActiveBrowserRuntimeSync';
+import { TooltipProvider } from '../components/ui/Tooltip';
+import { NotificationRuntime } from '../components/notifications/NotificationRuntime';
+import { CIWatcherRuntime } from '../components/ci/CIWatcherRuntime';
 
 function BrowserEventOrchestrator() {
   useEffect(() => {
@@ -52,8 +55,12 @@ export default function App() {
       <ActiveBrowserRuntimeSync />
       <ThemeProvider />
       <AppErrorBoundary>
-        <Layout />
-        <CommandPalette />
+        <TooltipProvider>
+          <NotificationRuntime />
+          <CIWatcherRuntime />
+          <Layout />
+          <CommandPalette />
+        </TooltipProvider>
       </AppErrorBoundary>
     </QueryClientProvider>
   );

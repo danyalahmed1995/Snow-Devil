@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { SimulatorEvent } from "./simulator-types";
+import { canonicalizeSimulatorEvents } from './canonical-event';
 
 interface DbSimulatorEvent {
   id: string;
@@ -26,8 +27,18 @@ interface DbSyncState {
   last_synced_at: string;
 }
 
+export function parseSimulatorCacheObject(value: string | null): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function saveSimulatorEventsToDb(events: SimulatorEvent[]): Promise<void> {
-  const dbEvents: DbSimulatorEvent[] = events.map(e => ({
+  const dbEvents: DbSimulatorEvent[] = canonicalizeSimulatorEvents(events).map(e => ({
     id: e.id,
     repository_id: e.repositoryId,
     repository_name: e.repositoryName,
@@ -57,33 +68,34 @@ export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<S
     const subjectType = (e.subject_type || inferredType) as SimulatorEvent["subjectType"];
     const inferredNumber = e.subject_id.match(/^(?:pr|pull_request|issue)-(\d+)$/)?.[1];
     const subjectNumber = e.subject_number ?? (inferredNumber ? Number(inferredNumber) : undefined);
-    const legacyShortSubject = /^(?:pr|pull_request|issue)-\d+$/.test(e.subject_id);
-    const subjectId = legacyShortSubject && subjectNumber != null ? `${subjectType}-${subjectNumber}` : e.subject_id;
+    const actor = parseSimulatorCacheObject(e.actor_json);
+    const metadata = parseSimulatorCacheObject(e.metadata_json);
     return ({
     id: e.id,
     repositoryId: e.repository_id,
     repositoryName: e.repository_name || repositoryName,
     repositoryOwner: e.repository_owner || repositoryOwner,
-    subjectId,
+    subjectId: e.subject_id,
     subjectType,
     subjectNumber,
     subjectTitle: e.subject_title || "",
     occurredAt: e.timestamp,
     eventType: e.event_type as any,
-    actor: e.actor_json ? JSON.parse(e.actor_json) : undefined,
-    metadata: e.metadata_json ? JSON.parse(e.metadata_json) : {},
+    actor: typeof actor?.login === 'string' ? { login: actor.login, avatarUrl: typeof actor.avatarUrl === 'string' ? actor.avatarUrl : undefined } : undefined,
+    metadata: metadata ?? {},
     source: e.source,
     sourceCompleteness: e.completeness as any,
     inclusionReason: e.inclusion_reason as SimulatorEvent["inclusionReason"],
   });
   });
+  const canonical = canonicalizeSimulatorEvents(normalized);
   const bestBySubject = new Map<string, SimulatorEvent>();
-  for (const event of normalized) {
+  for (const event of canonical) {
     const key = `${event.repositoryId}:${event.subjectId}`;
     const previous = bestBySubject.get(key);
     if (!previous || eventQuality(event) > eventQuality(previous)) bestBySubject.set(key, event);
   }
-  const enriched = normalized.map(event => {
+  const enriched = canonical.map(event => {
     const best = bestBySubject.get(`${event.repositoryId}:${event.subjectId}`);
     if (!best) return event;
     return {

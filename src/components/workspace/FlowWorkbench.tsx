@@ -409,7 +409,7 @@ export function FlowWorkbench() {
   return (
     <div className="flow-workbench" style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       <div className="flow-header" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        {flowState.sourceContext && <button type="button" className="flow-context-chip" title="Remove Home context" onClick={() => setFlowState(activeTabId, { sourceContext: undefined })}>{flowState.sourceContext}<span aria-hidden="true">×</span></button>}
+        {flowState.sourceContext && <button type="button" className="flow-context-chip" data-tooltip="Remove Home context\nClear the Home-originated filter context." onClick={() => setFlowState(activeTabId, { sourceContext: undefined })}>{flowState.sourceContext}<span aria-hidden="true">×</span></button>}
         <label className="flow-field">Scope<Select ariaLabel="Flow scope" value={scope} onChange={value => setFlowState(activeTabId, { scope: value as 'account' | 'repository', filterStage: undefined })} options={[{ value: 'account', label: 'Account Flow' }, { value: 'repository', label: 'Repository Flow' }]} /></label>
 
         {scope === 'repository' && (
@@ -429,7 +429,7 @@ export function FlowWorkbench() {
         {scope === 'account' && <label className="flow-field">Involvement<Select ariaLabel="Flow involvement" value={involvementFilter} onChange={value => setFlowState(activeTabId, { involvementFilter: value as typeof involvementFilter })} options={[{ value: 'all', label: 'All activity' }, { value: 'assigned', label: 'Assigned to me' }, { value: 'authored', label: 'Authored by me' }, { value: 'review_requested', label: 'Review requested from me' }, { value: 'mentioned', label: 'Mentioned' }, { value: 'participating', label: 'Participating' }]} /></label>}
         <label className="flow-field">Actor<Select ariaLabel="Flow actor" value={actorFilter} onChange={value => setFlowState(activeTabId, { actorFilter: value as typeof actorFilter })} options={[{ value: 'everyone', label: 'Everyone' }, { value: 'humans', label: 'Humans only' }, { value: 'bots', label: 'Bots only' }, { value: 'dependabot', label: 'Dependabot' }, { value: 'renovate', label: 'Renovate' }]} /></label>
         {filterStage && <label className="flow-field">Sort<Select ariaLabel="Focused stage sort" value={sortOrder} onChange={value => setFlowState(activeTabId, { sortOrder: value as typeof sortOrder })} options={[{ value: 'newest', label: 'Newest activity' }, { value: 'oldest', label: 'Oldest activity' }, { value: 'repository', label: 'Repository' }, { value: 'attention', label: 'Attention first' }]} /></label>}
-        <SavedViewsMenu current={flowState}/><span className="flow-freshness" title="Flow shows the latest completed cached query snapshot.">Synced snapshot · {items.length} results</span>
+        <SavedViewsMenu current={flowState}/><span className="flow-freshness" data-tooltip="Synchronized snapshot\nFlow shows the latest completed cached query result.">Synced snapshot · {items.length} results</span>
       </div>
       
       <div className="flow-content" style={{ flex: 1, overflow: 'hidden', minWidth: 0, minHeight: 0, padding: '16px', display: 'flex', flexDirection: 'column' }}>

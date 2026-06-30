@@ -96,7 +96,7 @@ export function StackedFlowChart({ snapshots, partial, reducedMotion, onSelect }
 
 function ThroughputChart({ buckets, onSelect }: { buckets: ReturnType<typeof throughputBuckets>; onSelect: (date: string, count: number) => void }) {
   const max = Math.max(1, ...buckets.map(bucket => bucket.merged + bucket.issuesClosed + bucket.releases + bucket.deployments));
-  return <div className="analytics-chart"><div className="analytics-chart-legend"><span><i style={{ background: 'var(--success)' }} />Unique completion events</span></div><div className="analytics-throughput-bars" role="img" aria-label="Throughput over time">{buckets.map(bucket => { const total = bucket.merged + bucket.issuesClosed + bucket.releases + bucket.deployments; return <button type="button" key={bucket.date} style={{ height: `${Math.max(2, total / max * 100)}%` }} title={`${bucket.date}: ${total} unique completion events`} onClick={() => onSelect(bucket.date, total)}><span>{total}</span></button>; })}</div><div className="analytics-axis-x"><span>{buckets[0]?.date.slice(5)}</span><span>Completion count</span><span>{buckets[buckets.length - 1]?.date.slice(5)}</span></div></div>;
+  return <div className="analytics-chart"><div className="analytics-chart-legend"><span><i style={{ background: 'var(--success)' }} />Unique completion events</span></div><div className="analytics-throughput-bars" role="img" aria-label="Throughput over time">{buckets.map(bucket => { const total = bucket.merged + bucket.issuesClosed + bucket.releases + bucket.deployments; return <button type="button" key={bucket.date} style={{ height: `${Math.max(2, total / max * 100)}%` }} data-tooltip={`${bucket.date}: ${total} unique completion events\nSelect to inspect this throughput bucket.`} onClick={() => onSelect(bucket.date, total)}><span>{total}</span></button>; })}</div><div className="analytics-axis-x"><span>{buckets[0]?.date.slice(5)}</span><span>Completion count</span><span>{buckets[buckets.length - 1]?.date.slice(5)}</span></div></div>;
 }
 
 function LeadTimeHistogram({ values, onSelect }: { values: number[]; onSelect: (start: number, end: number, count: number) => void }) {
@@ -105,7 +105,7 @@ function LeadTimeHistogram({ values, onSelect }: { values: number[]; onSelect: (
   const bins = Array.from({ length: 10 }, () => 0);
   values.forEach(value => { bins[Math.min(9, Math.floor(value / binSize))] += 1; });
   const maxCount = Math.max(1, ...bins);
-  return <div className="analytics-chart"><div className="analytics-histogram" aria-label="Lead time distribution">{bins.map((count, index) => <button type="button" key={index} style={{ height: `${Math.max(2, count / maxCount * 100)}%` }} title={`${count} samples from ${formatDurationHours(index * binSize)} to ${formatDurationHours((index + 1) * binSize)}`} onClick={() => onSelect(index * binSize, (index + 1) * binSize, count)}><span>{formatDurationHours(index * binSize)}</span></button>)}</div></div>;
+  return <div className="analytics-chart"><div className="analytics-histogram" aria-label="Lead time distribution">{bins.map((count, index) => <button type="button" key={index} style={{ height: `${Math.max(2, count / maxCount * 100)}%` }} data-tooltip={`${count} samples from ${formatDurationHours(index * binSize)} to ${formatDurationHours((index + 1) * binSize)}\nSelect to inspect this lead-time bucket.`} onClick={() => onSelect(index * binSize, (index + 1) * binSize, count)}><span>{formatDurationHours(index * binSize)}</span></button>)}</div></div>;
 }
 
 export function FlowAnalyticsPage() {

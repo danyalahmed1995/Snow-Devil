@@ -3,6 +3,7 @@ pub mod auth;
 pub mod db;
 pub mod diagnostics;
 pub mod flow;
+pub mod notifications;
 pub mod repo;
 pub mod reset;
 pub mod simulator;

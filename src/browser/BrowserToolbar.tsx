@@ -43,7 +43,7 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
         className="icon-button"
         disabled={!canGoBack}
         onClick={handleBack}
-        title="Back"
+        data-tooltip="Back\nNavigate to the previous page in this embedded GitHub tab."
         aria-label="Go back"
       >
         <ArrowLeft size={16} />
@@ -52,7 +52,7 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
         className="icon-button"
         disabled={!canGoForward}
         onClick={handleForward}
-        title="Forward"
+        data-tooltip="Forward\nNavigate to the next page in this embedded GitHub tab."
         aria-label="Go forward"
       >
         <ArrowRight size={16} />
@@ -61,12 +61,12 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
         className="icon-button"
         disabled={disabled}
         onClick={activeTab?.isLoading ? handleStop : handleReload}
-        title={activeTab?.isLoading ? 'Stop loading' : 'Reload'}
+        data-tooltip={activeTab?.isLoading ? 'Stop loading\nCancel the active embedded page navigation.' : 'Reload\nRefresh the active embedded GitHub page.'}
         aria-label={activeTab?.isLoading ? 'Stop loading' : 'Reload page'}
       >
         {activeTab?.isLoading ? <X size={16}/> : <RotateCw size={16} />}
       </button>
-      {activeTab?.error && <span className="browser-toolbar__error" role="alert" title={activeTab.error}>{activeTab.error}</span>}
+      {activeTab?.error && <span className="browser-toolbar__error" role="alert" data-tooltip={activeTab.error}>{activeTab.error}</span>}
     </div>
   );
 }

@@ -242,7 +242,86 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             [],
         )?;
     }
+    if current_version < 5 {
+        // Legacy repository-history records used number-only subject/event primary keys.
+        // Same-number entities could already have overwritten one another, so those rows
+        // cannot be migrated truthfully. Drop only ambiguous rows; the next scoped sync
+        // rebuilds them with repository-qualified canonical identities.
+        tx.execute_batch(
+            "
+            DELETE FROM simulator_events
+            WHERE subject_id GLOB 'pull_request-[0-9]*'
+               OR subject_id GLOB 'pr-[0-9]*'
+               OR subject_id GLOB 'issue-[0-9]*';
+            DELETE FROM simulator_entities
+            WHERE subject_id GLOB 'pull_request-[0-9]*'
+               OR subject_id GLOB 'pr-[0-9]*'
+               OR subject_id GLOB 'issue-[0-9]*';
+            ",
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (5)",
+            [],
+        )?;
+    }
 
     tx.commit()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_migrations;
+    use rusqlite::Connection;
+
+    #[test]
+    fn v5_drops_only_ambiguous_number_only_simulator_rows() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        run_migrations(&mut connection).unwrap();
+        connection
+            .execute("DELETE FROM schema_version", [])
+            .unwrap();
+        connection
+            .execute("INSERT INTO schema_version (version) VALUES (4)", [])
+            .unwrap();
+        for (id, subject_id) in [
+            ("ambiguous", "pull_request-2"),
+            ("canonical", "pull-request:owner/repo:2"),
+        ] {
+            connection.execute(
+                "INSERT INTO simulator_entities (id, repository_id, subject_id, subject_type, title, number, created_at, updated_at) VALUES (?1, 'owner/repo', ?2, 'pull_request', ?1, 2, '2026-01-01', '2026-01-01')",
+                (id, subject_id),
+            ).unwrap();
+            connection.execute(
+                "INSERT INTO simulator_events (id, repository_id, subject_id, event_type, timestamp, source, completeness) VALUES (?1, 'owner/repo', ?2, 'opened', '2026-01-01', 'fixture', 'complete')",
+                (format!("event-{id}"), subject_id),
+            ).unwrap();
+        }
+
+        run_migrations(&mut connection).unwrap();
+        let ambiguous: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM simulator_entities WHERE id = 'ambiguous'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let canonical: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM simulator_entities WHERE id = 'canonical'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let canonical_event: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM simulator_events WHERE id = 'event-canonical'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(ambiguous, 0);
+        assert_eq!(canonical, 1);
+        assert_eq!(canonical_event, 1);
+    }
 }
