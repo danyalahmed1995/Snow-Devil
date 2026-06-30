@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CIWorkflowRun } from '../ci/ci-watcher';
 
-export type CIRepositoryStatus = 'idle' | 'loading' | 'ready' | 'offline' | 'rate_limited' | 'permission_denied' | 'unavailable' | 'error';
+export type CIRepositoryStatus = 'idle' | 'loading' | 'refreshing' | 'ready' | 'offline' | 'rate_limited' | 'permission_denied' | 'unavailable' | 'error';
 interface CIRepositoryState { status: CIRepositoryStatus; message?: string; lastSuccessAt?: string }
 interface CIWatcherStore {
   activeAccount?: string;
@@ -36,4 +36,3 @@ export const useCIWatcherStore = create<CIWatcherStore>()(persist((set) => ({
   unsubscribe: repository => set(state => { const subscriptions = { ...state.subscriptions }; const key = repository.toLowerCase(); if ((subscriptions[key] ?? 0) <= 1) delete subscriptions[key]; else subscriptions[key] -= 1; return { subscriptions }; }),
   clear: () => set({ runsByRepository: {}, repositoryState: {}, subscriptions: {} }),
 }), { name: 'snow-devil-ci-watch', version: 1, partialize: state => ({ activeAccount: state.activeAccount, runsByRepository: state.runsByRepository, repositoryState: state.repositoryState }) }));
-

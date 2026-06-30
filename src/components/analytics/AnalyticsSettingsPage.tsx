@@ -14,7 +14,7 @@ import { buildSyncCoverageSummary, normalizeSyncFailure } from '../../analytics/
 import { useNotificationStore } from '../../stores/notification-store';
 
 function SettingRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
-  return <div className="analytics-setting-row"><span>{label}<small>{description}</small></span><div className="analytics-setting-control">{children}</div></div>;
+  return <div className="analytics-setting-row"><span>{label}<small>{description}</small></span><div className="analytics-setting-control" data-tooltip={`${label}\n${description}`}>{children}</div></div>;
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

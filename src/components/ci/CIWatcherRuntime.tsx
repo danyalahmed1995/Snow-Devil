@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo } from 'react';
-import { ciPollingInterval, isWorkflowRunsPage, normalizeWorkflowRuns, type CIWorkflowRun } from '../../ci/ci-watcher';
+import { ciPollingInterval, ciRetryDelay, isWorkflowRunsPage, normalizeWorkflowRuns, type CIWorkflowRun } from '../../ci/ci-watcher';
 import { useAccountRepositories } from '../../hooks/useAccountContext';
 import { useAuthStore } from '../../stores/auth-store';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
@@ -9,8 +9,12 @@ import { useModeStore } from '../../stores/mode-store';
 interface AnalyticsApiResponse { status: number; body: unknown; rate_remaining?: number; rate_reset?: number }
 
 const DEMO_RUNS: CIWorkflowRun[] = normalizeWorkflowRuns('nova-labs/snow-devil', { workflow_runs: [
-  { id: 8001, name: 'Desktop CI', run_number: 241, status: 'in_progress', conclusion: null, head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-15T16:55:00Z', run_started_at: '2026-02-15T16:56:00Z', updated_at: '2026-02-15T17:00:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/8001', run_attempt: 1 },
-  { id: 8000, name: 'Release', run_number: 240, status: 'completed', conclusion: 'success', head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-15T15:00:00Z', run_started_at: '2026-02-15T15:01:00Z', updated_at: '2026-02-15T15:08:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/8000', run_attempt: 1 },
+  { id: 8001, name: 'Desktop CI', run_number: 241, status: 'in_progress', conclusion: null, head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-13T15:55:00Z', run_started_at: '2026-02-13T15:56:00Z', updated_at: '2026-02-13T16:00:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/8001', run_attempt: 1 },
+  { id: 8000, name: 'Release', run_number: 240, status: 'completed', conclusion: 'success', head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-12T15:00:00Z', run_started_at: '2026-02-12T15:01:00Z', updated_at: '2026-02-12T15:08:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/8000', run_attempt: 1 },
+  { id: 7999, name: 'Desktop CI', run_number: 239, status: 'completed', conclusion: 'failure', head_branch: 'fix/history', event: 'pull_request', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-11T14:00:00Z', updated_at: '2026-02-11T14:09:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/7999', run_attempt: 1 },
+  { id: 7998, name: 'Lint', run_number: 238, status: 'completed', conclusion: 'success', head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-10T13:00:00Z', updated_at: '2026-02-10T13:04:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/7998', run_attempt: 1 },
+  { id: 7997, name: 'Cargo tests', run_number: 237, status: 'completed', conclusion: 'success', head_branch: 'main', event: 'push', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-09T12:00:00Z', updated_at: '2026-02-09T12:12:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/7997', run_attempt: 1 },
+  { id: 7996, name: 'History regression', run_number: 236, status: 'completed', conclusion: 'success', head_branch: 'fix/history', event: 'pull_request', actor: { login: 'snowdevil-demo' }, created_at: '2026-02-08T11:00:00Z', updated_at: '2026-02-08T11:06:00Z', html_url: 'https://github.com/nova-labs/snow-devil/actions/runs/7996', run_attempt: 1 },
 ] });
 
 export function CIWatcherRuntime() {
@@ -50,10 +54,12 @@ export function CIWatcherRuntime() {
       inFlight = true;
       const allRuns: CIWorkflowRun[] = [];
       try {
+        let retryRequired = false;
         for (let index = 0; index < repositoryIds.length && !disposed; index += 4) {
           const batch = repositoryIds.slice(index, index + 4);
           const results = await Promise.all(batch.map(async repository => {
-            store.setRepositoryStatus(repository, store.runsByRepository[repository]?.length ? 'ready' : 'loading');
+            const hasSnapshot = Boolean(useCIWatcherStore.getState().runsByRepository[repository]?.length);
+            store.setRepositoryStatus(repository, hasSnapshot ? 'refreshing' : 'loading', hasSnapshot ? 'Refreshing workflow runs; the previous snapshot remains visible' : 'Loading workflow runs');
             const [owner, name] = repository.split('/');
             const endpoint = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/actions/runs?per_page=20`;
             const response = await invoke<AnalyticsApiResponse>('analytics_fetch_rest', { endpoint });
@@ -65,22 +71,28 @@ export function CIWatcherRuntime() {
               const runs = normalizeWorkflowRuns(repository, response.body);
               if (!isWorkflowRunsPage(response.body) || (response.body.workflow_runs.length > 0 && runs.length === 0)) {
                 store.setRepositoryStatus(repository, 'error', 'GitHub returned an invalid workflow snapshot; previous runs remain visible');
+                retryRequired = true;
                 continue;
               }
               allRuns.push(...runs);
               store.setRuns(repository, runs);
             } else if (response.status === 403) store.setRepositoryStatus(repository, 'permission_denied', 'Actions data is unavailable with the current authorization');
             else if (response.status === 404) store.setRepositoryStatus(repository, 'unavailable', 'Actions are disabled or unavailable');
-            else if (response.status === 429 || response.rate_remaining === 0) store.setRepositoryStatus(repository, 'rate_limited', 'GitHub Actions polling is rate limited');
-            else store.setRepositoryStatus(repository, 'error', 'Workflow runs could not be refreshed');
+            else if (response.status === 429 || response.rate_remaining === 0) { retryRequired = true; store.setRepositoryStatus(repository, 'rate_limited', 'GitHub Actions polling is rate limited'); }
+            else { retryRequired = true; store.setRepositoryStatus(repository, 'error', 'Workflow runs could not be refreshed'); }
           }
         }
-        failures = 0;
-        schedule(ciPollingInterval(allRuns));
+        if (retryRequired) {
+          failures += 1;
+          schedule(ciRetryDelay(failures));
+        } else {
+          failures = 0;
+          schedule(ciPollingInterval(allRuns));
+        }
       } catch {
         failures += 1;
         repositoryIds.forEach(repository => store.setRepositoryStatus(repository, 'error', 'Workflow refresh failed; previous runs remain visible'));
-        schedule(Math.min(15 * 60_000, 60_000 * 2 ** Math.min(4, failures)));
+        schedule(ciRetryDelay(failures));
       } finally { inFlight = false; }
     };
     const refresh = () => { if (timer !== undefined) window.clearTimeout(timer); void poll(); };

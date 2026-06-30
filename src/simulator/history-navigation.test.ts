@@ -11,6 +11,11 @@ describe('history event navigation', () => {
     expect(resolveHistoryNavigationTarget('event', [event], [entity('review')])?.section).toBe('active');
     expect(resolveHistoryNavigationTarget('event', [event], [entity('merged')])?.section).toBe('completed');
   });
+  it('routes workflow run evidence to the CI column', () => {
+    const runEntity = { ...entity('checks'), id: 'workflow-run:octo/app:2', subjectType: 'workflow_run' as const };
+    const runEvent = { ...event, id: 'run-event', subjectId: runEntity.id, subjectType: 'workflow_run' as const, eventType: 'workflow_succeeded' as const };
+    expect(resolveHistoryNavigationTarget(runEvent.id, [runEvent], [runEntity])).toMatchObject({ entity: { id: runEntity.id }, section: 'ci' });
+  });
   it('keeps an evidence-only event selected when no entity snapshot exists', () => {
     expect(resolveHistoryNavigationTarget('event', [event], [])).toMatchObject({ event, entity: undefined, section: undefined });
   });
@@ -19,4 +24,3 @@ describe('history event navigation', () => {
     expect(historyFilterConflicts(entity('review'), filters, 'account')).toEqual(['repository', 'entityType']);
   });
 });
-

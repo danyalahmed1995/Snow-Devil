@@ -83,6 +83,10 @@ export function ciPollingInterval(runs: CIWorkflowRun[]): number {
   return runs.some(run => run.status !== 'completed') ? 30_000 : 180_000;
 }
 
+export function ciRetryDelay(failures: number): number {
+  return Math.min(15 * 60_000, 60_000 * 2 ** Math.min(4, Math.max(0, failures)));
+}
+
 export function ciRunTransitions(previous: CIWorkflowRun[], next: CIWorkflowRun[]) {
   const previousById = new Map(previous.map(run => [run.id, run]));
   return next.flatMap(run => {

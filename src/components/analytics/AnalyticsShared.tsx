@@ -36,7 +36,7 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
         {sync.state?.error && <span className="analytics-sync__error">{sync.state.error.includes('rate_limited') ? 'GitHub rate limit reached; saved progress will resume safely.' : sync.state.error.includes('authentication_expired') ? 'GitHub authentication expired.' : 'Synchronization was interrupted.'}</span>}
         {!sync.state?.error && unsupported && <span className="analytics-sync__error">{unsupported}</span>}
         {failedRepositories.length > 0 && <span className="analytics-sync__error" data-tooltip={failedRepositories.map(value => typeof value === 'string' ? value : String((value as Record<string, unknown>).repository ?? 'Unknown repository')).join(', ')}>{failed} repository source{failed === 1 ? '' : 's'} failed</span>}
-        <div className="analytics-sync__actions">{sync.syncing ? <button type="button" onClick={sync.cancel}><Square size={11} /> Cancel sync</button> : <button type="button" onClick={() => void sync.sync()} disabled={!sync.available}><RefreshCw size={11} /> {failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data'}</button>}</div>
+        <div className="analytics-sync__actions">{sync.syncing ? <button type="button" data-tooltip="Cancel synchronization\nStop after the current safe checkpoint; the previous valid snapshot remains available." onClick={sync.cancel}><Square size={11} /> Cancel sync</button> : <button type="button" data-tooltip="Synchronize GitHub data\nRefresh normalized delivery evidence while preserving the current snapshot during loading or failure." onClick={() => void sync.sync()} disabled={!sync.available}><RefreshCw size={11} /> {failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data'}</button>}</div>
       </section>}
       {children}
     </main>
@@ -68,7 +68,7 @@ export function SectionCard({ title, action, children, className = '' }: { title
 }
 
 export function RefreshButton({ refreshing, onClick }: { refreshing: boolean; onClick: () => void }) {
-  return <button className="analytics-button" type="button" onClick={onClick} disabled={refreshing}><RefreshCw size={13} className={refreshing ? 'is-spinning' : ''} /> Refresh analytics</button>;
+  return <button className="analytics-button" type="button" data-tooltip="Refresh analytics\nFetch updated evidence while keeping the last valid analytics snapshot visible." onClick={onClick} disabled={refreshing}><RefreshCw size={13} className={refreshing ? 'is-spinning' : ''} /> Refresh analytics</button>;
 }
 
 export function EmptyState({ children, kind = 'zero' }: { children: ReactNode; kind?: 'zero' | 'no-data' | 'unavailable' | 'unsupported' | 'failed' | 'insufficient' | 'outside-range' | 'partial' }) {
