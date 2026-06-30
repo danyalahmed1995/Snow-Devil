@@ -7,18 +7,58 @@
 }
 
 .inspector-header {
-  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 16px;
+  height: 46px;
   border-bottom: 1px solid var(--border-subtle);
   min-width: 0;
+  flex-shrink: 0;
 }
 
-.inspector-header h3 {
-  font-size: 14px;
-  font-weight: 600;
+.inspector-header-title {
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   margin: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+.inspector-header-spacer { display: none; }
+
+.inspector-header-close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.inspector-header-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.inspector-header-top { display: flex; align-items: center; justify-content: space-between; }
+.inspector-close-btn { display: none; }
+
+.inspector-header h3 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+  line-height: 1;
 }
 
 .inspector-content {
@@ -217,7 +257,7 @@
 
 /* Reference inspector: grouped content, optional tabs, and a stable action rail. */
 .inspector{background:linear-gradient(180deg,rgba(26,49,79,.22),transparent 24%),var(--surface-inspector)}
-.inspector-header{flex:0 0 auto;padding:14px 42px 0 16px;border-bottom:1px solid var(--divider)}
+.inspector-header{flex:0 0 auto;border-bottom:1px solid var(--divider)}
 .inspector-header h3{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-muted)}
 .inspector-tabs{display:flex;gap:4px;margin:12px -3px 0}.inspector-tabs button{min-height:34px;padding:0 10px;border-bottom:2px solid transparent;color:var(--text-muted);font-size:11px}.inspector-tabs button:hover{color:var(--text-primary)}.inspector-tabs button.is-active{border-bottom-color:var(--accent);color:var(--text-primary);background:linear-gradient(180deg,transparent,rgba(57,120,255,.08))}
 .inspector-content{padding:16px 15px 20px}.inspector-details{gap:14px}

@@ -1,4 +1,4 @@
-.modal-overlay {
+.auth-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -10,98 +10,385 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: auth-fade-in 200ms ease-out;
 }
 
-.modal-content {
-  width: 400px;
+.auth-modal-content {
+  width: 440px;
   max-width: 90vw;
+  min-height: 380px;
   padding: 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color, var(--border));
+  box-shadow: 0 24px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+  animation: auth-slide-up 250ms ease-out;
+  transition: min-height 250ms ease-out;
+  position: relative;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 150ms ease;
+  z-index: 10;
+}
+
+.modal-close-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.auth-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  animation: auth-crossfade 300ms ease-out;
 }
 
 .modal-header {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.header-icon {
+  color: var(--primary);
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
-.modal-body p {
-  color: var(--text-muted);
+.modal-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-description {
+  color: var(--text-secondary);
+  font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.auth-instructions {
+  background: var(--surface-hover);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-subtle);
+}
+
+.auth-instructions strong {
+  color: var(--text-primary);
+}
+
+.input-group {
+  margin-bottom: 16px;
+}
+
+.client-id-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 150ms ease;
+}
+
+.client-id-input:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.btn-primary, .btn-secondary {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 150ms ease;
+  border: none;
 }
 
 .btn-primary {
   background: var(--primary);
-  color: var(--text-on-accent);
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
+  color: white;
+  box-shadow: 0 4px 12px rgba(36,93,216,0.3);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-secondary {
   background: transparent;
-  color: var(--text);
+  color: var(--text-primary);
   border: 1px solid var(--border);
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
 }
 
 .btn-secondary:hover {
   background: var(--surface-hover);
 }
 
-.device-flow-steps ol {
-  padding-left: 20px;
-  margin-bottom: 20px;
-  color: var(--text);
+.spinner {
+  animation: spin 1s linear infinite;
 }
 
-.device-flow-steps li {
+/* Device Flow specific */
+.device-progress {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.device-progress .step {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-hover);
+  border-radius: 2px;
+  font-size: 0;
+  position: relative;
+}
+
+.device-progress .step::after {
+  content: attr(class); /* A bit of a hack to get text out, but we actually just use the step label below */
+  display: none;
+}
+
+.device-progress .step.done {
+  background: var(--primary);
+}
+
+.device-progress .step.active {
+  background: var(--primary);
+  opacity: 0.6;
+}
+
+.device-flow-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.open-github-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 24px;
+  transition: all 150ms ease;
+}
+
+.open-github-btn:hover {
+  background: var(--surface-card-nested, var(--surface));
+  border-color: var(--primary);
+}
+
+.code-display-wrapper {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .code-display {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 16px;
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px dashed var(--border-strong, var(--border));
+  padding: 14px 16px;
   text-align: center;
-  font-size: 32px;
+  font-size: 24px;
   letter-spacing: 4px;
   font-family: monospace;
   border-radius: 8px;
-  margin-bottom: 20px;
-  color: var(--primary);
+  color: var(--text-primary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.waiting-text {
+.copy-btn {
+  padding: 0 20px;
+}
+
+.auth-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+}
+
+.poll-error {
+  color: var(--error, #e5534b);
+  font-size: 13px;
+  margin-top: 16px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--danger, #e5534b) 12%, transparent);
+  border-radius: 6px;
   text-align: center;
+}
+
+/* Success Stage */
+.auth-success {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.success-icon-wrapper {
+  color: var(--success, #43b581);
+  margin-bottom: 8px;
+  animation: success-bounce 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.auth-success h2 {
+  margin: 0;
+  font-size: 24px;
+  color: var(--text-primary);
+}
+
+.connected-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--surface-hover);
+  border-radius: 32px;
+  margin-top: 8px;
+}
+
+.connected-account .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.account-details {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.account-details strong {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.account-details span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.preparation-text {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-top: 16px;
   animation: pulse 2s infinite;
 }
 
+/* Animations */
+@keyframes auth-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes auth-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-crossfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes success-bounce {
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 @keyframes pulse {
-  0% { opacity: 0.5; }
+  0% { opacity: 0.6; }
   50% { opacity: 1; }
-  100% { opacity: 0.5; }
+  100% { opacity: 0.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-modal-overlay,
+  .auth-modal-content,
+  .auth-stage,
+  .success-icon-wrapper {
+    animation: none;
+    transition: none;
+  }
 }

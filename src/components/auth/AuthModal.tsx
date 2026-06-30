@@ -1,7 +1,7 @@
 import { useAuthStore } from '../../stores/auth-store';
-import { ExternalLink, Globe } from 'lucide-react';
+import { ExternalLink, Globe, CheckCircle2, Loader2, Key, X } from 'lucide-react';
 import './AuthModal.css';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useOverlayStore } from '../../stores/overlay-store';
 
 export function AuthModal({ onClose }: { onClose: () => void }) {
@@ -9,120 +9,181 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   const openOverlay = useOverlayStore(state => state.openOverlay);
   const closeOverlay = useOverlayStore(state => state.closeOverlay);
   const activeOverlayId = useOverlayStore(state => state.activeOverlayId);
-  const { isConnecting, userCode, verificationUri, startDeviceFlow, manualPoll, pollError, isAuthenticated, clientId, setClientId } = useAuthStore();
-  useEffect(() => { openOverlay(overlayId); return () => closeOverlay(overlayId); }, [openOverlay, closeOverlay]);
+  
+  const { isConnecting, userCode, verificationUri, startDeviceFlow, pollError, isAuthenticated, clientId, setClientId, session } = useAuthStore();
+  
+  const [successClosing, setSuccessClosing] = useState(false);
+  const [inputValue, setInputValue] = useState(clientId);
+
+  useEffect(() => { 
+    openOverlay(overlayId); 
+    return () => {
+      closeOverlay(overlayId);
+      if (useAuthStore.getState().isConnecting) {
+        useAuthStore.setState({ isConnecting: false });
+      }
+    };
+  }, [openOverlay, closeOverlay]);
+  
+  const handleCancel = () => {
+    useAuthStore.setState({ isConnecting: false });
+    onClose();
+  };
+
   useEffect(() => {
     if (activeOverlayId && activeOverlayId !== overlayId) onClose();
-    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    const key = (event: KeyboardEvent) => { 
+      if (event.key === 'Escape') { 
+        event.preventDefault(); 
+        handleCancel();
+      } 
+    };
     window.addEventListener('keydown', key, true);
     return () => window.removeEventListener('keydown', key, true);
   }, [activeOverlayId, onClose]);
 
-  if (isAuthenticated) {
-    return (
-      <div className="modal-overlay">
-        <div className="modal-content glass-panel">
-          <h2>Connected!</h2>
-          <p>Your GitHub account is connected.</p>
-          <button className="btn-primary" onClick={onClose}>Close</button>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isAuthenticated && !successClosing) {
+      setSuccessClosing(true);
+      const timer = setTimeout(() => {
+        onClose();
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, successClosing, onClose]);
+
+  const handleConnect = () => {
+    setClientId(inputValue);
+    startDeviceFlow();
+  };
+
+  const getStage = () => {
+    if (isAuthenticated) return 'success';
+    if (isConnecting && userCode) return 'device-flow';
+    if (isConnecting) return 'starting';
+    return 'client-id';
+  };
+
+  const stage = getStage();
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content glass-panel">
-        <div className="modal-header">
-          <Globe size={32} />
-          <h2>Connect GitHub</h2>
-        </div>
-        
-        {!isConnecting ? (
-          <div className="modal-body">
-            <p style={{ fontSize: '14px', marginBottom: '16px' }}>
-              To connect, you need a GitHub OAuth App Client ID with Device Flow enabled.
-              <br/><br/>
-              1. Go to <strong>GitHub Settings &gt; Developer settings &gt; OAuth Apps</strong><br/>
-              2. Click <strong>New OAuth App</strong><br/>
-              3. Check <strong>Enable Device Flow</strong><br/>
-              4. Copy the Client ID below:
-            </p>
-            <div className="input-group" style={{ marginBottom: '20px' }}>
-              <input 
-                type="text" 
-                placeholder="Client ID (e.g. Iv1.xxx)" 
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                style={{ width: '100%', padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: '4px' }}
-              />
+    <div className="modal-overlay auth-modal-overlay">
+      <div className="modal-content auth-modal-content glass-panel" data-stage={stage}>
+        {stage === 'success' ? (
+          <div className="auth-stage auth-success">
+            <div className="success-icon-wrapper">
+              <CheckCircle2 size={56} className="success-icon" />
             </div>
-            {pollError && (
-              <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
-                {pollError}
+            <h2>Connected to GitHub</h2>
+            {session.status === 'connected' && session.account ? (
+              <div className="connected-account">
+                {session.account.avatarUrl && <img src={session.account.avatarUrl} alt="" className="avatar" />}
+                <div className="account-details">
+                  <strong>{session.account.name || session.account.login}</strong>
+                  <span>@{session.account.login}</span>
+                </div>
               </div>
-            )}
-            <div className="modal-actions">
-              <button className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button 
-                className="btn-primary" 
-                onClick={startDeviceFlow}
-                disabled={!clientId.trim()}
-              >
-                Connect with GitHub
-              </button>
+            ) : null}
+            <p className="preparation-text">Preparing your Snow Devil workspace…</p>
+          </div>
+        ) : stage === 'device-flow' ? (
+          <div className="auth-stage auth-device">
+            <button className="modal-close-btn" onClick={handleCancel} aria-label="Cancel">
+              <X size={20} />
+            </button>
+            <div className="modal-header">
+              <Key size={24} className="header-icon" aria-hidden="true" />
+              <h2>Authorize Snow Devil</h2>
+            </div>
+            
+            <div className="device-progress" aria-label="Authorization progress">
+              <div className="step done" aria-current="false">Connect</div>
+              <div className="step active" aria-current="step">Authorize</div>
+              <div className="step" aria-current="false">Prepare</div>
+            </div>
+
+            <div className="device-flow-body">
+              <p className="step-label">1. Open GitHub</p>
+              <a href={verificationUri!} target="_blank" rel="noreferrer" className="open-github-btn">
+                <span>{verificationUri}</span> <ExternalLink size={14} />
+              </a>
+              
+              <p className="step-label">2. Enter this code</p>
+              <div className="code-display-wrapper">
+                <div className="code-display">{userCode}</div>
+                <button 
+                  className="btn-secondary copy-btn"
+                  onClick={(e) => {
+                    navigator.clipboard.writeText(userCode || '');
+                    const btn = e.currentTarget;
+                    btn.innerText = 'Copied!';
+                    setTimeout(() => btn.innerText = 'Copy', 2000);
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div className="auth-status">
+                <Loader2 size={16} className="spinner" />
+                <span>Waiting for GitHub authorization</span>
+              </div>
+              
+              {pollError && (
+                <div className="poll-error">
+                  {pollError}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions" style={{ paddingTop: '8px' }}>
+              {/* Cancel button removed, X button at top right handles cancellation */}
             </div>
           </div>
         ) : (
-          <div className="modal-body">
-            {userCode ? (
-              <div className="device-flow-steps">
-                <ol>
-                  <li>
-                    <span>Open </span>
-                    <a href={verificationUri!} target="_blank" rel="noreferrer" className="open-link">
-                      {verificationUri} <ExternalLink size={14} />
-                    </a>
-                  </li>
-                  <li>Enter the code below:</li>
-                </ol>
-                <div className="code-display-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-                  <div className="code-display" style={{ marginBottom: 0, flex: 1 }}>{userCode}</div>
-                  <button 
-                    className="btn-secondary" 
-                    data-tooltip="Copy code\nCopies the GitHub device authorization code."
-                    onClick={() => {
-                      navigator.clipboard.writeText(userCode || '');
-                      const btn = document.getElementById('copy-code-btn');
-                      if (btn) {
-                        btn.innerText = 'Copied!';
-                        setTimeout(() => btn.innerText = 'Copy', 2000);
-                      }
-                    }}
-                    id="copy-code-btn"
-                    style={{ padding: '12px 16px', height: '100%', fontSize: '14px' }}
-                  >
-                    Copy
-                  </button>
-                </div>
-                <p className="waiting-text">Waiting for authorization...</p>
-                {pollError && (
-                  <div style={{ color: 'var(--error)', fontSize: '13px', marginBottom: '16px', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', padding: '8px', borderRadius: '4px' }}>
-                    {pollError}
-                  </div>
-                )}
-                <div className="modal-actions" style={{ marginTop: '20px' }}>
-                  <button className="btn-secondary" onClick={() => {
-                     useAuthStore.setState({ isConnecting: false });
-                  }}>Cancel</button>
-                  <button className="btn-primary" onClick={manualPoll}>
-                    Check Status
-                  </button>
-                </div>
+          <div className="auth-stage auth-client">
+            <button className="modal-close-btn" onClick={handleCancel} aria-label="Cancel">
+              <X size={20} />
+            </button>
+            <div className="modal-header">
+              <Globe size={24} className="header-icon" aria-hidden="true" />
+              <h2>Connect GitHub</h2>
+            </div>
+            
+            <div className="modal-body">
+              <p className="auth-description">
+                To connect, you need a GitHub OAuth App Client ID with Device Flow enabled.
+              </p>
+              <div className="auth-instructions">
+                1. Go to <strong>GitHub Settings &gt; Developer settings &gt; OAuth Apps</strong><br/>
+                2. Click <strong>New OAuth App</strong><br/>
+                3. Check <strong>Enable Device Flow</strong><br/>
+                4. Copy the Client ID below:
               </div>
-            ) : (
-              <p>Starting connection...</p>
-            )}
+              <div className="input-group">
+                <input 
+                  type="text" 
+                  aria-label="GitHub OAuth Client ID"
+                  placeholder="Client ID (e.g. Iv1.xxx)" 
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && inputValue.trim()) handleConnect(); }}
+                  className="client-id-input"
+                  autoFocus
+                />
+              </div>
+              {pollError && <div className="poll-error">{pollError}</div>}
+              
+              <div className="modal-actions">
+                <button 
+                  className="btn-primary connect-btn" 
+                  onClick={handleConnect}
+                  disabled={!inputValue.trim() || stage === 'starting'}
+                >
+                  {stage === 'starting' ? <><Loader2 size={14} className="spinner" /> Connecting</> : 'Connect with GitHub'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

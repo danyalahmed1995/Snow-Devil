@@ -38,6 +38,7 @@ function greeting(hour = new Date().getHours()): string {
 
 export function Dashboard() {
   const homeRef = useRef<HTMLElement>(null);
+  const hasAutoRetried = useRef(false);
   const mode = useModeStore(state => state.mode);
   const enterDemo = useModeStore(state => state.enterDemo);
   const session = useAuthStore(state => state.session);
@@ -98,9 +99,6 @@ export function Dashboard() {
       cancelAnimationFrame(frame);
     };
   }, [isActiveTab, mode, session.status]);
-
-  if (mode === 'live' && session.status !== 'connected') return <div className="dashboard-view fresh-launch"><div className="fresh-launch__card"><span className="demo-mode-badge">Snow Devil</span><h1>{session.status==='error'&&session.kind==='expired'?'Reconnect your GitHub account.':'See how work moves through GitHub.'}</h1><p>{session.status==='checking'?'Checking your saved GitHub connection…':session.status==='error'?session.message:'Connect an account for live data, or explore a deterministic offline workspace. No account is required for the demo.'}</p><div><button className="auth-btn" disabled={session.status==='checking'} onClick={() => setShowAuth(true)}>{session.status==='error'?'Reconnect GitHub':'Sign in with GitHub'}</button><button className="btn-secondary" onClick={enterDemo}>Explore Demo</button></div></div>{showAuth && <AuthModal onClose={() => setShowAuth(false)} />}</div>;
-
   const hasSnapshot = mode === 'demo' ? Boolean(demoHome && demoPipeline) : rawSummaryData !== undefined;
   const homeState = resolveDataViewState({
     loading: mode === 'demo' ? demoLoading || demoHomeLoading : liveLoading,
@@ -110,8 +108,67 @@ export function Dashboard() {
     partial: mode === 'live' && sync.coverage !== 'complete',
     error: Boolean(mode === 'demo' ? demoError || demoHomeError : liveError),
   });
+  
+  useEffect(() => {
+    if (session.status === 'connected' && homeState === 'failed' && !hasAutoRetried.current) {
+      hasAutoRetried.current = true;
+      void refetchHomeSummary();
+    }
+  }, [session.status, homeState, refetchHomeSummary]);
+
+
+  if (mode === 'live' && session.status !== 'connected') return (
+    <div className="dashboard-view fresh-launch">
+      <div className="fresh-launch__card">
+        <div className="fresh-launch__brand"><GitMerge size={28} /></div>
+        <h1>Your GitHub work, mapped clearly.</h1>
+        <p>Connect your GitHub account to explore repositories, pull requests, issues, activity, and project flow in one focused workspace.</p>
+        <div className="actions">
+          <button className="home-primary" disabled={session.status==='checking'} onClick={() => setShowAuth(true)}>{session.status==='error'?'Reconnect GitHub':'Connect GitHub'}</button>
+          <button className="btn-secondary" onClick={enterDemo}>Explore Demo</button>
+        </div>
+        <div style={{ marginTop: '24px', fontSize: '11px', color: 'var(--text-muted)' }}>Your authorization is handled through GitHub Device Flow.</div>
+      </div>
+      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
+    </div>
+  );
+
+
+  if (session.status === 'connected' && homeState === 'initial-loading') {
+    return (
+      <main className="dashboard-view home-load-failure" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} role="status">
+        <div className="home-preparation" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+          <div className="prep-spinner" style={{ width: '48px', height: '48px', borderRadius: '50%', border: '3px solid color-mix(in srgb, var(--primary) 20%, transparent)', borderTopColor: 'var(--primary)', animation: 'spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite' }} />
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Preparing your Snow Devil workspace…</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>Loading repositories, issues, and pull requests.</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (homeState === 'initial-loading') return <HomeLoadingSkeleton />;
-  if (homeState === 'failed') return <main className="dashboard-view home-load-failure" role="alert"><ShieldAlert size={24}/><h1>GitHub workspace unavailable</h1><p>Snow Devil could not load a usable Home snapshot. Reconnect if needed, then retry.</p><button className="home-primary" onClick={() => void refetchHomeSummary()}>Retry</button></main>;
+
+  if (homeState === 'failed') return (
+    <main className="dashboard-view home-load-failure" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} role="alert">
+      <div style={{ background: 'var(--bg-secondary)', padding: '48px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 16px 40px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '580px', width: '100%', animation: 'fresh-fade-in 0.4s ease-out' }}>
+        <ShieldAlert size={48} style={{ color: 'var(--danger)', marginBottom: '24px' }} />
+        <h1 style={{ fontSize: '24px', margin: '0 0 16px', color: 'var(--text-primary)' }}>We connected to GitHub, but your workspace could not be prepared.</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '32px' }}>Snow Devil could not load a usable Home snapshot.</p>
+        <div className="actions" style={{ display: 'flex', gap: '12px', width: '100%', justifyContent: 'center' }}>
+          <button className="home-primary" style={{ minWidth: '120px' }} onClick={() => void refetchHomeSummary()}>Retry</button>
+          <button className="btn-secondary" onClick={enterDemo}>Open Demo Workspace</button>
+        </div>
+        <details style={{ marginTop: '32px', textAlign: 'left', background: 'var(--bg-primary)', padding: '16px', borderRadius: '8px', width: '100%', fontSize: '12px', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+          <summary style={{ cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>Technical Details</summary>
+          <div style={{ marginTop: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: '150px', overflowY: 'auto' }}>
+            {String(mode === 'demo' ? demoError || demoHomeError : liveError)}
+          </div>
+        </details>
+      </div>
+    </main>
+  );
 
   const openFlow = (stage?: FlowStage, statusFilter: MetricFilter | 'all' = 'all') => {
     const stageLabel = stage ? WORKFLOW_STAGES.find(value => value.id === stage)?.label : undefined;

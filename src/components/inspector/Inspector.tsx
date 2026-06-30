@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
-import { Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink, X } from 'lucide-react';
+import { useLayoutStore } from '../../stores/layout-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
 import { githubLabelStyle } from '../../lib/color-contrast';
@@ -87,6 +88,7 @@ export function Inspector() {
   const [copyStatus, setCopyStatus] = useState('');
   const [inspectorTabState, setInspectorTabState] = useState<{ entityKey:string; tab:InspectorTab }>({ entityKey:'', tab:'details' });
   const appMode = useModeStore(state => state.mode);
+  const setInspectorOpen = useLayoutStore(state => state.setInspectorOpen);
   const { tabs, activeTabId, openBrowserTab, openNativeTab } = useTabsStore();
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
   const activeTab = tabs.find(tab => tab.id === activeTabId);
@@ -121,7 +123,11 @@ export function Inspector() {
   }
 
   return <div className="inspector">
-    <header className="inspector-header"><h3>Inspector</h3>{(targetSource || isSimulator) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections"><button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}</header>
+    <header className="inspector-header">
+      <h3 className="inspector-header-title">Inspector</h3>
+      <button className="inspector-header-close" aria-label="Close Inspector" data-tooltip="Close Inspector\nHide contextual details for the current selection." onClick={() => setInspectorOpen(false)}><X size={14}/></button>
+    </header>
+    {(targetSource || isSimulator) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections"><button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
       {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context"><button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}>Open in Flow</button>{flowState.selectedAnalyticsEntity.kind === 'ci_health' && <button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}>Repository History</button>}</div>}
