@@ -11,7 +11,6 @@ import { useAuthStore } from '../../stores/auth-store';
 import { useModeStore } from '../../stores/mode-store';
 import { useDemoHome, useDemoManifest, useDemoPipeline } from '../../hooks/useDemoData';
 import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
-import { AuthModal } from '../auth/AuthModal';
 import { canonicalAttentionItems, homePreview, normalizeWorkflowItem, recentMerges, recentlyActiveRepositories, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
 import './Dashboard.css';
@@ -42,7 +41,7 @@ export function Dashboard() {
   const mode = useModeStore(state => state.mode);
   const enterDemo = useModeStore(state => state.enterDemo);
   const session = useAuthStore(state => state.session);
-  const [showAuth, setShowAuth] = useState(false);
+  const openAuthModal = useAuthStore(state => state.openAuthModal);
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
   const [liveReference] = useState(() => Date.now());
   const { data: demoHome, isLoading: demoHomeLoading, error: demoHomeError } = useDemoHome();
@@ -124,12 +123,11 @@ export function Dashboard() {
         <h1>Your GitHub work, mapped clearly.</h1>
         <p>Connect your GitHub account to explore repositories, pull requests, issues, activity, and project flow in one focused workspace.</p>
         <div className="actions">
-          <button className="home-primary" disabled={session.status==='checking'} onClick={() => setShowAuth(true)}>{session.status==='error'?'Reconnect GitHub':'Connect GitHub'}</button>
+          <button className="home-primary" disabled={session.status==='checking'} onClick={openAuthModal}>{session.status==='error'?'Reconnect GitHub':'Connect GitHub'}</button>
           <button className="btn-secondary" onClick={enterDemo}>Explore Demo</button>
         </div>
         <div style={{ marginTop: '24px', fontSize: '11px', color: 'var(--text-muted)' }}>Your authorization is handled through GitHub Device Flow.</div>
       </div>
-      {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
     </div>
   );
 
