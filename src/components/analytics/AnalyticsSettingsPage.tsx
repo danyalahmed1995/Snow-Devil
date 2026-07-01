@@ -67,25 +67,10 @@ export function AnalyticsSettingsPage() {
   return <AnalyticsPage title="Settings" description="Global application, account, data, analytics defaults, and repository-specific evidence settings" demo={analytics.mode === 'demo'} controls={<span className="settings-autosave">Changes save automatically</span>}>
     <AnalyticsState loading={analytics.isLoading} error={analytics.error} partialReasons={[]} onRetry={() => void analytics.refetch()} />
     <div className="analytics-settings analytics-settings--sections">
-      <SectionCard title="General" action={<span className="analytics-status analytics-status--healthy">Auto-save</span>}><div className="analytics-settings-group">
+            <div className="settings-column">
+<SectionCard title="General" action={<span className="analytics-status analytics-status--healthy">Auto-save</span>}><div className="analytics-settings-group">
         <SettingRow label="Application behavior" description="Settings apply across live and demo workspaces.">Snow Devil keeps tabs and preferences across restart.</SettingRow>
         <SettingRow label="Reduced motion" description="Minimizes animated transitions and smooth scrolling throughout the app."><input type="checkbox" checked={settings.reducedMotion} onChange={event => updateSettings({ reducedMotion: event.target.checked })} /></SettingRow>
-      </div></SectionCard>
-
-      <SectionCard title="Notifications" action={<span className={`analytics-status analytics-status--${notificationPollingStatus === 'ready' ? 'healthy' : notificationPollingStatus === 'checking' ? 'warning' : 'unknown'}`}>{notificationPollingStatus.replace(/_/g, ' ')}</span>}><div className="analytics-settings-group">
-        <SettingRow label="In-app notification alerts" description="Shows one bounded, aggregated Snow Devil alert for a newly arrived batch."><input type="checkbox" checked={notificationSettings.inAppAlerts} onChange={event => updateNotificationSettings({ inAppAlerts: event.target.checked })}/></SettingRow>
-        <SettingRow label="Notification sounds" description="Plays one short sound per new batch after the silent baseline synchronization."><input type="checkbox" checked={notificationSettings.sounds} onChange={event => updateNotificationSettings({ sounds: event.target.checked })}/></SettingRow>
-        <SettingRow label="Desktop notifications" description="Unavailable until a least-privilege native permission flow is implemented safely."><input type="checkbox" disabled checked={false}/></SettingRow>
-        <SettingRow label="Notify while Snow Devil is focused" description="When disabled, focused polling still updates the inbox but suppresses arrival alerts."><input type="checkbox" checked={notificationSettings.notifyWhileFocused} onChange={event => updateNotificationSettings({ notifyWhileFocused: event.target.checked })}/></SettingRow>
-        <h3 className="settings-subheading">Notification reasons</h3>
-        <SettingRow label="Review requests" description="Alerts when GitHub requests your review."><input type="checkbox" checked={notificationSettings.reviewRequests} onChange={event => updateNotificationSettings({ reviewRequests: event.target.checked })}/></SettingRow>
-        <SettingRow label="Assignments" description="Alerts when an issue or pull request is assigned to you."><input type="checkbox" checked={notificationSettings.assignments} onChange={event => updateNotificationSettings({ assignments: event.target.checked })}/></SettingRow>
-        <SettingRow label="Mentions" description="Alerts for direct and team mentions."><input type="checkbox" checked={notificationSettings.mentions} onChange={event => updateNotificationSettings({ mentions: event.target.checked })}/></SettingRow>
-        <SettingRow label="CI activity" description="Allows new failure or watched-run completion alerts from CI Watcher."><input type="checkbox" checked={notificationSettings.ciActivity} onChange={event => updateNotificationSettings({ ciActivity: event.target.checked })}/></SettingRow>
-        <SettingRow label="Subscribed thread updates" description="Alerts for other GitHub subscribed-thread reasons."><input type="checkbox" checked={notificationSettings.subscribedUpdates} onChange={event => updateNotificationSettings({ subscribedUpdates: event.target.checked })}/></SettingRow>
-        <SettingRow label="Polling status" description={notificationPollingMessage ?? 'One application-level poller honors GitHub conditional validators and minimum intervals.'}>{notificationPollingStatus.replace(/_/g, ' ')}</SettingRow>
-        <SettingRow label="Last successful notification check" description="The last completed conditional GitHub notification synchronization.">{notificationSync?.lastSuccessAt ? new Date(notificationSync.lastSuccessAt).toLocaleString() : 'Not yet synchronized'}</SettingRow>
-        {import.meta.env.DEV && <SettingRow label="Clear local test notifications" description="Removes only development simulator records and resets the temporary arrival badge."><button className="analytics-button" onClick={clearTestNotifications}>Clear test notifications</button></SettingRow>}
       </div></SectionCard>
 
       <SectionCard title="Account & Privacy" action={<span className={`analytics-status analytics-status--${session.status === 'connected' ? 'excellent' : 'warning'}`}>{session.status}</span>}><div className="analytics-settings-group">
@@ -94,20 +79,6 @@ export function AnalyticsSettingsPage() {
         <SettingRow label="Export safe diagnostics" description="Downloads app/runtime metadata and anonymous record counts. Never includes tokens, cookies, repository names, API payloads, or file content."><button className="analytics-button" onClick={() => { setLifecycleStatus('Preparing privacy-safe diagnostics…'); void exportSafeDiagnostics().then(() => setLifecycleStatus('Diagnostic bundle downloaded.')).catch(() => setLifecycleStatus('Diagnostic export failed.')); }}>Export diagnostics</button></SettingRow>
         <SettingRow label="Full local reset" description="Deletes Snow Devil credentials, embedded browser data, cached GitHub data, restored tabs, simulator state, analytics, and preferences."><button className="analytics-button analytics-button--danger" onClick={() => setConfirmFullReset(true)}>Full local reset…</button></SettingRow>
         {lifecycleStatus && <p className="settings-lifecycle-status" aria-live="polite">{lifecycleStatus}</p>}
-      </div></SectionCard>
-
-      <SectionCard title="Data Scope" action={<span className="analytics-status analytics-status--healthy">{includedCount} included</span>}><div className="analytics-settings-group">
-        <h3 className="settings-subheading">Repositories</h3>
-        <SettingRow label="Include archived" description="Archived repositories are excluded by default."><input type="checkbox" checked={settings.includeArchived} onChange={event => updateSettings({ includeArchived: event.target.checked })} /></SettingRow>
-        <SettingRow label="Include fork repositories" description="Excludes fork repositories as standalone repositories from account analytics. Pull requests targeting your repositories remain included."><input type="checkbox" checked={settings.includeForks} onChange={event => updateSettings({ includeForks: event.target.checked })} /></SettingRow>
-        <SettingRow label="Include private" description="Uses private history only when the connected account can access it."><input type="checkbox" checked={settings.includePrivate} onChange={event => updateSettings({ includePrivate: event.target.checked })} /></SettingRow>
-        <h3 className="settings-subheading">Actors</h3>
-        <SettingRow label="Include automated work" description="Master switch for all bot-authored work. Specific bot switches apply only when enabled."><input type="checkbox" checked={settings.includeBots} onChange={event => updateSettings({ includeBots: event.target.checked })} /></SettingRow>
-        <SettingRow label="Dependabot" description="Dependency updates authored by Dependabot."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeDependabot} onChange={event => updateSettings({ includeDependabot: event.target.checked })} /></SettingRow>
-        <SettingRow label="Renovate" description="Dependency updates authored by Renovate."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeRenovate} onChange={event => updateSettings({ includeRenovate: event.target.checked })} /></SettingRow>
-        <SettingRow label="Other bots" description="Other actors identified as GitHub Apps or bot accounts."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeOtherBots} onChange={event => updateSettings({ includeOtherBots: event.target.checked })} /></SettingRow>
-        <h3 className="settings-subheading">Work</h3>
-        <SettingRow label="Include draft pull requests" description="Drafts may contribute to Coding, WIP, and stale-draft inventory."><input type="checkbox" checked={settings.includeDraftPullRequests} onChange={event => updateSettings({ includeDraftPullRequests: event.target.checked })} /></SettingRow>
       </div></SectionCard>
 
       <SectionCard title="Analytics"><div className="analytics-settings-group">
@@ -149,6 +120,39 @@ export function AnalyticsSettingsPage() {
         {failedRepositories.length > 0 && <ul className="settings-source-failures">{failedRepositories.map((value, index) => { const record = value && typeof value === 'object' ? value as Record<string, unknown> : {}; const failure = normalizeSyncFailure(String(record.error ?? value)); return <li key={`${String(record.repository ?? 'source')}-${index}`}><strong>{String(record.repository ?? 'GitHub source')} · {String(record.stage ?? 'unknown stage')} · {failure.code}</strong><span>{failure.message}</span>{failure.retryable && <button className="analytics-button" onClick={() => void sync.sync()}>Retry</button>}</li>; })}</ul>}
         {syncSummary.unsupportedSources.length > 0 && <ul className="settings-source-failures">{syncSummary.unsupportedSources.map(source => <li key={`${source.repository}:${source.source}`}><strong>{source.repository} · {source.source} · unsupported</strong><span>{source.reason}</span></li>)}</ul>}
       </div></SectionCard>
+      </div>
+      <div className="settings-column">
+<SectionCard title="Notifications" action={<span className={`analytics-status analytics-status--${notificationPollingStatus === 'ready' ? 'healthy' : notificationPollingStatus === 'checking' ? 'warning' : 'unknown'}`}>{notificationPollingStatus.replace(/_/g, ' ')}</span>}><div className="analytics-settings-group">
+        <SettingRow label="In-app notification alerts" description="Shows one bounded, aggregated Snow Devil alert for a newly arrived batch."><input type="checkbox" checked={notificationSettings.inAppAlerts} onChange={event => updateNotificationSettings({ inAppAlerts: event.target.checked })}/></SettingRow>
+        <SettingRow label="Notification sounds" description="Plays one short sound per new batch after the silent baseline synchronization."><input type="checkbox" checked={notificationSettings.sounds} onChange={event => updateNotificationSettings({ sounds: event.target.checked })}/></SettingRow>
+        <SettingRow label="Desktop notifications" description="Unavailable until a least-privilege native permission flow is implemented safely."><input type="checkbox" disabled checked={false}/></SettingRow>
+        <SettingRow label="Notify while Snow Devil is focused" description="When disabled, focused polling still updates the inbox but suppresses arrival alerts."><input type="checkbox" checked={notificationSettings.notifyWhileFocused} onChange={event => updateNotificationSettings({ notifyWhileFocused: event.target.checked })}/></SettingRow>
+        <h3 className="settings-subheading">Notification reasons</h3>
+        <SettingRow label="Review requests" description="Alerts when GitHub requests your review."><input type="checkbox" checked={notificationSettings.reviewRequests} onChange={event => updateNotificationSettings({ reviewRequests: event.target.checked })}/></SettingRow>
+        <SettingRow label="Assignments" description="Alerts when an issue or pull request is assigned to you."><input type="checkbox" checked={notificationSettings.assignments} onChange={event => updateNotificationSettings({ assignments: event.target.checked })}/></SettingRow>
+        <SettingRow label="Mentions" description="Alerts for direct and team mentions."><input type="checkbox" checked={notificationSettings.mentions} onChange={event => updateNotificationSettings({ mentions: event.target.checked })}/></SettingRow>
+        <SettingRow label="CI activity" description="Allows new failure or watched-run completion alerts from CI Watcher."><input type="checkbox" checked={notificationSettings.ciActivity} onChange={event => updateNotificationSettings({ ciActivity: event.target.checked })}/></SettingRow>
+        <SettingRow label="Subscribed thread updates" description="Alerts for other GitHub subscribed-thread reasons."><input type="checkbox" checked={notificationSettings.subscribedUpdates} onChange={event => updateNotificationSettings({ subscribedUpdates: event.target.checked })}/></SettingRow>
+        <SettingRow label="Polling status" description={notificationPollingMessage ?? 'One application-level poller honors GitHub conditional validators and minimum intervals.'}>{notificationPollingStatus.replace(/_/g, ' ')}</SettingRow>
+        <SettingRow label="Last successful notification check" description="The last completed conditional GitHub notification synchronization.">{notificationSync?.lastSuccessAt ? new Date(notificationSync.lastSuccessAt).toLocaleString() : 'Not yet synchronized'}</SettingRow>
+        {import.meta.env.DEV && <SettingRow label="Clear local test notifications" description="Removes only development simulator records and resets the temporary arrival badge."><button className="analytics-button" onClick={clearTestNotifications}>Clear test notifications</button></SettingRow>}
+      </div></SectionCard>
+
+      <SectionCard title="Data Scope" action={<span className="analytics-status analytics-status--healthy">{includedCount} included</span>}><div className="analytics-settings-group">
+        <h3 className="settings-subheading">Repositories</h3>
+        <SettingRow label="Include archived" description="Archived repositories are excluded by default."><input type="checkbox" checked={settings.includeArchived} onChange={event => updateSettings({ includeArchived: event.target.checked })} /></SettingRow>
+        <SettingRow label="Include fork repositories" description="Excludes fork repositories as standalone repositories from account analytics. Pull requests targeting your repositories remain included."><input type="checkbox" checked={settings.includeForks} onChange={event => updateSettings({ includeForks: event.target.checked })} /></SettingRow>
+        <SettingRow label="Include private" description="Uses private history only when the connected account can access it."><input type="checkbox" checked={settings.includePrivate} onChange={event => updateSettings({ includePrivate: event.target.checked })} /></SettingRow>
+        <h3 className="settings-subheading">Actors</h3>
+        <SettingRow label="Include automated work" description="Master switch for all bot-authored work. Specific bot switches apply only when enabled."><input type="checkbox" checked={settings.includeBots} onChange={event => updateSettings({ includeBots: event.target.checked })} /></SettingRow>
+        <SettingRow label="Dependabot" description="Dependency updates authored by Dependabot."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeDependabot} onChange={event => updateSettings({ includeDependabot: event.target.checked })} /></SettingRow>
+        <SettingRow label="Renovate" description="Dependency updates authored by Renovate."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeRenovate} onChange={event => updateSettings({ includeRenovate: event.target.checked })} /></SettingRow>
+        <SettingRow label="Other bots" description="Other actors identified as GitHub Apps or bot accounts."><input type="checkbox" disabled={!settings.includeBots} checked={settings.includeOtherBots} onChange={event => updateSettings({ includeOtherBots: event.target.checked })} /></SettingRow>
+        <h3 className="settings-subheading">Work</h3>
+        <SettingRow label="Include draft pull requests" description="Drafts may contribute to Coding, WIP, and stale-draft inventory."><input type="checkbox" checked={settings.includeDraftPullRequests} onChange={event => updateSettings({ includeDraftPullRequests: event.target.checked })} /></SettingRow>
+      </div></SectionCard>
+
+            </div>
     </div>
     <p className="settings-default-note">Defaults: {DEFAULT_ANALYTICS_SETTINGS.branchThresholdHours} business-hour branch threshold, {DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds.agingDays}–{DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds.staleDays} business-day inventory bands, and bounded cached history.</p>
     {showAuth && <AuthModal onClose={() => setShowAuth(false)} />}
