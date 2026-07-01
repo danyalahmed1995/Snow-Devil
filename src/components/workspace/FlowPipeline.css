@@ -80,11 +80,13 @@
   grid-auto-rows: max-content;
   align-content: start;
   overflow: visible;
+  /* The outer focused scroller owns vertical movement. Keeping the normal
+     lane's `contain` here traps wheel input over cards in WebView2. */
+  overscroll-behavior-y: auto;
 }
 .flow-workbench-pipeline--focused .flow-stage-content > [data-flow-item-id] { min-width: 0; }
-.flow-lane-scroller--focused {
+.flow-lane-scroller.flow-lane-scroller--focused {
   flex: 1 1 0;
-  height: 100%;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -92,8 +94,14 @@
   overscroll-behavior-block: contain;
   scrollbar-gutter: stable;
   scroll-padding-block: 44px 12px;
+  opacity: 1;
+  transition: opacity 0.15s ease-out;
 }
-.flow-lane-scroller--focused:focus-visible {
+.flow-lane-scroller.flow-lane-scroller--cloaked {
+  opacity: 0;
+  transition: none; /* Instant hide when cloaking */
+}
+.flow-lane-scroller.flow-lane-scroller--focused:focus-visible {
   outline: 2px solid var(--border-focus);
   outline-offset: -2px;
 }

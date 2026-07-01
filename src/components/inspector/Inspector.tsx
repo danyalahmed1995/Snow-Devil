@@ -131,7 +131,30 @@ export function Inspector() {
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
       {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context"><button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}>Open in Flow</button>{flowState.selectedAnalyticsEntity.kind === 'ci_health' && <button type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}>Repository History</button>}</div>}
-      {target && <div className="inspector-actions"><button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button><button type="button" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><ExternalLink size={12} /> Open in Default Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button></div>}
+      {target && <div className="inspector-actions">
+        {activeTabId === 'native:home' && selectedItem && (
+          <button
+            className="inspector-open-flow"
+            type="button"
+            data-tooltip="Open in Flow\nNavigate to the Flow tab and focus this item."
+            onClick={() => {
+              useFlowStore.getState().setTabState('native:flow', {
+                scope: 'account',
+                filterStage: selectedItem.stage,
+                statusFilter: selectedItem.stage === 'merged' ? 'merged' : 'all',
+                search: '',
+                selectedItemId: selectedItem.id,
+                selectedFlowItem: selectedItem,
+                pendingScrollItemId: selectedItem.id,
+                sourceContext: `Opened from Inspector: ${selectedItem.title}`
+              });
+              openNativeTab('native:flow', 'flow', 'Flow', false, true);
+            }}
+          >
+            Open in Flow
+          </button>
+        )}
+        <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button><button type="button" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><ExternalLink size={12} /> Open in Default Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button></div>}
       {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open in Tab unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
     </footer>}
   </div>;
