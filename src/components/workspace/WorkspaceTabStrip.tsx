@@ -123,7 +123,7 @@ export function WorkspaceTabStrip() {
   </div>, document.body) : null;
 
   return (
-    <div className="workspace-tab-strip glass-panel" role="tablist" onPointerDown={event => { if (menu && event.target === event.currentTarget) closeMenu(); }}>
+    <div className="workspace-tab-strip" role="tablist" onPointerDown={event => { if (menu && event.target === event.currentTarget) closeMenu(); }}>
       <div className="workspace-tab-scroll" onScroll={() => { if (menu) closeMenu(); }}>
         {tabs.map((tab: WorkspaceTab) => {
           const isActive = tab.id === activeTabId;
