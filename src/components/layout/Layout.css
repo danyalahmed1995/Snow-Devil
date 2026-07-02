@@ -31,8 +31,7 @@
   z-index: 10;
   overflow: hidden;
   background-clip: padding-box;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  isolation: isolate;
+  transform: translateZ(0);
 }
 
 .layout-workspace {
@@ -56,8 +55,7 @@
   overflow: hidden;
   position: relative;
   background-clip: padding-box;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  isolation: isolate;
+  transform: translateZ(0);
 }
 .layout-inspector-resizer{position:absolute;inset:0 auto 0 -4px;width:8px;cursor:col-resize;z-index:2}.layout-inspector-resizer:hover,.layout-inspector-resizer:focus-visible{background:color-mix(in srgb,var(--accent) 25%,transparent)}
 
