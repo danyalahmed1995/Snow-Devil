@@ -7,18 +7,58 @@
 }
 
 .inspector-header {
-  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 16px;
+  height: 46px;
   border-bottom: 1px solid var(--border-subtle);
   min-width: 0;
+  flex-shrink: 0;
 }
 
-.inspector-header h3 {
-  font-size: 14px;
-  font-weight: 600;
+.inspector-header-title {
+  font-size: 11px;
+  font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
   margin: 0;
+  line-height: 1;
+  user-select: none;
+}
+
+.inspector-header-spacer { display: none; }
+
+.inspector-header-close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.inspector-header-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.inspector-header-top { display: flex; align-items: center; justify-content: space-between; }
+.inspector-close-btn { display: none; }
+
+.inspector-header h3 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+  line-height: 1;
 }
 
 .inspector-content {
@@ -203,7 +243,7 @@
 .inspector-open-tab:disabled { cursor:not-allowed; background:var(--disabled-bg); color:var(--disabled-fg); border:1px solid var(--border-subtle); }
 .inspector-why { padding:9px; border:1px solid color-mix(in srgb,var(--accent) 32%,var(--border-standard)); border-radius:5px; background:color-mix(in srgb,var(--accent) 8%,var(--surface-panel)); }
 .inspector-partial { margin:0; padding:6px; border:1px solid color-mix(in srgb,var(--status-warning-bg) 35%,var(--border-standard)); border-radius:4px; color:var(--status-warning-fg); background:var(--status-warning-bg); font-size:10px; }
-.inspector-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:16px; }.inspector-actions .inspector-open-tab { grid-column:1/-1; margin:0; }.inspector-actions>button:not(.inspector-open-tab) { min-height:31px; display:inline-flex; align-items:center; justify-content:center; gap:5px; border:1px solid var(--border-subtle); border-radius:5px; color:var(--text-secondary); background:var(--bg-secondary); font-size:10px; }.inspector-copy-status { min-height:16px; margin-top:5px; color:var(--success); font-size:9px; text-align:center; }
+.inspector-actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:16px; }.inspector-actions .inspector-open-tab { grid-column:1/-1; margin:0; }.inspector-actions .inspector-open-flow { grid-column:1/-1; justify-self:stretch; width:100%; }.inspector-actions>button:not(.inspector-open-tab) { position:relative; overflow:hidden; transition:border-color 0.2s ease, background 0.2s ease, transform 0.1s ease, color 0.2s ease; min-height:31px; display:inline-flex; align-items:center; justify-content:center; gap:5px; border:1px solid var(--border-subtle); border-radius:5px; color:var(--text-secondary); background:var(--bg-secondary); font-size:10px; }.inspector-actions>button:not(.inspector-open-tab)::after { content:""; position:absolute; top:0; left:-100%; width:50%; height:100%; background:linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent); transform:skewX(-20deg); transition:none; pointer-events:none; }.inspector-actions>button:not(.inspector-open-tab):hover { border-color:var(--accent-primary); background:color-mix(in srgb, var(--accent-primary) 8%, var(--bg-secondary)); color:var(--text-primary); }.inspector-actions>button:not(.inspector-open-tab):hover::after { animation:inspector-btn-flash 0.6s ease-out; }.inspector-actions>button:not(.inspector-open-tab):active { transform:scale(0.97); }@keyframes inspector-btn-flash { 0% { left:-100%; } 100% { left:200%; } }.inspector-copy-status { min-height:16px; margin-top:5px; color:var(--success); font-size:9px; text-align:center; }
 
 .inspector-timeline { display:flex; flex-direction:column; }
 .inspector-timeline > div { display:flex; gap:8px; min-height:38px; }
@@ -217,9 +257,9 @@
 
 /* Reference inspector: grouped content, optional tabs, and a stable action rail. */
 .inspector{background:linear-gradient(180deg,rgba(26,49,79,.22),transparent 24%),var(--surface-inspector)}
-.inspector-header{flex:0 0 auto;padding:14px 42px 0 16px;border-bottom:1px solid var(--divider)}
+.inspector-header{flex:0 0 auto;border-bottom:1px solid var(--divider)}
 .inspector-header h3{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-muted)}
-.inspector-tabs{display:flex;gap:4px;margin:12px -3px 0}.inspector-tabs button{min-height:34px;padding:0 10px;border-bottom:2px solid transparent;color:var(--text-muted);font-size:11px}.inspector-tabs button:hover{color:var(--text-primary)}.inspector-tabs button.is-active{border-bottom-color:var(--accent);color:var(--text-primary);background:linear-gradient(180deg,transparent,rgba(57,120,255,.08))}
+.inspector-tabs{display:flex;margin:12px 0 0;padding:4px;border-radius:6px;background:rgba(0,0,0,0.25);box-shadow:inset 0 1px 3px rgba(0,0,0,0.4)}.inspector-tabs button{flex:1;min-height:30px;padding:0 16px;border:none;border-radius:4px;color:var(--text-muted);font-size:11px;font-weight:600;background:transparent;transition:all var(--motion-fast) ease}.inspector-tabs button:hover{color:var(--text-primary)}.inspector-tabs button.is-active{color:#fff;background:var(--accent);box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 40%,transparent),inset 0 1px 1px rgba(255,255,255,0.2)}
 .inspector-content{padding:16px 15px 20px}.inspector-details{gap:14px}
 .inspector-details--timeline>.inspector-section:not(.inspector-timeline-section){display:none}.inspector-details--details>.inspector-timeline-section{display:none}
 .inspector-section{gap:9px;padding:12px;border:1px solid rgba(155,190,232,.09);border-radius:var(--radius-standard);background:linear-gradient(145deg,rgba(25,48,78,.44),rgba(8,22,39,.34));box-shadow:var(--inner-highlight)}

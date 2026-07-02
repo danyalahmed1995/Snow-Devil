@@ -10,6 +10,7 @@ export interface TabFlowState {
   selectedRepository?: { id: string; nameWithOwner: string };
   selectedItemId?: string;
   selectedFlowItem?: FlowItem;
+  pendingScrollItemId?: string;
   selectedSimulatorEntity?: SimulatorEntityState;
   selectedSimulatorCurrentEntity?: SimulatorEntityState;
   selectedSimulatorEvent?: SimulatorEvent;
@@ -51,6 +52,7 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
   actorFilter: 'everyone',
   accountRepositoryFilter: 'all',
   sortOrder: 'newest',
+  pendingScrollItemId: undefined,
 };
 
 interface FlowStore {

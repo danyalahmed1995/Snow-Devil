@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import type { FlowItem, FlowStage } from '../../types/flow';
 import { FlowCard } from './FlowCard';
 import { WORKFLOW_STAGES } from '../../lib/workflow-presentation';
@@ -20,6 +20,9 @@ interface FlowPipelineProps {
   hideEmptyStages?: boolean;
   onOpenItem?: (item: FlowItem) => void;
   focusedStage?: FlowStage;
+  pendingScrollItemId?: string;
+  onConsumeScroll?: () => void;
+  isSurfaceActive?: boolean;
 }
 
 function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
@@ -35,12 +38,26 @@ function getSourceKeyForStage(stage: FlowStage): keyof SourceControls {
 const scrollCache = new Map<string, { left: number; top: number; ratio: number; tops: Record<string, number> }>();
 const expandedStageCache = new Map<string, boolean>();
 
-export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, sourceControls, resetKey, hideEmptyStages = false, focusedStage }: FlowPipelineProps) {
+export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, sourceControls, resetKey, hideEmptyStages = false, focusedStage, pendingScrollItemId, onConsumeScroll, isSurfaceActive = true }: FlowPipelineProps) {
   const laneScrollerRef = useRef<HTMLDivElement>(null);
   const focusedScrollRatioRef = useRef(0);
   const focusedWidthRef = useRef(0);
-
   const previousScrollContextRef = useRef<string | null>(null);
+
+  // Re-cloak the viewport when a new focus request arrives
+  const [cloakedTargetId, setCloakedTargetId] = useState<string | null>(pendingScrollItemId || null);
+  React.useEffect(() => {
+    if (pendingScrollItemId && pendingScrollItemId !== cloakedTargetId) {
+      setCloakedTargetId(pendingScrollItemId);
+    }
+  }, [pendingScrollItemId]); // deliberately omit cloakedTargetId
+
+  // Uncloak when the request is fully consumed
+  React.useEffect(() => {
+    if (!pendingScrollItemId && cloakedTargetId) {
+      setCloakedTargetId(null);
+    }
+  }, [pendingScrollItemId, cloakedTargetId]);
 
   // Restore or reset scroll on mount / context change
   React.useLayoutEffect(() => {
@@ -58,7 +75,9 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
     previousScrollContextRef.current = currentKey;
 
     const cached = scrollCache.get(currentKey);
-    if (cached) {
+    const hasPendingScroll = !!pendingScrollItemId;
+
+    if (cached && !hasPendingScroll) {
       scroller.scrollLeft = cached.left;
       focusedScrollRatioRef.current = cached.ratio;
       scroller.scrollTop = cached.top;
@@ -73,7 +92,7 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
           lane.scrollTop = cached.tops[stageId];
         }
       });
-    } else {
+    } else if (!hasPendingScroll) {
       scroller.scrollLeft = 0;
       scroller.scrollTop = 0;
       const lanes = scroller.querySelectorAll('.flow-stage-content');
@@ -81,26 +100,32 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
         lane.scrollTop = 0;
       });
     }
-  }, [focusedStage, resetKey]);
+  }, [focusedStage, resetKey, pendingScrollItemId]);
 
   React.useLayoutEffect(() => {
     const scroller = laneScrollerRef.current;
     if (!focusedStage || !scroller || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(entries => {
+      // Do not fight positioning logic
+      if (cloakedTargetId || pendingScrollItemId) return;
       const width = entries[0]?.contentRect.width ?? scroller.clientWidth;
       const previousWidth = focusedWidthRef.current;
       focusedWidthRef.current = width;
       if (!previousWidth || Math.abs(previousWidth - width) < 1) return;
       requestAnimationFrame(() => {
+        if (cloakedTargetId || pendingScrollItemId) return;
         const maximum = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
         scroller.scrollTop = focusedScrollRatioRef.current * maximum;
       });
     });
     observer.observe(scroller);
     return () => observer.disconnect();
-  }, [focusedStage]);
+  }, [focusedStage, pendingScrollItemId, cloakedTargetId]);
 
   const handleLaneScroll = () => {
+    // Suppress scroll cache writes during prepositioning
+    if (cloakedTargetId) return;
+
     const currentKey = previousScrollContextRef.current;
     if (!currentKey) return;
     
@@ -127,17 +152,6 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
     });
   };
 
-  const handleFocusedWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (!focusedStage || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-    const scroller = laneScrollerRef.current;
-    if (!scroller || scroller.scrollHeight <= scroller.clientHeight) return;
-    const next = Math.max(0, Math.min(scroller.scrollHeight - scroller.clientHeight, scroller.scrollTop + event.deltaY));
-    if (next === scroller.scrollTop) return;
-    event.preventDefault();
-    scroller.scrollTop = next;
-    handleLaneScroll();
-  };
-
   const groupedItems = React.useMemo(() => {
     return items.reduce((acc, item) => {
       if (acc[item.stage]) acc[item.stage].push(item);
@@ -157,21 +171,13 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
     } as Record<FlowStage, FlowItem[]>);
   }, [items]);
 
-  const hasActiveItems = items.some(i => i.type !== 'release' && i.stage !== 'merged');
-  
   return (
     <div className={`flow-pipeline-shell${focusedStage ? ' flow-pipeline-shell--focused' : ''}`}>
-      {!hasActiveItems && (
-        <div className="flow-empty-banner" style={{ padding: '12px 16px', background: 'var(--surface)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)', textAlign: 'center', fontSize: '13px', pointerEvents: 'none' }}>
-          No active issues or pull requests found.
-        </div>
-      )}
       <div
-        className={`flow-lane-scroller ${focusedStage ? 'flow-lane-scroller--focused' : ''}`}
+        className={`flow-lane-scroller ${focusedStage ? 'flow-lane-scroller--focused' : ''} ${cloakedTargetId ? 'flow-lane-scroller--cloaked' : ''}`}
         ref={laneScrollerRef}
         data-testid="flow-lane-scroller"
         onScroll={handleLaneScroll}
-        onWheel={focusedStage ? handleFocusedWheel : undefined}
         tabIndex={focusedStage ? 0 : undefined}
         aria-label={focusedStage ? `${WORKFLOW_STAGES.find(stage => stage.id === focusedStage)?.label ?? 'Focused stage'} results` : 'Flow stages'}
       >
@@ -202,6 +208,11 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
                 countDisplay={countDisplay}
                 onScroll={handleLaneScroll}
                 expansionKey={`${resetKey || 'default'}:${stage.id}`}
+                pendingScrollItemId={pendingScrollItemId}
+                onConsumeScroll={onConsumeScroll}
+                isSurfaceActive={isSurfaceActive}
+                onFocusSettled={handleLaneScroll}
+                usesPipelineScroller={Boolean(focusedStage)}
               />
             );
           })}
@@ -213,21 +224,87 @@ export function FlowPipeline({ items, selectedItemId, onSelectItem, onOpenItem, 
 
 const FLOW_STAGE_PREVIEW_LIMIT = 5;
 
-function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, source, countDisplay, onScroll, expansionKey }: { stage: { id: FlowStage; label: string }; items: FlowItem[]; selectedItemId?: string; onSelectItem?: (item: FlowItem) => void; onOpenItem?: (item: FlowItem) => void; source: SourceControls[keyof SourceControls]; countDisplay: string | number; onScroll: () => void; expansionKey: string }) {
+function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, source, countDisplay, onScroll, expansionKey, pendingScrollItemId, onConsumeScroll, isSurfaceActive, onFocusSettled, usesPipelineScroller }: { stage: { id: FlowStage; label: string }; items: FlowItem[]; selectedItemId?: string; onSelectItem?: (item: FlowItem) => void; onOpenItem?: (item: FlowItem) => void; source: SourceControls[keyof SourceControls]; countDisplay: string | number; onScroll: () => void; expansionKey: string; pendingScrollItemId?: string; onConsumeScroll?: () => void; isSurfaceActive: boolean; onFocusSettled: () => void; usesPipelineScroller: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(() => expandedStageCache.get(expansionKey) ?? false);
-  const visibleItems = expanded ? items : items.slice(0, FLOW_STAGE_PREVIEW_LIMIT);
+  const shouldExpandForFocus = Boolean(pendingScrollItemId && items.slice(FLOW_STAGE_PREVIEW_LIMIT).some(item => item.id === pendingScrollItemId));
+  const visibleItems = expanded || shouldExpandForFocus ? items : items.slice(0, FLOW_STAGE_PREVIEW_LIMIT);
   const hidden = Math.max(0, items.length - visibleItems.length);
 
-  useEffect(() => {
-    if (!selectedItemId || !scrollRef.current) return;
-    if (items.some(item => item.id === selectedItemId) && !visibleItems.some(item => item.id === selectedItemId)) {
+  // Stable refs for things that shouldn't trigger the positioning effect
+  const latestProps = useRef({ items, visibleItems, onConsumeScroll, onFocusSettled, source });
+  React.useLayoutEffect(() => {
+    latestProps.current = { items, visibleItems, onConsumeScroll, onFocusSettled, source };
+  });
+
+  // Synchronous pre-positioning effect
+  React.useLayoutEffect(() => {
+    if (!pendingScrollItemId || !isSurfaceActive) return;
+
+    const { items: currentItems, visibleItems: currentVisible, onConsumeScroll: currentConsume, onFocusSettled: currentSettle, source: currentSource } = latestProps.current;
+
+    const hasItem = currentItems.some(item => item.id === pendingScrollItemId);
+    if (!hasItem) {
+      // Safe failure path: if data is fully loaded and item is not found, consume to lift cloak.
+      if (!currentSource.isFetching && !currentSource.hasNextPage) {
+        console.warn(`[FlowFocus] Target ${pendingScrollItemId} not found in stage ${stage.id}. Consuming request to lift cloak.`);
+        requestAnimationFrame(() => currentConsume?.());
+      }
+      return;
+    }
+
+    const isInVisibleSet = currentVisible.some(item => item.id === pendingScrollItemId);
+    if (!isInVisibleSet) return; // Wait for expansion to settle
+
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const targetElement = container.querySelector<HTMLElement>(
+      `[data-flow-item-id="${CSS.escape(pendingScrollItemId)}"]`
+    );
+    if (!targetElement) return;
+
+    const scrollContainer = usesPipelineScroller ? targetElement.closest<HTMLElement>('.flow-lane-scroller') : container;
+    if (!scrollContainer) return;
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const relativeTop = targetRect.top - containerRect.top + scrollContainer.scrollTop;
+    
+    // Position target near the upper third (offsetting for headers)
+    const padding = 120; // leaves space for sticky headers/bars
+    const desiredScrollTop = relativeTop - padding;
+    const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+    const endScrollTop = Math.max(0, Math.min(maxScrollTop, desiredScrollTop));
+
+    // Synchronously assign the destination
+    scrollContainer.scrollTop = endScrollTop;
+
+    if (shouldExpandForFocus) {
       expandedStageCache.set(expansionKey, true);
       setExpanded(true);
     }
-    const selected = [...scrollRef.current.querySelectorAll<HTMLElement>('[data-flow-item-id]')].find(element => element.dataset.flowItemId === selectedItemId);
-    selected?.scrollIntoView?.({ block: 'nearest' });
-  }, [expanded, expansionKey, items, selectedItemId, visibleItems]);
+    
+    currentSettle();
+
+    // Consume the request to lift the cloaking on the NEXT frame,
+    // ensuring the DOM has settled at the new position before becoming visible.
+    requestAnimationFrame(() => {
+      currentConsume?.();
+      
+      const card = targetElement.querySelector('.flow-card');
+      if (card) {
+        card.classList.add('flow-card--target-highlight');
+        setTimeout(() => {
+          if (card.isConnected) {
+            card.classList.remove('flow-card--target-highlight');
+          }
+        }, 800);
+      }
+    });
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingScrollItemId, expanded, isSurfaceActive, stage.id]);
 
   const toggleExpanded = () => {
     if (expanded) {

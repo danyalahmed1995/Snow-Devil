@@ -11,7 +11,6 @@ import { useAuthStore } from '../../stores/auth-store';
 import { useModeStore } from '../../stores/mode-store';
 import { useDemoHome, useDemoManifest, useDemoPipeline } from '../../hooks/useDemoData';
 import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
-import { AuthModal } from '../auth/AuthModal';
 import { canonicalAttentionItems, homePreview, normalizeWorkflowItem, recentMerges, recentlyActiveRepositories, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
 import './Dashboard.css';
@@ -38,10 +37,11 @@ function greeting(hour = new Date().getHours()): string {
 
 export function Dashboard() {
   const homeRef = useRef<HTMLElement>(null);
+  const hasAutoRetried = useRef(false);
   const mode = useModeStore(state => state.mode);
   const enterDemo = useModeStore(state => state.enterDemo);
   const session = useAuthStore(state => state.session);
-  const [showAuth, setShowAuth] = useState(false);
+  const openAuthModal = useAuthStore(state => state.openAuthModal);
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
   const [liveReference] = useState(() => Date.now());
   const { data: demoHome, isLoading: demoHomeLoading, error: demoHomeError } = useDemoHome();
@@ -98,9 +98,6 @@ export function Dashboard() {
       cancelAnimationFrame(frame);
     };
   }, [isActiveTab, mode, session.status]);
-
-  if (mode === 'live' && session.status !== 'connected') return <div className="dashboard-view fresh-launch"><div className="fresh-launch__card"><span className="demo-mode-badge">Snow Devil</span><h1>{session.status==='error'&&session.kind==='expired'?'Reconnect your GitHub account.':'See how work moves through GitHub.'}</h1><p>{session.status==='checking'?'Checking your saved GitHub connection…':session.status==='error'?session.message:'Connect an account for live data, or explore a deterministic offline workspace. No account is required for the demo.'}</p><div><button className="auth-btn" disabled={session.status==='checking'} onClick={() => setShowAuth(true)}>{session.status==='error'?'Reconnect GitHub':'Sign in with GitHub'}</button><button className="btn-secondary" onClick={enterDemo}>Explore Demo</button></div></div>{showAuth && <AuthModal onClose={() => setShowAuth(false)} />}</div>;
-
   const hasSnapshot = mode === 'demo' ? Boolean(demoHome && demoPipeline) : rawSummaryData !== undefined;
   const homeState = resolveDataViewState({
     loading: mode === 'demo' ? demoLoading || demoHomeLoading : liveLoading,
@@ -110,8 +107,66 @@ export function Dashboard() {
     partial: mode === 'live' && sync.coverage !== 'complete',
     error: Boolean(mode === 'demo' ? demoError || demoHomeError : liveError),
   });
+  
+  useEffect(() => {
+    if (session.status === 'connected' && homeState === 'failed' && !hasAutoRetried.current) {
+      hasAutoRetried.current = true;
+      void refetchHomeSummary();
+    }
+  }, [session.status, homeState, refetchHomeSummary]);
+
+
+  if (mode === 'live' && session.status !== 'connected') return (
+    <div className="dashboard-view fresh-launch">
+      <div className="fresh-launch__card">
+        <div className="fresh-launch__brand"><GitMerge size={28} /></div>
+        <h1>Your GitHub work, mapped clearly.</h1>
+        <p>Connect your GitHub account to explore repositories, pull requests, issues, activity, and project flow in one focused workspace.</p>
+        <div className="actions">
+          <button className="home-primary" disabled={session.status==='checking'} onClick={openAuthModal}>{session.status==='error'?'Reconnect GitHub':'Connect GitHub'}</button>
+          <button className="btn-secondary" onClick={enterDemo}>Explore Demo</button>
+        </div>
+        <div style={{ marginTop: '24px', fontSize: '11px', color: 'var(--text-muted)' }}>Your authorization is handled through GitHub Device Flow.</div>
+      </div>
+    </div>
+  );
+
+
+  if (session.status === 'connected' && homeState === 'initial-loading') {
+    return (
+      <main className="dashboard-view home-load-failure" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} role="status">
+        <div className="home-preparation" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+          <div className="prep-spinner" style={{ width: '48px', height: '48px', borderRadius: '50%', border: '3px solid color-mix(in srgb, var(--primary) 20%, transparent)', borderTopColor: 'var(--primary)', animation: 'spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite' }} />
+          <div style={{ textAlign: 'center' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Preparing your Snow Devil workspace…</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>Loading repositories, issues, and pull requests.</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   if (homeState === 'initial-loading') return <HomeLoadingSkeleton />;
-  if (homeState === 'failed') return <main className="dashboard-view home-load-failure" role="alert"><ShieldAlert size={24}/><h1>GitHub workspace unavailable</h1><p>Snow Devil could not load a usable Home snapshot. Reconnect if needed, then retry.</p><button className="home-primary" onClick={() => void refetchHomeSummary()}>Retry</button></main>;
+
+  if (homeState === 'failed') return (
+    <main className="dashboard-view home-load-failure" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} role="alert">
+      <div style={{ background: 'var(--bg-secondary)', padding: '48px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 16px 40px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '580px', width: '100%', animation: 'fresh-fade-in 0.4s ease-out' }}>
+        <ShieldAlert size={48} style={{ color: 'var(--danger)', marginBottom: '24px' }} />
+        <h1 style={{ fontSize: '24px', margin: '0 0 16px', color: 'var(--text-primary)' }}>We connected to GitHub, but your workspace could not be prepared.</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '32px' }}>Snow Devil could not load a usable Home snapshot.</p>
+        <div className="actions" style={{ display: 'flex', gap: '12px', width: '100%', justifyContent: 'center' }}>
+          <button className="home-primary" style={{ minWidth: '120px' }} onClick={() => void refetchHomeSummary()}>Retry</button>
+          <button className="btn-secondary" onClick={enterDemo}>Open Demo Workspace</button>
+        </div>
+        <details style={{ marginTop: '32px', textAlign: 'left', background: 'var(--bg-primary)', padding: '16px', borderRadius: '8px', width: '100%', fontSize: '12px', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)' }}>
+          <summary style={{ cursor: 'pointer', userSelect: 'none', fontWeight: 600 }}>Technical Details</summary>
+          <div style={{ marginTop: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: '150px', overflowY: 'auto' }}>
+            {String(mode === 'demo' ? demoError || demoHomeError : liveError)}
+          </div>
+        </details>
+      </div>
+    </main>
+  );
 
   const openFlow = (stage?: FlowStage, statusFilter: MetricFilter | 'all' = 'all') => {
     const stageLabel = stage ? WORKFLOW_STAGES.find(value => value.id === stage)?.label : undefined;
@@ -119,8 +174,21 @@ export function Dashboard() {
     setTabState('native:flow', { scope: 'account', filterStage: stage, statusFilter, search: '', sourceContext: stageLabel ?? statusLabel ? `Opened from Home: ${stageLabel ?? statusLabel}` : undefined });
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
-  const selectItem = (item: FlowItem) => setTabState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item, selectedAnalyticsEntity: undefined });
+  const openFlowForItem = (item: FlowItem) => {
+    setTabState('native:flow', {
+      scope: 'account',
+      filterStage: item.stage,
+      statusFilter: item.stage === 'merged' ? 'merged' : 'all',
+      search: '',
+      selectedItemId: item.id,
+      selectedFlowItem: item,
+      pendingScrollItemId: item.id,
+      sourceContext: `Opened from Home: ${item.title}`
+    });
+    openNativeTab('native:flow', 'flow', 'Flow', false, true);
+  };
   const openItem = (item: FlowItem) => { const target = resolveEntityTabTarget(item, mode); if (target) openBrowserTab(target.id, target.kind, target.title, target.url, false, true); };
+  const selectItem = (item: FlowItem) => setTabState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item, selectedAnalyticsEntity: undefined });
   const selectRepository = (repo: { id: string; nameWithOwner: string; lastActivityAt?: string }) => setTabState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined, selectedAnalyticsEntity: { id: `home-repo:${repo.id}`, kind: 'repository', title: repo.nameWithOwner, repositoryId: repo.nameWithOwner, state: 'recently active', occurredAt: repo.lastActivityAt, reason: 'Recently active based on the latest synchronized workflow item.' } });
   const openRepositoryFlow = (repo: { id: string; nameWithOwner: string }) => {
     setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repo.id, nameWithOwner: repo.nameWithOwner }, filterStage: undefined, statusFilter: 'all', search: '' });
@@ -143,7 +211,7 @@ export function Dashboard() {
     <section className="home-sync-context" aria-label="Home synchronization context"><span>Last synchronized: {mode === 'demo' ? new Date(demoPipeline?.referenceDate ?? liveReference).toLocaleString() : sync.state?.last_successful_at ? new Date(sync.state.last_successful_at).toLocaleString() : 'Unavailable'}</span><span className="home-scope-note">Active items are current. Completed activity covers the last 7 days.</span>{mode !== 'demo' && sync.coverage !== 'complete' && <span>Partial coverage</span>}{sync.state && (() => { try { const failed = JSON.parse(sync.state.failed_repositories_json || '[]').length; return failed ? <span>{failed} failed source{failed === 1 ? '' : 's'}</span> : null; } catch { return null; } })()}</section>
     <section className="home-panel home-pipeline"><header><div><h2>Pipeline Preview</h2><p>Active work and completed evidence</p></div></header><div className="home-pipeline-groups"><div><h3 data-tooltip="Active work\nCurrent issues and pull requests grouped by their evidence-backed workflow stage.">Active work</h3><div className="home-stage-grid">{WORKFLOW_STAGES.slice(0, 6).map(stage => stagePreview(stage.id, stage.label))}</div></div><div><h3 data-tooltip="Completed work\nRecent merge, release, and deployment evidence grouped without collapsing distinct entity types.">Completed work</h3><div className="home-stage-grid home-stage-grid--completed">{WORKFLOW_STAGES.slice(6).map(stage => stagePreview(stage.id, stage.label))}</div></div></div></section>
     <div className="home-lower"><section className="home-panel"><header><div><h2>Recently Active Repositories</h2><p>Status reflects the latest ranking reason</p></div>{session.status === 'connected' && <button onClick={() => openBrowserTab('github:repositories', 'repositories', 'Repositories', `https://github.com/${session.account.login}?tab=repositories`, false, true)}>View all</button>}</header><div className="home-list">{reposLoading && !reposLoaded && shownRepos.length === 0 ? <><div className="home-skeleton-row home-skeleton"/><div className="home-skeleton-row home-skeleton"/></> : shownRepos.length ? shownRepos.slice(0, 4).map(repo => <div className="home-list-row" key={repo.id}><button onClick={() => selectRepository(repo)} onDoubleClick={() => openRepositoryExplorer(repo)} data-tooltip="Repository activity\nSelect to inspect; double-click to browse the repository."><span><strong>{repo.nameWithOwner}</strong><small>{repo.reason ?? 'Recent meaningful activity'} · {relativeTime(repo.lastActivityAt, referenceTime)}{repo.activeItems != null ? ` · ${repo.activeItems} active` : ''}</small></span>{repo.status && <i className={`home-health home-health--${repo.status}`} data-tooltip={repo.reason ?? repo.status} />}</button><button aria-label={`Open ${repo.nameWithOwner} in Repository Flow`} onClick={() => openRepositoryFlow(repo)}><ArrowRight size={13} /></button></div>) : <div className="home-list-empty">No repositories matched the current account scope.</div>}</div></section>
-      <section className="home-panel"><header><div><h2>Recent Merges</h2><p>Repository, merge time, checks, and downstream evidence</p></div><GitMerge size={15} /></header><div className="home-list">{merges.length ? merges.map(item => <div className="home-list-row" key={item.id}><button onClick={() => selectItem(item)} onDoubleClick={() => openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Relationship unavailable'} · {item.repositoryName} #{item.number} · Merged {relativeTime(item.mergedAt!, referenceTime)} · {item.checksSummary?.state === 'SUCCESS' ? 'Checks passed' : item.checksSummary?.state === 'FAILURE' ? 'Checks failed' : 'Check outcome unavailable'}</small></span></button></div>) : <div className="home-list-empty"><ShieldAlert size={14} /> No synchronized merges in this preview.</div>}</div></section><section className="home-panel"><header><div><h2>Needs Your Attention</h2><p>Evidence-backed actions, not editable tasks</p></div><CircleAlert size={15}/></header><div className="home-list">{attentionItems.length?attentionItems.map(item=><div className="home-list-row" key={item.id}><button onClick={()=>selectItem(item)} onDoubleClick={()=>openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Direct responsibility'} · {(item.attentionReasons?.[0]??item.status).replace(/_/g,' ')} · Updated {relativeTime(item.updatedAt, referenceTime)}</small></span></button><button aria-label={`Inspect ${item.title}`} onClick={()=>selectItem(item)}><ArrowRight size={13}/></button></div>):<div className="home-list-empty"><ShieldCheck size={14}/>No synchronized item needs action.</div>}</div></section></div>
+      <section className="home-panel"><header><div><h2>Recent Merges</h2><p>Repository, merge time, checks, and downstream evidence</p></div><GitMerge size={15} /></header><div className="home-list">{merges.length ? merges.map(item => <div className="home-list-row" key={item.id}><button onClick={() => selectItem(item)} onDoubleClick={() => openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Relationship unavailable'} · {item.repositoryName} #{item.number} · Merged {relativeTime(item.mergedAt!, referenceTime)} · {item.checksSummary?.state === 'SUCCESS' ? 'Checks passed' : item.checksSummary?.state === 'FAILURE' ? 'Checks failed' : 'Check outcome unavailable'}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={() => openFlowForItem(item)}><ArrowRight size={13} /></button></div>) : <div className="home-list-empty"><ShieldAlert size={14} /> No synchronized merges in this preview.</div>}</div></section><section className="home-panel"><header><div><h2>Needs Your Attention</h2><p>Evidence-backed actions, not editable tasks</p></div><CircleAlert size={15}/></header><div className="home-list">{attentionItems.length?attentionItems.map(item=><div className="home-list-row" key={item.id}><button onClick={()=>selectItem(item)} onDoubleClick={()=>openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Direct responsibility'} · {(item.attentionReasons?.[0]??item.status).replace(/_/g,' ')} · Updated {relativeTime(item.updatedAt, referenceTime)}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={()=>openFlowForItem(item)}><ArrowRight size={13}/></button></div>):<div className="home-list-empty"><ShieldCheck size={14}/>No synchronized item needs action.</div>}</div></section></div>
     {homeState === 'refreshing-with-snapshot' && <div className="home-loading" role="status">Refreshing GitHub data · Displaying previous snapshot</div>}
   </main>;
 

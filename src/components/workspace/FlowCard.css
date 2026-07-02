@@ -5,9 +5,9 @@
   color: inherit;
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: border-color var(--motion-normal) var(--ease-standard), background-color var(--motion-normal) var(--ease-standard), box-shadow var(--motion-normal) var(--ease-standard), transform var(--motion-normal) var(--ease-standard);
+  transition: all var(--motion-normal) var(--ease-standard);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -36,14 +36,27 @@
 }
 
 .flow-card:hover {
-  border-color: var(--text-muted);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  border-radius: 11px 7px 12px 6px / 7px 10px 8px 11px;
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-sm), 0 0 12px rgba(0, 213, 255, 0.18);
+  transform: translateY(-1.5px);
 }
 
 .flow-card.selected {
   border-color: var(--accent-color);
-  box-shadow: inset 0 0 0 1px var(--accent-color);
+  animation: card-pulse-glow 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes card-pulse-glow {
+  0% {
+    box-shadow: inset 0 0 0 1.5px var(--accent-color), 0 0 0 0px rgba(0, 213, 255, 0.4);
+  }
+  50% {
+    box-shadow: inset 0 0 0 1.5px var(--accent-color), 0 0 16px 4px rgba(0, 213, 255, 0.35);
+  }
+  100% {
+    box-shadow: inset 0 0 0 1.5px var(--accent-color), 0 0 4px 1px rgba(0, 213, 255, 0.15);
+  }
 }
 
 .flow-card-header {
@@ -179,3 +192,18 @@
 .badge-info { background:var(--status-info-bg); color:var(--status-info-fg); }
 .badge-warning { background:var(--status-warning-bg); color:var(--status-warning-fg); }
 .flow-card-age { color:var(--text-muted); font-size:10px; margin-left:auto; white-space:nowrap; }
+
+.flow-card--target-highlight {
+  animation: flow-target-highlight 0.8s ease-out forwards;
+}
+
+@keyframes flow-target-highlight {
+  0% {
+    box-shadow: inset 0 0 0 2px var(--info), var(--shadow-sm);
+    background-color: color-mix(in srgb, var(--info) 10%, var(--surface-hover));
+  }
+  100% {
+    box-shadow: inset 0 0 0 0px var(--info), var(--shadow-sm);
+    background-color: var(--surface);
+  }
+}

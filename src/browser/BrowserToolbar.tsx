@@ -2,7 +2,7 @@
  * BrowserToolbar – Back / Forward / Reload controls for browser tabs.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react';
 import { browserBack, browserForward, browserReload, browserStop } from './browser-commands';
 import { useTabsStore } from '../stores/tabs-store';
@@ -32,8 +32,15 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
     if (newGen !== undefined) browserForward(activeTab.id).catch(console.error);
   }, [activeTab]);
 
+  const [isReloading, setIsReloading] = useState(false);
+
   const handleReload = useCallback(() => {
-    if (activeTab) browserReload(activeTab.id).catch(console.error);
+    if (activeTab) {
+      setIsReloading(true);
+      browserReload(activeTab.id).catch(console.error).finally(() => {
+        setTimeout(() => setIsReloading(false), 800);
+      });
+    }
   }, [activeTab]);
   const handleStop = useCallback(() => { if (activeTab) browserStop(activeTab.id).catch(console.error); }, [activeTab]);
 
@@ -64,7 +71,7 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
         data-tooltip={activeTab?.isLoading ? 'Stop loading\nCancel the active embedded page navigation.' : 'Reload\nRefresh the active embedded GitHub page.'}
         aria-label={activeTab?.isLoading ? 'Stop loading' : 'Reload page'}
       >
-        {activeTab?.isLoading ? <X size={16}/> : <RotateCw size={16} />}
+        {activeTab?.isLoading && !isReloading ? <X size={16}/> : <RotateCw size={16} className={isReloading ? "icon-spin-cw" : ""} />}
       </button>
       {activeTab?.error && <span className="browser-toolbar__error" role="alert" data-tooltip={activeTab.error}>{activeTab.error}</span>}
     </div>

@@ -78,6 +78,7 @@ export function FlowWorkbench() {
   const viewerLogin = appMode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : undefined;
   const { data: demoPipeline, isLoading: demoLoading, error: demoError } = useDemoPipeline();
   const activeTabId = useCurrentTabId();
+  const isSurfaceActive = useTabsStore(s => s.activeTabId === activeTabId);
   const openBrowserTab = useTabsStore(s => s.openBrowserTab);
   const openNativeTab = useTabsStore(s => s.openNativeTab);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
@@ -308,8 +309,10 @@ export function FlowWorkbench() {
       : b.updatedAt.localeCompare(a.updatedAt));
   }, [accountRepositoryFilter, activeOnly, actorFilter, filterStage, involvementFilter, isAccount, isRepo, rangeFilteredItems, scope, search, selectedRepository, sortOrder, statusFilter]);
 
-  // Clear selected item when scope or dataset changes
+  // Clear selected item when scope or dataset changes — but not during a pending focus navigation
   useEffect(() => {
+    const pending = useFlowStore.getState().getTabState(activeTabId).pendingScrollItemId;
+    if (pending) return; // A focus-navigation request owns the selection right now
     setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
   }, [scope, selectedRepository?.id, activeTabId, setFlowState]);
   useEffect(() => {
@@ -459,6 +462,9 @@ export function FlowWorkbench() {
                 sourceControls={sourceControls}
                 hideEmptyStages={hideEmptyStages}
                 focusedStage={filterStage}
+                pendingScrollItemId={flowState.pendingScrollItemId}
+                onConsumeScroll={() => setFlowState(activeTabId, { pendingScrollItemId: undefined })}
+                isSurfaceActive={isSurfaceActive}
               />
             )}
           </div>

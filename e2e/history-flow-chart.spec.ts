@@ -84,8 +84,8 @@ test('focused Flow owns vertical scrolling and preserves it through append, insp
   const finalCard = scroller.locator('[data-flow-item-id]').last();
   await expect(finalCard).toBeInViewport();
   await finalCard.click();
-  await expect(page.locator('.layout-inspector-close')).toBeVisible();
-  await page.locator('.layout-inspector-close').click();
+  await expect(page.locator('.inspector-header-close')).toBeVisible();
+  await page.locator('.inspector-header-close').click();
   expect(await scroller.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
   await expect(finalCard).toBeInViewport();
   await page.getByRole('button', { name: 'Home', exact: true }).click();
@@ -124,14 +124,14 @@ test('Cumulative Flow plot expands when the inspector closes and responds to liv
   await page.getByRole('button', { name: 'Flow Analytics', exact: true }).click();
   const plot = page.locator('.analytics-area-plot');
   await expect(plot).toBeVisible();
-  if (await page.locator('.layout-inspector-close').isVisible()) await page.locator('.layout-inspector-close').click();
+  if (await page.locator('.inspector-header-close').isVisible()) await page.locator('.inspector-header-close').click();
   await page.waitForTimeout(100);
   const closedWidth = (await plot.boundingBox())!.width;
   await page.locator('.analytics-area-hit').last().dispatchEvent('click');
-  await expect(page.locator('.layout-inspector-close')).toBeVisible();
+  await expect(page.locator('.inspector-header-close')).toBeVisible();
   await expect.poll(async () => (await plot.boundingBox())!.width).toBeLessThan(closedWidth - 100);
   const openWidth = (await plot.boundingBox())!.width;
-  await page.locator('.layout-inspector-close').click();
+  await page.locator('.inspector-header-close').click();
   await expect.poll(async () => (await plot.boundingBox())!.width).toBeGreaterThan(openWidth + 100);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect.poll(async () => Number(await plot.getAttribute('data-plot-width'))).toBeLessThan(closedWidth);

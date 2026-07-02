@@ -12,11 +12,13 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-  background: radial-gradient(circle at 14% -12%, rgba(48, 103, 202, 0.2), transparent 34%), radial-gradient(circle at 82% 0%, rgba(48, 84, 150, 0.1), transparent 30%), var(--surface-app);
+  background: radial-gradient(circle at 14% -12%, rgba(0, 229, 255, 0.16), transparent 36%), radial-gradient(circle at 82% 0%, rgba(42, 130, 230, 0.1), transparent 32%), var(--surface-app);
   color: var(--text-primary);
   overflow: hidden; /* Desktop app layout */
   user-select: none; /* Desktop feel */
 }
+
+/* Static organic ice block shaping is applied inside individual CSS files for zero layout-repaint cost. */
 
 h1, h2, h3, h4, h5, h6, p {
   margin: 0;
@@ -89,14 +91,26 @@ button, input, select, textarea, [tabindex] {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--scrollbar, var(--surface-hover));
+  background: var(--scrollbar);
   border-radius: var(--radius-sm);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-hover, var(--text-muted));
+  background: var(--scrollbar-hover);
 }
-.fresh-launch { align-items: center; justify-content: center; }
-.fresh-launch__card { max-width: 640px; padding: 48px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg-secondary); }
-.fresh-launch__card h1 { font-size: 36px; margin: 18px 0 8px; }
-.fresh-launch__card p { color: var(--text-secondary); line-height: 1.6; }
-.fresh-launch__card div { display: flex; gap: 12px; margin-top: 24px; }
+.fresh-launch { display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; box-sizing: border-box; padding: 24px; animation: fresh-fade-in 300ms ease-out; }
+.fresh-launch__card { max-width: 580px; width: 100%; padding: 48px; border: 1px solid var(--border-strong, var(--border)); border-radius: 16px; background: linear-gradient(145deg, rgba(34,62,99,0.3), rgba(14,31,53,0.4)); backdrop-filter: blur(8px); box-shadow: 0 16px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05); text-align: center; }
+.fresh-launch__card h1 { font-size: 32px; margin: 16px 0 12px; letter-spacing: -0.02em; color: var(--text-primary); }
+.fresh-launch__card p { color: var(--text-secondary); line-height: 1.5; font-size: 15px; margin-bottom: 32px; }
+.fresh-launch__card .actions { display: flex; gap: 12px; justify-content: center; }
+.fresh-launch__brand { margin-bottom: 24px; display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 14px; background: linear-gradient(135deg, var(--accent-primary), var(--primary-hover)); color: white; box-shadow: 0 8px 16px rgba(36,93,216,0.3); }
+@keyframes fresh-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fresh-launch { animation: none; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -32,7 +32,10 @@ interface AuthState {
   verificationUri: string | null;
   clientId: string;
   pollError: string | null;
+  showAuthModal: boolean;
   setClientId: (id: string) => void;
+  openAuthModal: () => void;
+  closeAuthModal: () => void;
   checkAuthStatus: () => Promise<void>;
   startDeviceFlow: () => Promise<void>;
   manualPoll: () => Promise<void>;
@@ -50,6 +53,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   verificationUri: null,
   clientId: DEFAULT_CLIENT_ID,
   pollError: null,
+  showAuthModal: false,
+
+  openAuthModal: () => set({ showAuthModal: true }),
+  closeAuthModal: () => {
+    set({ showAuthModal: false });
+    if (get().isConnecting) {
+      set({ isConnecting: false });
+    }
+  },
 
   setClientId: (id: string) => {
     localStorage.setItem('github_client_id', id);

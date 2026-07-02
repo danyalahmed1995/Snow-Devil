@@ -24,8 +24,8 @@ import { activeNotifications, effectiveUnread, formatNotificationCount, useNotif
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
-  const { isAuthenticated, checkAuthStatus, session } = useAuthStore();
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { isAuthenticated, checkAuthStatus, session, showAuthModal, openAuthModal, closeAuthModal } = useAuthStore();
+  const [isResetting, setIsResetting] = useState(false);
   const { mode, exitDemo, resetDemo } = useModeStore();
   const notificationRecords=useNotificationStore(state=>state.records);const notificationRead=useNotificationStore(state=>state.localRead);const notificationSnoozed=useNotificationStore(state=>state.snoozedUntil);const unreadNotifications=activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
   const notificationArrivalCount = useNotificationStore(state => state.arrivalCount);
@@ -97,19 +97,19 @@ export function TopBar() {
           )}
 
           <div className="topbar-actions">
-            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => resetLocalAppData().catch(console.error)} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} /></button>}
+            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>}
             {mode === 'demo' ? (
               <>
                 <span className="demo-mode-badge">Demo Mode</span>
-                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={resetDemo}><RotateCcw size={16}/></button>
+                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>
                 <button className="icon-button" aria-label="Exit demo" onClick={exitDemo} data-tooltip="Exit Demo\nReturn to the authenticated live workspace."><LogOut size={16} /></button>
               </>
             ) : isAuthenticated && session.status === 'connected' ? (
-              <button className="topbar-account" onClick={() => useTabsStore.getState().openBrowserTab('github:profile','profile',session.account.login,`https://github.com/${session.account.login}`,false,true)} data-tooltip="GitHub account\nOpen the connected account profile in Snow Devil." aria-label={`Open ${session.account.login} account`}>
+              <button key="avatar" className="topbar-account" onClick={() => useTabsStore.getState().openBrowserTab('github:profile','profile',session.account.login,`https://github.com/${session.account.login}`,false,true)} data-tooltip="GitHub account\nOpen the connected account profile in Snow Devil." aria-label={`Open ${session.account.login} account`}>
                 <img src={session.account.avatarUrl} alt="" />
               </button>
             ) : (
-              <button className="auth-btn" onClick={() => setShowAuthModal(true)}>
+              <button key="connect" className="auth-btn" onClick={openAuthModal}>
                 Connect
               </button>
             )}
@@ -123,7 +123,7 @@ export function TopBar() {
       </header>
       
       {showAuthModal && (
-        <AuthModal onClose={() => setShowAuthModal(false)} />
+        <AuthModal onClose={closeAuthModal} />
       )}
     </>
   );

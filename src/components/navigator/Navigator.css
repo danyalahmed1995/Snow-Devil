@@ -2,7 +2,7 @@
 
 /* Reference-parity treatment: calmer acrylic depth, readable rows, and a
    softly illuminated active state instead of a table-like outline. */
-.navigator{background:linear-gradient(180deg,rgba(22,45,76,.5),transparent 18%),var(--surface-sidebar)}
+.navigator{background:linear-gradient(180deg,rgba(22,45,76,.5),transparent 18%),var(--surface-sidebar);border-radius:calc(var(--radius-card) - 1px);background-clip:padding-box}
 .navigator-content{padding:14px 10px 10px}
 .navigator-group+.navigator-group{margin-top:18px;padding-top:17px;border-top:1px solid var(--divider)}
 .navigator-group h4{margin:0 9px 9px;font-size:10px;letter-spacing:.075em}
