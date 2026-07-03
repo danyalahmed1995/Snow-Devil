@@ -151,6 +151,12 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-preflight.outputs.tag }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
@@ -167,6 +173,12 @@ jobs:
             (cd "$(dirname "$checksum")" && sha256sum -c "$(basename "$checksum")")
           done
           find release-assets -type f -printf '%P %s bytes\n' | sort
+      - name: Build updater manifest (latest.json)
+        env:
+          REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.release-preflight.outputs.version }}
+        run: node scripts/build-updater-manifest.mjs "$REPO" "$RELEASE_TAG" "$RELEASE_VERSION"
       - name: Create one draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
