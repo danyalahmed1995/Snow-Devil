@@ -97,6 +97,7 @@ pub fn run() {
             commands::analytics::save_analytics_sync_state,
             commands::analytics::get_analytics_sync_state,
             commands::diagnostics::get_safe_diagnostics,
+            commands::diagnostics::read_recent_log_tail,
             commands::notifications::poll_github_notifications,
             commands::notifications::mark_github_notification_read,
             // Browser commands
