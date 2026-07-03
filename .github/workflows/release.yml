@@ -125,6 +125,12 @@ jobs:
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf wget
       - name: Build Tauri bundles
         uses: tauri-apps/tauri-action@v1
+        env:
+          # Signs the updater artifacts (.sig sidecars) so tauri-plugin-updater
+          # can verify them. Add these as repository secrets from the key created
+          # with `pnpm tauri signer generate`.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Verify, rename, and checksum release assets

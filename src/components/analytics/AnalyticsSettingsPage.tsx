@@ -9,6 +9,7 @@ import { resetLocalCache } from '../../services/reset-local-cache';
 import { resetLocalAppData } from '../../services/reset-local-app-data';
 import { exportSafeDiagnostics } from '../../services/export-diagnostics';
 import { downloadProblemReport } from '../../services/report-problem';
+import { checkForUpdate, installUpdate, type UpdateSummary } from '../../services/app-update';
 import { AuthModal } from '../auth/AuthModal';
 import { Select } from '../ui/Select';
 import { buildSyncCoverageSummary, normalizeSyncFailure } from '../../analytics/sync-summary';
@@ -41,6 +42,9 @@ export function AnalyticsSettingsPage() {
   const [confirmFullReset, setConfirmFullReset] = useState(false);
   const [resetPhrase, setResetPhrase] = useState('');
   const [lifecycleStatus, setLifecycleStatus] = useState('');
+  const [updateStatus, setUpdateStatus] = useState('');
+  const [availableUpdate, setAvailableUpdate] = useState<UpdateSummary | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
   const [showAllRepositories, setShowAllRepositories] = useState(true);
@@ -65,6 +69,28 @@ export function AnalyticsSettingsPage() {
 
   const updateBusinessDay = (day: number) => updateSettings({ businessDays: settings.businessDays.includes(day) ? settings.businessDays.filter(value => value !== day) : [...settings.businessDays, day].sort() });
 
+  const handleCheckForUpdate = () => {
+    setUpdateBusy(true);
+    setUpdateStatus('Checking for updates…');
+    setAvailableUpdate(null);
+    void checkForUpdate()
+      .then(update => {
+        setAvailableUpdate(update);
+        setUpdateStatus(update ? `Update available: ${update.version} (current ${update.currentVersion}).` : 'Snow Devil is up to date.');
+      })
+      .catch((error: unknown) => setUpdateStatus(`Update check failed: ${error instanceof Error ? error.message : String(error)}`))
+      .finally(() => setUpdateBusy(false));
+  };
+
+  const handleInstallUpdate = () => {
+    setUpdateBusy(true);
+    setUpdateStatus('Downloading and installing update… the app will restart.');
+    void installUpdate().catch((error: unknown) => {
+      setUpdateStatus(`Update failed: ${error instanceof Error ? error.message : String(error)}`);
+      setUpdateBusy(false);
+    });
+  };
+
   return <AnalyticsPage title="Settings" description="Global application, account, data, analytics defaults, and repository-specific evidence settings" demo={analytics.mode === 'demo'} controls={<span className="settings-autosave">Changes save automatically</span>}>
     <AnalyticsState loading={analytics.isLoading} error={analytics.error} partialReasons={[]} onRetry={() => void analytics.refetch()} />
     <div className="analytics-settings analytics-settings--sections">
@@ -79,6 +105,13 @@ export function AnalyticsSettingsPage() {
         <SettingRow label="Reset local cache" description="Deletes synchronized GitHub records, simulator history, and derived analytics. Preserves credentials, settings, and restored tabs."><button className="analytics-button" onClick={() => { setLifecycleStatus('Clearing local cache…'); void resetLocalCache().then(() => setLifecycleStatus('Local cache cleared. Credentials, settings, and tabs were preserved.')).catch(() => setLifecycleStatus('Local cache reset failed.')); }}>Reset local cache</button></SettingRow>
         <SettingRow label="Export safe diagnostics" description="Downloads app/runtime metadata and anonymous record counts. Never includes tokens, cookies, repository names, API payloads, or file content."><button className="analytics-button" onClick={() => { setLifecycleStatus('Preparing privacy-safe diagnostics…'); void exportSafeDiagnostics().then(() => setLifecycleStatus('Diagnostic bundle downloaded.')).catch(() => setLifecycleStatus('Diagnostic export failed.')); }}>Export diagnostics</button></SettingRow>
         <SettingRow label="Report a problem" description="Downloads a support bundle with safe diagnostics and recent application logs (including crash traces). Review it, then attach it to a bug report. Nothing is sent automatically."><button className="analytics-button" onClick={() => { setLifecycleStatus('Preparing problem report…'); void downloadProblemReport().then(() => setLifecycleStatus('Problem report downloaded. Review it before sharing.')).catch(() => setLifecycleStatus('Problem report generation failed.')); }}>Report a problem</button></SettingRow>
+        <SettingRow label="Software updates" description="Checks for a newer signed Snow Devil release and installs it. Updates are cryptographically verified before installing.">
+          <div className="settings-action-row">
+            <button className="analytics-button" disabled={updateBusy} onClick={handleCheckForUpdate}>{updateBusy && !availableUpdate ? 'Checking…' : 'Check for updates'}</button>
+            {availableUpdate && <button className="analytics-button analytics-button--primary" disabled={updateBusy} onClick={handleInstallUpdate}>Install {availableUpdate.version} & restart</button>}
+          </div>
+        </SettingRow>
+        {updateStatus && <p className="settings-lifecycle-status" aria-live="polite">{updateStatus}</p>}
         <SettingRow label="Full local reset" description="Deletes Snow Devil credentials, embedded browser data, cached GitHub data, restored tabs, simulator state, analytics, and preferences."><button className="analytics-button analytics-button--danger" onClick={() => setConfirmFullReset(true)}>Full local reset…</button></SettingRow>
         {lifecycleStatus && <p className="settings-lifecycle-status" aria-live="polite">{lifecycleStatus}</p>}
       </div></SectionCard>

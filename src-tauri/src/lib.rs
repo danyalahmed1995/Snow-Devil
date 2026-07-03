@@ -53,6 +53,7 @@ pub fn run() {
 
             Ok(())
         })
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             // Existing commands
@@ -98,6 +99,8 @@ pub fn run() {
             commands::analytics::get_analytics_sync_state,
             commands::diagnostics::get_safe_diagnostics,
             commands::diagnostics::read_recent_log_tail,
+            commands::update::check_for_update,
+            commands::update::install_update,
             commands::notifications::poll_github_notifications,
             commands::notifications::mark_github_notification_read,
             // Browser commands

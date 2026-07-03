@@ -8,3 +8,4 @@ pub mod repo;
 pub mod reset;
 pub mod simulator;
 pub mod sync;
+pub mod update;
