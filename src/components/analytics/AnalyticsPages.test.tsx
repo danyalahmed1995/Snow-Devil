@@ -5,7 +5,7 @@ import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store
 import { useFlowStore } from '../../stores/flow-store';
 import { useFocusPreferencesStore } from '../../stores/focus-preferences-store';
 import { useModeStore } from '../../stores/mode-store';
-import { CIHealthPage } from './CIHealthPage';
+import { CIActivityPage } from './CIActivityPage';
 import { FlowAnalyticsPage } from './FlowAnalyticsPage';
 import { InventoryPage } from './InventoryPage';
 import { PersonalFocusPage } from './PersonalFocusPage';
@@ -24,14 +24,12 @@ describe('individual analytics pages in Demo Mode', () => {
     useFocusPreferencesStore.setState({ dismissed: [], irrelevant: [], snoozedUntil: {} });
   });
 
-  it('renders CI health grades, filters, and a selectable repository table', () => {
-    renderPage(<CIHealthPage />);
-    expect(screen.getByRole('heading', { name: 'CI Health Monitor' })).toBeInTheDocument();
-    expect(screen.getByText('excellent')).toBeInTheDocument();
-    expect(screen.getAllByRole('row').length).toBeGreaterThan(4);
-    fireEvent.click(screen.getByLabelText('CI status filter'));
-    fireEvent.click(screen.getByRole('option', { name: 'Poor' }));
-    expect(screen.getAllByText('nova-labs/old-prototype').some(element => element.tagName === 'TD')).toBe(true);
+  it('renders CI Activity with summary metrics', () => {
+    renderPage(<CIActivityPage />);
+    expect(screen.getByRole('heading', { name: 'CI Activity' })).toBeInTheDocument();
+    expect(screen.getByText('Passed')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Status filter'));
+    fireEvent.click(screen.getByRole('option', { name: 'Failed' }));
   });
 
   it('switches among all historical analytics tabs', () => {

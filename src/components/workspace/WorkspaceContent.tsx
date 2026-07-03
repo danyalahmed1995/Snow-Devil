@@ -16,7 +16,7 @@ import { useModeStore } from '../../stores/mode-store';
 import { ListView } from './ListView';
 import { TabInstanceProvider } from './TabInstanceContext';
 
-const CIHealthPage = lazy(() => import('../analytics/CIHealthPage').then(module => ({ default: module.CIHealthPage })));
+const CIActivityPage = lazy(() => import('../analytics/CIActivityPage').then(module => ({ default: module.CIActivityPage })));
 const InventoryPage = lazy(() => import('../analytics/InventoryPage').then(module => ({ default: module.InventoryPage })));
 const FlowAnalyticsPage = lazy(() => import('../analytics/FlowAnalyticsPage').then(module => ({ default: module.FlowAnalyticsPage })));
 const PersonalFocusPage = lazy(() => import('../analytics/PersonalFocusPage').then(module => ({ default: module.PersonalFocusPage })));
@@ -34,7 +34,7 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
     <Suspense fallback={<SurfaceLoading />}>
       {tab.kind === 'home' && <Dashboard />}
       {tab.kind === 'flow' && <FlowWorkbench />}
-      {tab.kind === 'ciHealth' && <CIHealthPage />}
+      {tab.kind === 'ciHealth' && <CIActivityPage />}
       {tab.kind === 'inventory' && <InventoryPage />}
       {tab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
       {tab.kind === 'personalFocus' && <PersonalFocusPage />}

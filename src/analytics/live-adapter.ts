@@ -106,5 +106,6 @@ export function analyticsDatasetFromSimulatorEvents(
     partialReasons: simulatorEvents.length === 0
       ? ['No cached historical events are available. Open a simulator and refresh to populate local history.']
       : ['Live analytics currently use bounded cached simulator history', 'Release/deployment capability is unknown until explicit evidence is observed'],
+    rawWorkflowRuns: simulatorEvents.filter(event => event.subjectType === 'workflow_run'),
   };
 }
