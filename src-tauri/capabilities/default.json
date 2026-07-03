@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "opener:default",
+    "log:default",
     "core:event:default",
     "core:event:allow-emit",
     "core:event:allow-listen"

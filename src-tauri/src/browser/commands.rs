@@ -329,7 +329,9 @@ pub async fn browser_activate(
 
         let visible_count = mgr.records.values().filter(|v| v.visible).count();
         if visible_count > 1 {
-            eprintln!("ASSERTION FAILED: More than 1 webview marked visible!");
+            log::error!(
+                "browser webview invariant violated: {visible_count} webviews marked visible (expected 1)"
+            );
         }
     }
 
