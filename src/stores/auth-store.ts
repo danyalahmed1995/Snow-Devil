@@ -42,7 +42,15 @@ interface AuthState {
   disconnect: () => Promise<void>;
 }
 
-const DEFAULT_CLIENT_ID = localStorage.getItem('github_client_id') || '';
+// Official Snow Devil GitHub OAuth App (Device Flow enabled). Device-flow
+// client IDs are public identifiers, not secrets, so bundling it is safe and
+// removes the first-run friction of every user creating their own OAuth App.
+// A user can still override it (advanced) via setClientId.
+export const BUNDLED_GITHUB_CLIENT_ID = 'Ov23lilU3JO7MsyqyBqz';
+
+const STORED_CLIENT_ID = localStorage.getItem('github_client_id');
+const DEFAULT_CLIENT_ID =
+  STORED_CLIENT_ID && STORED_CLIENT_ID.trim() ? STORED_CLIENT_ID.trim() : BUNDLED_GITHUB_CLIENT_ID;
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: { status: "checking" },
@@ -64,8 +72,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setClientId: (id: string) => {
-    localStorage.setItem('github_client_id', id);
-    set({ clientId: id });
+    const trimmed = id.trim();
+    // An empty or bundled value means "use the official app": clear any custom
+    // override so we don't persist the bundled ID as if it were user-supplied.
+    if (!trimmed || trimmed === BUNDLED_GITHUB_CLIENT_ID) {
+      localStorage.removeItem('github_client_id');
+      set({ clientId: BUNDLED_GITHUB_CLIENT_ID });
+    } else {
+      localStorage.setItem('github_client_id', trimmed);
+      set({ clientId: trimmed });
+    }
   },
 
   checkAuthStatus: async () => {

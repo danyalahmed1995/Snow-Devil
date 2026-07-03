@@ -1,5 +1,5 @@
-import { useAuthStore } from '../../stores/auth-store';
-import { ExternalLink, Globe, Loader2, Key, X, RefreshCw, Circle, CheckCircle2, XCircle } from 'lucide-react';
+import { useAuthStore, BUNDLED_GITHUB_CLIENT_ID } from '../../stores/auth-store';
+import { ExternalLink, Globe, Loader2, Key, X, RefreshCw, Circle, CheckCircle2, XCircle, ShieldCheck, ChevronDown } from 'lucide-react';
 import './AuthModal.css';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useOverlayStore } from '../../stores/overlay-store';
@@ -42,7 +42,10 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
   const { isConnecting, userCode, verificationUri, startDeviceFlow, pollError, isAuthenticated, clientId, setClientId, session, manualPoll } = useAuthStore();
   
   const [successClosing, setSuccessClosing] = useState(false);
-  const [inputValue, setInputValue] = useState(clientId);
+  // Only surface a value when the user has supplied a custom client ID; the
+  // bundled official ID stays hidden behind the advanced disclosure.
+  const [inputValue, setInputValue] = useState(clientId === BUNDLED_GITHUB_CLIENT_ID ? '' : clientId);
+  const [showAdvanced, setShowAdvanced] = useState(clientId !== BUNDLED_GITHUB_CLIENT_ID);
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
   const [authStartedAt, setAuthStartedAt] = useState<number | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -267,39 +270,58 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
               <Globe size={24} className="header-icon" aria-hidden="true" />
               <h2>Connect GitHub</h2>
             </div>
-            
+
             <div className="modal-body">
               <p className="auth-description">
-                To connect, you need a GitHub OAuth App Client ID with Device Flow enabled.
+                Snow Devil signs in with GitHub's secure device flow. Your password is never
+                seen; a read-only token is stored in your operating system's keychain.
               </p>
-              <div className="auth-instructions">
-                1. Go to <strong>GitHub Settings &gt; Developer settings &gt; OAuth Apps</strong><br/>
-                2. Click <strong>New OAuth App</strong><br/>
-                3. Check <strong>Enable Device Flow</strong><br/>
-                4. Copy the Client ID below:
-              </div>
-              <div className="input-group">
-                <input 
-                  type="text" 
-                  aria-label="GitHub OAuth Client ID"
-                  placeholder="Client ID (e.g. Iv1.xxx)" 
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && inputValue.trim()) handleConnect(); }}
-                  className="client-id-input"
-                  autoFocus
-                />
+              <div className="auth-assurance">
+                <ShieldCheck size={16} aria-hidden="true" />
+                <span>Read-only access. No code or data leaves your machine.</span>
               </div>
               {pollError && <div className="poll-error">{pollError}</div>}
-              
+
               <div className="modal-actions">
-                <button 
-                  className="btn-primary connect-btn" 
+                <button
+                  className="btn-primary connect-btn"
                   onClick={handleConnect}
-                  disabled={!inputValue.trim() || stage === 'starting'}
+                  disabled={stage === 'starting'}
+                  autoFocus
                 >
                   {stage === 'starting' ? <><Loader2 size={14} className="spinner" /> Connecting</> : 'Connect with GitHub'}
                 </button>
+              </div>
+
+              <div className="auth-advanced">
+                <button
+                  type="button"
+                  className="auth-advanced-toggle"
+                  aria-expanded={showAdvanced}
+                  onClick={() => setShowAdvanced((open) => !open)}
+                >
+                  <ChevronDown size={14} className={showAdvanced ? 'auth-advanced-chevron auth-advanced-chevron--open' : 'auth-advanced-chevron'} aria-hidden="true" />
+                  Use your own OAuth app
+                </button>
+                {showAdvanced && (
+                  <div className="auth-advanced-body">
+                    <p className="auth-advanced-hint">
+                      Optional. Create a GitHub OAuth App with <strong>Device Flow enabled</strong> and paste its
+                      Client ID to connect through your own app instead of the bundled one.
+                    </p>
+                    <div className="input-group">
+                      <input
+                        type="text"
+                        aria-label="GitHub OAuth Client ID"
+                        placeholder="Client ID (e.g. Ov23li... or Iv1....)"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && stage !== 'starting') handleConnect(); }}
+                        className="client-id-input"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
