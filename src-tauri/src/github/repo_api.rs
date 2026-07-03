@@ -1,4 +1,5 @@
 use crate::auth::secure_store::get_token;
+use crate::github::http::GithubRequestExt;
 use base64::Engine;
 use reqwest::Client;
 use serde_json::json;
@@ -48,7 +49,7 @@ pub async fn fetch_repo_overview(
                 "name": name
             }
         }))
-        .send()
+        .send_retrying()
         .await?;
 
     let mut json_res: serde_json::Value = res.json().await?;
@@ -73,7 +74,7 @@ pub async fn fetch_repo_overview(
             .bearer_auth(&token)
             .header("User-Agent", "github-graph-browser")
             .json(&json!({ "query": query2, "variables": { "owner": owner, "name": name } }))
-            .send()
+            .send_retrying()
             .await?;
         let json_res2: serde_json::Value = res2.json().await?;
         if let Some(obj) = json_res2
@@ -124,7 +125,7 @@ pub async fn fetch_repo_tree(
                 "expression": expression
             }
         }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -169,7 +170,7 @@ pub async fn fetch_repo_file(
                 "expression": expression
             }
         }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -227,7 +228,7 @@ pub async fn fetch_repo_file_content(
         .bearer_auth(&token)
         .header("User-Agent", "snow-devil")
         .header("Accept", "application/vnd.github.raw+json")
-        .send()
+        .send_retrying()
         .await?;
     if !response.status().is_success() {
         return Err(format!("GitHub image request failed ({})", response.status()).into());
@@ -269,7 +270,7 @@ pub async fn fetch_repo_prs(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": { "owner": owner, "name": name } }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -308,7 +309,7 @@ pub async fn fetch_repo_issues(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": { "owner": owner, "name": name } }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -364,7 +365,7 @@ pub async fn fetch_pr_details(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": { "owner": owner, "name": name, "number": number } }))
-        .send().await?;
+        .send_retrying().await?;
 
     let json_res: serde_json::Value = res.json().await?;
     if let Some(errors) = json_res.get("errors") {
@@ -380,7 +381,7 @@ pub async fn fetch_pr_details(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .header("Accept", "application/vnd.github.v3.diff")
-        .send()
+        .send_retrying()
         .await?;
 
     if diff_res.status().is_success() {
@@ -427,7 +428,7 @@ pub async fn fetch_issue_details(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": { "owner": owner, "name": name, "number": number } }))
-        .send().await?;
+        .send_retrying().await?;
 
     let json_res: serde_json::Value = res.json().await?;
     if let Some(errors) = json_res.get("errors") {
@@ -452,7 +453,7 @@ pub async fn execute_graphql(
             "query": query,
             "variables": variables
         }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -474,7 +475,7 @@ pub async fn execute_rest(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .header("Accept", "application/vnd.github.v3+json")
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -507,7 +508,7 @@ pub async fn search_repository(
         .bearer_auth(&token)
         .header("User-Agent", "snow-devil")
         .header("Accept", "application/vnd.github+json")
-        .send()
+        .send_retrying()
         .await?;
     let status = response.status();
     if !status.is_success() {

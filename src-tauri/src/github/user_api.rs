@@ -1,4 +1,5 @@
 use crate::auth::secure_store::get_token;
+use crate::github::http::GithubRequestExt;
 use reqwest::Client;
 use serde_json::json;
 use std::collections::HashSet;
@@ -47,7 +48,7 @@ pub async fn fetch_viewer_profile() -> Result<serde_json::Value, Box<dyn Error +
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -181,7 +182,7 @@ async fn fetch_active_organization_memberships(
             .header("User-Agent", "github-graph-browser")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
-            .send()
+            .send_retrying()
             .await?;
         if response.status() == reqwest::StatusCode::FORBIDDEN {
             let sso_required = response.headers().get("x-github-sso").is_some();
@@ -225,7 +226,7 @@ async fn fetch_public_organizations(
             ))
             .header("User-Agent", "github-graph-browser")
             .header("Accept", "application/vnd.github+json")
-            .send()
+            .send_retrying()
             .await?;
         if !response.status().is_success() {
             break;
@@ -317,7 +318,7 @@ pub async fn fetch_viewer_repositories() -> Result<serde_json::Value, Box<dyn Er
             .bearer_auth(&token)
             .header("User-Agent", "github-graph-browser")
             .json(&json!({ "query": VIEWER_REPOSITORIES_QUERY, "variables": { "cursor": cursor } }))
-            .send()
+            .send_retrying()
             .await?;
         let json_res: serde_json::Value = res.json().await?;
         if let Some(errors) = json_res.get("errors") {
@@ -423,7 +424,7 @@ pub async fn fetch_viewer_pull_requests() -> Result<serde_json::Value, Box<dyn E
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -456,7 +457,7 @@ pub async fn fetch_viewer_issues() -> Result<serde_json::Value, Box<dyn Error + 
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;

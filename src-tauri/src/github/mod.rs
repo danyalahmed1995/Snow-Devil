@@ -1,5 +1,6 @@
 pub mod flow_api;
 pub mod graphql;
+pub mod http;
 pub mod models;
 pub mod queries;
 pub mod repo_api;

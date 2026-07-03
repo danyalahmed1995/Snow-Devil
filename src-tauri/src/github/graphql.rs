@@ -1,4 +1,5 @@
 use super::models::{RepoInfo, ViewerInfo};
+use crate::github::http::GithubRequestExt;
 use reqwest::Client;
 use serde_json::json;
 use std::error::Error;
@@ -24,7 +25,7 @@ pub async fn get_viewer(token: &str) -> Result<ViewerInfo, Box<dyn Error + Send 
         .bearer_auth(token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -60,7 +61,7 @@ pub async fn get_viewer_repos(
                 "first": limit
             }
         }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;

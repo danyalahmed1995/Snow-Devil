@@ -1,4 +1,5 @@
 use crate::auth::secure_store::get_token;
+use crate::github::http::GithubRequestExt;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
@@ -117,7 +118,7 @@ pub async fn fetch_account_home_summary() -> Result<serde_json::Value, Box<dyn E
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": variables }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -328,7 +329,7 @@ pub async fn fetch_source_page(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query_str, "variables": variables }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;
@@ -402,7 +403,7 @@ pub async fn fetch_item_timeline(
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .json(&json!({ "query": query, "variables": { "owner": owner, "name": name, "number": number, "cursor": cursor } }))
-        .send()
+        .send_retrying()
         .await?;
 
     let json_res: serde_json::Value = res.json().await?;

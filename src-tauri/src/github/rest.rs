@@ -1,3 +1,4 @@
+use crate::github::http::GithubRequestExt;
 use reqwest::Client;
 use serde_json::Value;
 use std::error::Error;
@@ -11,7 +12,7 @@ pub async fn get_notifications(token: &str) -> Result<Vec<Value>, Box<dyn Error 
         .bearer_auth(token)
         .header("User-Agent", "github-graph-browser")
         .header("Accept", "application/vnd.github.v3+json")
-        .send()
+        .send_retrying()
         .await?;
 
     if !res.status().is_success() {
