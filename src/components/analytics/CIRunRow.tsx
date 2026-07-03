@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitPullRequest, Search, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, GitPullRequest, Search, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 import { formatDurationHours } from '../../analytics/math';
@@ -45,6 +45,25 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
   const status = m?.status as string | undefined;
   const conclusion = m?.conclusion as string | null | undefined;
   
+  const title = run.subjectTitle || '';
+  const msg = m?.commitMessage || '';
+  let branchName = m?.headBranch;
+  let isMerged = false;
+  
+  const pullRequestMatch = title.match(/Merge pull request #\d+ from [^/]+\/(.+)/) || msg.match(/Merge pull request #\d+ from [^/]+\/(.+)/);
+  if (pullRequestMatch) {
+    isMerged = true;
+    branchName = pullRequestMatch[1];
+  } else if (title.startsWith('Merge branch ') || msg.startsWith('Merge branch ')) {
+    isMerged = true;
+    const branchMatch = title.match(/Merge branch '([^']+)'/) || msg.match(/Merge branch '([^']+)'/);
+    if (branchMatch) branchName = branchMatch[1];
+  }
+
+  const actorLogin = run.actor?.login || m?.actorName;
+  const cleanLogin = actorLogin?.replace('[bot]', '');
+  const avatarUrl = m?.actorAvatar || run.actor?.avatarUrl || (cleanLogin ? `https://github.com/${cleanLogin}.png?size=48` : undefined);
+
   // Calculate sparkline points if we have >= 2 samples
   const hasSparkline = sparklineRuns.length >= 2;
   const maxDuration = hasSparkline ? Math.max(...sparklineRuns) : 0;
@@ -69,8 +88,21 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
         <div className="ci-activity-row__tags">
           <span className="ci-tag ci-tag--repo" title="Repository">{run.repositoryName}</span>
           <div className="ci-activity-row__git-tags">
-            {m?.headBranch && <span className="ci-tag ci-tag--branch" title="Branch"><GitCommit size={12} /> {m.headBranch}</span>}
-            {m?.headSha && <span className="ci-tag ci-tag--commit"><GitPullRequest size={12} /> {m.headSha.substring(0, 7)}</span>}
+            {branchName && (
+              <span className="ci-tag ci-tag--branch" title="Branch">
+                {isMerged ? (
+                  <GitMerge size={12} color="#a371f7" />
+                ) : (
+                  <GitBranch size={12} color={
+                    (status === 'in_progress' || status === 'queued' || status === 'pending') ? 'var(--warning)' : 
+                    (conclusion === 'success') ? 'var(--success)' : 
+                    (conclusion === 'failure' || conclusion === 'timed_out') ? 'var(--danger)' : 
+                    'var(--text-muted)'
+                  } />
+                )} {branchName}
+              </span>
+            )}
+            {m?.headSha && <span className="ci-tag ci-tag--commit" title="Commit"><GitCommit size={12} /> {m.headSha.substring(0, 7)}</span>}
             {m?.pullRequestNumber ? <span className="ci-tag ci-tag--pr">PR #{m.pullRequestNumber}</span> : <span className="ci-tag ci-tag--run">Run #{m?.runNumber}</span>}
           </div>
         </div>
@@ -81,7 +113,13 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
         </div>
 
         <div className="ci-activity-row__actor">
-          {run.actor?.avatarUrl ? <img src={run.actor.avatarUrl} alt={run.actor.login || 'Actor'} className="ci-avatar" title={run.actor.login} /> : <div className="ci-avatar-fallback" title={run.actor?.login}>{run.actor?.login?.charAt(0)?.toUpperCase() ?? '?'}</div>}
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={actorLogin || 'Actor'} className="ci-avatar" title={actorLogin} loading="lazy" />
+          ) : (
+            <div className="ci-avatar-fallback" title={actorLogin}>
+              {actorLogin?.charAt(0)?.toUpperCase() ?? '?'}
+            </div>
+          )}
         </div>
 
         <div className="ci-activity-row__actions">

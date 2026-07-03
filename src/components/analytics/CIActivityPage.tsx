@@ -151,15 +151,14 @@ export function CIActivityPage() {
       {import.meta.env.DEV && (
         <details style={{ margin: '10px 0' }}>
           <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontSize: '11px', padding: '5px' }}>Developer Diagnostics</summary>
-          <div style={{ background: '#333', padding: 10, margin: '5px 10px', color: '#fff', fontSize: 11, fontFamily: 'monospace', borderRadius: '4px' }}>
-            <strong>DIAGNOSTICS</strong><br/>
-            Total normalized events: {dataset?.events.length ?? 0}<br/>
-            Cached workflow runs (subjectType='workflow_run'): {cachedWorkflowRunsCount}<br/>
-            Cached workflow events (eventType startsWith 'workflow'): {allWorkflowRunsCountRaw}<br/>
-            Visible workflow runs (after filters): {filteredWorkflowRunsCount}<br/>
-            Time range filter: {rangeChoice} days<br/>
-            Is Loading: {analytics.isLoading ? 'Yes' : 'No'}<br/>
-            Is Fetching: {analytics.isFetching ? 'Yes' : 'No'}<br/>
+          <div className="ci-diagnostics-panel">
+            <div className="ci-diag-item"><div className="ci-diag-indicator ci-diag-indicator--neutral"></div><span className="ci-diag-lbl">Normalized Events:</span><span className="ci-diag-val">{dataset?.events.length ?? 0}</span></div>
+            <div className="ci-diag-item"><div className="ci-diag-indicator ci-diag-indicator--neutral"></div><span className="ci-diag-lbl">Cached Runs:</span><span className="ci-diag-val">{cachedWorkflowRunsCount}</span></div>
+            <div className="ci-diag-item"><div className="ci-diag-indicator ci-diag-indicator--neutral"></div><span className="ci-diag-lbl">Cached Events:</span><span className="ci-diag-val">{allWorkflowRunsCountRaw}</span></div>
+            <div className="ci-diag-item"><div className="ci-diag-indicator ci-diag-indicator--success"></div><span className="ci-diag-lbl">Visible Runs:</span><span className="ci-diag-val">{filteredWorkflowRunsCount}</span></div>
+            <div className="ci-diag-item"><div className="ci-diag-indicator ci-diag-indicator--warning" style={{background: '#d29922'}}></div><span className="ci-diag-lbl">Range:</span><span className="ci-diag-val">{rangeChoice}d</span></div>
+            <div className="ci-diag-item"><div className={`ci-diag-indicator ci-diag-indicator--${analytics.isLoading ? 'warning' : 'neutral'}`}></div><span className="ci-diag-lbl">Loading:</span><span className="ci-diag-val">{analytics.isLoading ? 'Yes' : 'No'}</span></div>
+            <div className="ci-diag-item"><div className={`ci-diag-indicator ci-diag-indicator--${analytics.isFetching ? 'warning' : 'neutral'}`}></div><span className="ci-diag-lbl">Fetching:</span><span className="ci-diag-val">{analytics.isFetching ? 'Yes' : 'No'}</span></div>
           </div>
         </details>
       )}

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Developer Diagnostic Concepts</title>
+  <style>
+    :root {
+      --bg: #0f111a;
+      --text: #e2e8f0;
+      color-scheme: dark;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 40px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 40px;
+    }
+    .concept {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .concept h2 {
+      font-size: 14px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+    
+    /* Concept 1: Hacker Terminal */
+    .c1 {
+      background: #050a05;
+      border: 1px solid #1a3320;
+      padding: 20px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #33ff66;
+      border-radius: 4px;
+      box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.05);
+    }
+    .c1 .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
+    .c1 .lbl { color: #1a8033; }
+    
+    /* Concept 2: Vercel Glassmorphism */
+    .c2 {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .c2 .item { display: flex; flex-direction: column; gap: 4px; }
+    .c2 .val { font-size: 20px; font-weight: 600; color: #fff; letter-spacing: -0.5px; }
+    .c2 .lbl { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Concept 3: Sci-Fi HUD */
+    .c3 {
+      background: #000;
+      border: 1px solid #00f0ff;
+      padding: 20px;
+      position: relative;
+    }
+    .c3::before { content:''; position:absolute; top:0; left:0; width:10px; height:100%; background: #00f0ff; }
+    .c3 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-left: 10px; }
+    .c3 .val { font-size: 16px; color: #00f0ff; font-family: monospace; font-weight: bold; }
+    .c3 .lbl { font-size: 10px; color: rgba(0, 240, 255, 0.6); text-transform: uppercase; }
+
+    /* Concept 4: Brutalism */
+    .c4 {
+      background: #fff;
+      border: 4px solid #000;
+      padding: 20px;
+      color: #000;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .c4 .item { border-bottom: 2px solid #000; padding-bottom: 10px; flex: 1 1 40%; }
+    .c4 .val { font-size: 24px; font-weight: 900; }
+    .c4 .lbl { font-size: 10px; font-weight: 800; text-transform: uppercase; margin-top: 4px; }
+
+    /* Concept 5: Stripe/Fintech */
+    .c5 {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
+      color: #333;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .c5 .item { display: flex; flex-direction: column; gap: 4px; }
+    .c5 .val { font-size: 18px; font-weight: 600; color: #111; }
+    .c5 .lbl { font-size: 12px; color: #666; }
+
+    /* Concept 6: Neumorphism */
+    .c6 {
+      background: #1a1e29;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 8px 8px 16px #12151d, -8px -8px 16px #222735;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .c6 .item { background: #1a1e29; border-radius: 8px; padding: 12px; box-shadow: inset 4px 4px 8px #12151d, inset -4px -4px 8px #222735; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .c6 .val { font-size: 18px; font-weight: bold; color: #e2e8f0; }
+    .c6 .lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+
+    /* Concept 7: Cyberpunk Synthwave */
+    .c7 {
+      background: linear-gradient(135deg, #120458, #000);
+      border: 2px solid #ff00ff;
+      border-radius: 0;
+      padding: 20px;
+      box-shadow: 0 0 15px rgba(255,0,255,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .c7 .row { display: flex; justify-content: space-between; border-bottom: 1px dashed #00ffff; padding-bottom: 8px; }
+    .c7 .val { color: #00ffff; text-shadow: 0 0 5px #00ffff; font-family: monospace; font-weight: bold; }
+    .c7 .lbl { color: #ff00ff; font-family: monospace; text-transform: uppercase; }
+
+    /* Concept 8: GitHub Primer Style */
+    .c8 {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .c8 .item { display: flex; align-items: center; gap: 8px; border: 1px solid #30363d; padding: 6px 12px; border-radius: 100px; background: #161b22; }
+    .c8 .indicator { width: 8px; height: 8px; border-radius: 50%; background: #238636; }
+    .c8 .lbl { color: #8b949e; font-size: 12px; }
+    .c8 .val { color: #c9d1d9; font-size: 12px; font-weight: 600; font-family: monospace; }
+  </style>
+</head>
+<body>
+
+  <div class="concept">
+    <h2>1. Hacker Terminal</h2>
+    <div class="c1">
+      <div class="row"><span class="lbl">TOTAL_EVENTS</span><span class="val">998</span></div>
+      <div class="row"><span class="lbl">CACHED_RUNS</span><span class="val">153</span></div>
+      <div class="row"><span class="lbl">VISIBLE_RUNS</span><span class="val">131</span></div>
+      <div class="row"><span class="lbl">TIME_RANGE</span><span class="val">30_DAYS</span></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>2. Modern Glassmorphism (Vercel)</h2>
+    <div class="c2">
+      <div class="item"><span class="val">998</span><span class="lbl">Total Events</span></div>
+      <div class="item"><span class="val">153</span><span class="lbl">Cached Runs</span></div>
+      <div class="item"><span class="val">131</span><span class="lbl">Visible Runs</span></div>
+      <div class="item"><span class="val">30d</span><span class="lbl">Time Range</span></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>3. Sci-Fi HUD</h2>
+    <div class="c3">
+      <div class="grid">
+        <div class="item"><div class="val">0998</div><div class="lbl">Normalized</div></div>
+        <div class="item"><div class="val">0153</div><div class="lbl">Cached</div></div>
+        <div class="item"><div class="val">0131</div><div class="lbl">Visible</div></div>
+        <div class="item"><div class="val">30.0</div><div class="lbl">Days Range</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>4. Brutalism</h2>
+    <div class="c4">
+      <div class="item"><div class="val">998</div><div class="lbl">Events</div></div>
+      <div class="item"><div class="val">153</div><div class="lbl">Runs</div></div>
+      <div class="item"><div class="val">30</div><div class="lbl">Days</div></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>5. Clean Fintech (Stripe)</h2>
+    <div class="c5">
+      <div class="item"><span class="val">998</span><span class="lbl">Total Events</span></div>
+      <div class="item"><span class="val">153</span><span class="lbl">Cached Runs</span></div>
+      <div class="item"><span class="val">131</span><span class="lbl">Visible</span></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>6. Neumorphism</h2>
+    <div class="c6">
+      <div class="item"><span class="val">998</span><span class="lbl">Events</span></div>
+      <div class="item"><span class="val">131</span><span class="lbl">Runs</span></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>7. Cyberpunk Synthwave</h2>
+    <div class="c7">
+      <div class="row"><span class="lbl">Normalized</span><span class="val">998</span></div>
+      <div class="row"><span class="lbl">Cached</span><span class="val">153</span></div>
+      <div class="row"><span class="lbl">Visible</span><span class="val">131</span></div>
+    </div>
+  </div>
+
+  <div class="concept">
+    <h2>8. GitHub Primer Style</h2>
+    <div class="c8">
+      <div class="item"><div class="indicator"></div><span class="lbl">Events:</span><span class="val">998</span></div>
+      <div class="item"><div class="indicator"></div><span class="lbl">Cached:</span><span class="val">153</span></div>
+      <div class="item"><div class="indicator"></div><span class="lbl">Visible:</span><span class="val">131</span></div>
+      <div class="item"><div class="indicator" style="background:#d29922"></div><span class="lbl">Range:</span><span class="val">30d</span></div>
+    </div>
+  </div>
+
+</body>
+</html>

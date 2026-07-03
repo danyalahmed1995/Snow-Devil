@@ -147,6 +147,15 @@
 .ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-job-steps { color: var(--text-muted); font-size: 11px; }
 .ci-job-duration { color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+/* Diagnostics Panel - GitHub Primer Style */
+.ci-diagnostics-panel { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.ci-diag-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-subtle); padding: 4px 12px; border-radius: 100px; background: var(--surface-panel); }
+.ci-diag-indicator { width: 8px; height: 8px; border-radius: 50%; }
+.ci-diag-indicator--success { background: var(--success); }
+.ci-diag-indicator--warning { background: var(--warning); }
+.ci-diag-indicator--neutral { background: var(--text-muted); }
+.ci-diag-lbl { color: var(--text-secondary); font-size: 12px; }
+.ci-diag-val { color: var(--text-primary); font-size: 12px; font-weight: 600; font-family: ui-monospace, SFMono-Regular, monospace; }
 
 /* Responsive adjustments */
 @media (max-width: 1100px) {
