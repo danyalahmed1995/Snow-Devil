@@ -57,39 +57,38 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
   return (
     <div className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}>
       <div className="ci-activity-row__main" onClick={() => onSelect(run.id)}>
-        <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
-          <PlayCircle size={12} className={expanded ? 'is-expanded' : ''} />
-        </button>
         <div className="ci-activity-row__status">
           <StatusIcon status={status} conclusion={conclusion} size={16} />
         </div>
-        <div className="ci-activity-row__info">
-          <div className="ci-activity-row__title">
-            <strong>{run.subjectTitle}</strong>
-            <span className="ci-run-number">#{m?.runNumber}</span>
-          </div>
-          <div className="ci-activity-row__meta">
-            <span className="ci-repo" title="Repository">{run.repositoryName}</span>
-            {m?.headBranch && <span className="ci-branch" title="Branch"><GitCommit size={10} /> {m.headBranch}</span>}
-            {m?.pullRequestNumber != null && <span className="ci-pr" title="Pull Request"><GitPullRequest size={10} /> #{m.pullRequestNumber}</span>}
-            {m?.commitMessage && <span className="ci-commit-msg" title={m.commitMessage}>{m.commitMessage.split('\n')[0]}</span>}
+        
+        <div className="ci-activity-row__primary">
+          <strong className="ci-title" title={run.subjectTitle}>{run.subjectTitle}</strong>
+          {m?.commitMessage && <span className="ci-commit-msg" title={m.commitMessage}>{m.commitMessage.split('\n')[0]}</span>}
+        </div>
+
+        <div className="ci-activity-row__tags">
+          <span className="ci-tag ci-tag--repo" title="Repository">{run.repositoryName}</span>
+          <div className="ci-activity-row__git-tags">
+            {m?.headBranch && <span className="ci-tag ci-tag--branch" title="Branch"><GitCommit size={12} /> {m.headBranch}</span>}
+            {m?.headSha && <span className="ci-tag ci-tag--commit"><GitPullRequest size={12} /> {m.headSha.substring(0, 7)}</span>}
+            {m?.pullRequestNumber ? <span className="ci-tag ci-tag--pr">PR #{m.pullRequestNumber}</span> : <span className="ci-tag ci-tag--run">Run #{m?.runNumber}</span>}
           </div>
         </div>
-        <div className="ci-activity-row__actor">
-          {run.actor?.avatarUrl ? <img src={run.actor.avatarUrl} alt="" className="ci-avatar" /> : <div className="ci-avatar-fallback">{run.actor?.login?.charAt(0)?.toUpperCase() ?? '?'}</div>}
-          <span title="Triggered by">{run.actor?.login ?? 'Unknown'}</span>
-        </div>
+
         <div className="ci-activity-row__timing">
           <span className="ci-duration" title="Duration">{formatDurationCompact(m?.durationMs)}</span>
           <span className="ci-time-ago" title={run.occurredAt}>{timeAgo(run.occurredAt)}</span>
-          {hasSparkline && (
-            <svg width="40" height="14" className="ci-sparkline" aria-label="Duration trend">
-              <polyline points={sparklinePts} fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
         </div>
+
+        <div className="ci-activity-row__actor">
+          {run.actor?.avatarUrl ? <img src={run.actor.avatarUrl} alt={run.actor.login || 'Actor'} className="ci-avatar" title={run.actor.login} /> : <div className="ci-avatar-fallback" title={run.actor?.login}>{run.actor?.login?.charAt(0)?.toUpperCase() ?? '?'}</div>}
+        </div>
+
         <div className="ci-activity-row__actions">
-           {m?.htmlUrl && <a href={m.htmlUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} title="Open on GitHub" className="ci-action-btn"><ExternalLink size={12} /></a>}
+          {m?.htmlUrl && <a href={m.htmlUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} title="Open on GitHub" className="ci-action-btn"><ExternalLink size={14} /></a>}
+          <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
+            <PlayCircle size={14} className={expanded ? 'is-expanded' : ''} />
+          </button>
         </div>
       </div>
       {expanded && (
