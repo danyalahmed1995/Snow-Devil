@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, GitPullRequest, Search, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 import { formatDurationHours } from '../../analytics/math';
@@ -66,12 +66,12 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
 
   // Calculate sparkline points if we have >= 2 samples
   const hasSparkline = sparklineRuns.length >= 2;
-  const maxDuration = hasSparkline ? Math.max(...sparklineRuns) : 0;
-  const sparklinePts = hasSparkline ? sparklineRuns.map((dur, i) => {
-    const x = (i / (sparklineRuns.length - 1)) * 40;
-    const y = 14 - ((dur / maxDuration) * 12);
-    return `${x},${y}`;
-  }).join(' ') : '';
+  // const maxDuration = hasSparkline ? Math.max(...sparklineRuns) : 0;
+  // const sparklinePts = hasSparkline ? sparklineRuns.map((dur, i) => {
+  //   const x = (i / (sparklineRuns.length - 1)) * 40;
+  //   const y = 14 - ((dur / maxDuration) * 12);
+  //   return `${x},${y}`;
+  // }).join(' ') : '';
   
   return (
     <div className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}>
@@ -102,7 +102,29 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
                 )} {branchName}
               </span>
             )}
-            {m?.headSha && <span className="ci-tag ci-tag--commit" title="Commit"><GitCommit size={12} /> {m.headSha.substring(0, 7)}</span>}
+            {m?.headSha && (
+              <span 
+                role="button"
+                tabIndex={0}
+                className="ci-tag ci-tag--commit" 
+                title="View Commit Diff"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  import('../../stores/tabs-store').then(({ useTabsStore }) => {
+                    useTabsStore.getState().openNativeTab(
+                      `native:commit:${run.repositoryId}:${m.headSha}`, 
+                      'commitDiff', 
+                      m.headSha.substring(0, 7), 
+                      false, 
+                      true, 
+                      { type: 'commit', repository: run.repositoryId, sha: m.headSha }
+                    );
+                  });
+                }}
+              >
+                <GitCommit size={12} /> {m.headSha.substring(0, 7)}
+              </span>
+            )}
             {m?.pullRequestNumber ? <span className="ci-tag ci-tag--pr">PR #{m.pullRequestNumber}</span> : <span className="ci-tag ci-tag--run">Run #{m?.runNumber}</span>}
           </div>
         </div>
@@ -123,7 +145,29 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
         </div>
 
         <div className="ci-activity-row__actions">
-          {m?.htmlUrl && <a href={m.htmlUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} title="Open on GitHub" className="ci-action-btn"><ExternalLink size={14} /></a>}
+          {m?.htmlUrl && (
+            <button 
+              type="button"
+              className="ci-action-btn"
+              title="Open in Browser Tab"
+              aria-label="Open workflow run in browser tab"
+              onClick={(e) => {
+                e.stopPropagation();
+                import('../../stores/tabs-store').then(({ useTabsStore }) => {
+                  useTabsStore.getState().openBrowserTab(
+                    `github-workflow-run:${run.repositoryId}:${m.runId ?? run.id}`,
+                    'githubPage',
+                    `${title || 'CI'} · Run #${m.runNumber ?? '?'}`,
+                    m.htmlUrl,
+                    false,
+                    true
+                  );
+                });
+              }}
+            >
+              <ExternalLink size={14} />
+            </button>
+          )}
           <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
             <PlayCircle size={14} className={expanded ? 'is-expanded' : ''} />
           </button>

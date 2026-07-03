@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { AnalyticsInspectable } from '../../analytics/types';
 import { useMemo, useState } from 'react';
 import { Copy, X, ArrowRightCircle, Globe, History } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout-store';
@@ -105,7 +106,7 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
         <Meta label="Duration">{durationStr}</Meta>
         {metadata.headBranch && <Meta label="Branch">{metadata.headBranch}</Meta>}
         {metadata.pullRequestNumber && <Meta label="Pull Request"><a href={`https://github.com/${selected.repositoryId}/pull/${metadata.pullRequestNumber}`} target="_blank" rel="noreferrer" className="open-link">#{metadata.pullRequestNumber}</a></Meta>}
-        {metadata.headSha && <Meta label="Commit"><a href={`https://github.com/${selected.repositoryId}/commit/${metadata.headSha}`} target="_blank" rel="noreferrer" className="open-link">{metadata.headSha.substring(0, 7)}</a></Meta>}
+        {metadata.headSha && <Meta label="Commit"><a role="button" tabIndex={0} className="open-link" onClick={() => useTabsStore.getState().openNativeTab(`native:commit:${selected.repositoryId}:${metadata.headSha}`, 'commitDiff', (metadata.headSha as string).substring(0, 7), false, true, { type: 'commit', repository: selected.repositoryId || '', sha: metadata.headSha as string })}>{(metadata.headSha as string).substring(0, 7)}</a></Meta>}
       </div>
       {metadata.commitMessage && <p className="inspector-partial">Message: {metadata.commitMessage}</p>}
     </section>

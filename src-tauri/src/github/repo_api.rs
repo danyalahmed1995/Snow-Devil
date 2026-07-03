@@ -318,6 +318,49 @@ pub async fn fetch_repo_issues(
     Ok(json_res["data"]["repository"]["issues"]["nodes"].clone())
 }
 
+pub async fn fetch_commit_details(
+    owner: &str,
+    name: &str,
+    sha: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let rest_url = format!("{}/repos/{}/{}/commits/{}", REST_URL, owner, name, sha);
+    
+    // 1. Fetch JSON metadata
+    let json_res = client
+        .get(&rest_url)
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await?;
+
+    if !json_res.status().is_success() {
+        return Err(format!("Failed to fetch commit metadata: {}", json_res.status()).into());
+    }
+
+    let mut commit_data: serde_json::Value = json_res.json().await?;
+
+    // 2. Fetch raw diff
+    let diff_res = client
+        .get(&rest_url)
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .header("Accept", "application/vnd.github.diff")
+        .send()
+        .await?;
+
+    if diff_res.status().is_success() {
+        if let Ok(diff_text) = diff_res.text().await {
+            commit_data["diff"] = json!(diff_text);
+        }
+    }
+
+    Ok(commit_data)
+}
+
 pub async fn fetch_pr_details(
     owner: &str,
     name: &str,

@@ -97,9 +97,9 @@ async function paged(account: string, repo: string, type: string, endpoint: (pag
     const items = array(response.body);
     await saveRecords(items.map(item => record(account, repo, type, item)));
     count += items.length;
-    const oldestItem = items[items.length - 1];
-    const oldest = oldestItem?.updated_at ?? oldestItem?.created_at;
-    if (!response.next_page || boundedByHistory && typeof oldest === 'string' && oldest < boundary) break;
+    const validItems = items.filter(item => typeof (item.updated_at ?? item.created_at) === 'string');
+    const allOlder = validItems.length > 0 && validItems.every(item => String(item.updated_at ?? item.created_at) < boundary);
+    if (!response.next_page || (boundedByHistory && allOlder)) break;
     page = response.next_page;
   }
   return { count, unsupported, rate };
@@ -146,7 +146,7 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
         ['pull_requests_issues', 'issue_or_pull_request', p => `/repos/${owner}/${name}/issues?state=all&since=${encodeURIComponent(boundary)}&per_page=100&page=${p}`],
         ['pull_requests_issues', 'pull_request', p => `/repos/${owner}/${name}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${p}`],
         ['branches', 'branch', p => `/repos/${owner}/${name}/branches?per_page=100&page=${p}`],
-        ['checks', 'workflow_run', p => `/repos/${owner}/${name}/actions/runs?created=>=${boundary.slice(0, 10)}&per_page=100&page=${p}`],
+        ['checks', 'workflow_run', p => `/repos/${owner}/${name}/actions/runs?per_page=100&page=${p}`],
         ['checks', 'check_run', p => `/repos/${owner}/${name}/commits/${encodeURIComponent(repo.default_branch)}/check-runs?per_page=100&page=${p}`],
         ['releases_deployments', 'release', p => `/repos/${owner}/${name}/releases?per_page=100&page=${p}`],
         ['releases_deployments', 'deployment', p => `/repos/${owner}/${name}/deployments?per_page=100&page=${p}`],
@@ -176,6 +176,12 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       }
       state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: completed.size, failedRepositories: failed.length, totalRepositories: selected.length, normalizedRecords: Object.values(counts).reduce((sum, value) => sum + value, 0) }, unsupportedSources } satisfies AnalyticsSyncContinuation);
       await saveState(state);
+      try {
+        const { queryClient } = await import('../app/providers');
+        void queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] });
+      } catch (e) {
+        // Ignore if queryClient is unavailable in this environment
+      }
     }
     if (active.cancelled) throw new Error('cancelled');
     state.status = failed.length ? 'partial' : 'complete'; state.current_stage = null; state.current_repository = null; state.completed_repositories_json = JSON.stringify([...completed]); state.failed_repositories_json = JSON.stringify(failed); state.counts_json = JSON.stringify(counts); state.continuation_json = JSON.stringify({ unsupportedSources } satisfies AnalyticsSyncContinuation); state.last_successful_at = new Date().toISOString(); state.coverage_start = boundary; state.coverage_end = new Date().toISOString();

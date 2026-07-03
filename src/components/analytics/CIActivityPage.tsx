@@ -28,7 +28,14 @@ export function CIActivityPage() {
   // Filter out workflow runs and sort them correctly
   const allRuns = useMemo(() => {
     if (!dataset) return [];
-    return dataset.rawWorkflowRuns.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+    return dataset.rawWorkflowRuns.sort((a, b) => {
+      const timeA = new Date(a.occurredAt).getTime();
+      const timeB = new Date(b.occurredAt).getTime();
+      if (timeA !== timeB) return timeB - timeA;
+      const idA = String((a.metadata as any)?.runId ?? a.id);
+      const idB = String((b.metadata as any)?.runId ?? b.id);
+      return idB.localeCompare(idA);
+    });
   }, [dataset]);
 
   // Extract unique filter options based on repository (if selected)
@@ -127,11 +134,11 @@ export function CIActivityPage() {
     });
   };
 
-  const sync = useAnalyticsSync();
-  const syncCounts = sync.state ? JSON.parse(sync.state.counts_json || '{}') : {};
-  const includedCount = syncCounts.included_repositories ?? 0;
-  const unsupportedCount = syncCounts.workflow_run_unsupported ?? 0;
-  const lastSync = sync.state?.last_successful_at ? new Date(sync.state.last_successful_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'never';
+  // const sync = useAnalyticsSync();
+  // const syncCounts = sync.state ? JSON.parse(sync.state.counts_json || '{}') : {};
+  // const includedCount = syncCounts.included_repositories ?? 0;
+  // const unsupportedCount = syncCounts.workflow_run_unsupported ?? 0;
+  // const lastSync = sync.state?.last_successful_at ? new Date(sync.state.last_successful_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'never';
   
   // DIAGNOSTICS
   const cachedWorkflowRunsCount = dataset?.rawWorkflowRuns?.length ?? 0;

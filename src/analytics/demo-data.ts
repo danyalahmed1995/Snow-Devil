@@ -206,6 +206,7 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
     events: events.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     branches,
     relationships: buildDeliveryLineage(entities, relationships),
+    rawWorkflowRuns: [],
     partial: true,
     partialReasons: ['One repository has incomplete release/deployment coverage', 'Some branch start times are estimated from first observed commits'],
   };
