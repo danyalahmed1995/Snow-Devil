@@ -213,6 +213,27 @@ A matching semantic-version tag such as `v0.1.0` builds one draft release with W
 
 Release builds are unsigned and are not notarized. Windows may show an unrecognized-publisher warning, and macOS users may need to approve Snow Devil in **System Settings → Privacy & Security**. Only the release workflow's final publication job receives write permission.
 
+### Installing an unsigned build
+
+Snow Devil ships without paid OS code-signing certificates, so each platform shows a one-time warning you can safely clear:
+
+- **Windows** — If SmartScreen shows *"Windows protected your PC"*, click **More info → Run anyway**. Installing through a package manager (Scoop or winget) also avoids the prompt.
+- **macOS** — If Gatekeeper says the app *"cannot be opened"* or *"is damaged"*, right-click (or Control-click) **Snow Devil.app → Open → Open**. If it still refuses, clear the download quarantine flag in Terminal:
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/Snow Devil.app"
+  ```
+
+- **Linux** — For the AppImage, make it executable first:
+
+  ```bash
+  chmod +x Snow-Devil_*.AppImage && ./Snow-Devil_*.AppImage
+  ```
+
+  For the `.deb`, install with `sudo dpkg -i Snow-Devil_*.deb`.
+
+In-app updates are still cryptographically verified with the project's own signing key even though the installers themselves are unsigned, so an update cannot be silently tampered with.
+
 ## Latest verification
 
 The History controls, loading truthfulness, and persistent-tab final patch was verified with:
@@ -238,7 +259,7 @@ Native checks covered History playback and Source Details at all target widths, 
 - Very large expanded trees and extremely large history result sets may still benefit from additional virtualization.
 - Native diff focuses on textual patches and does not provide GitHub's complete review workflow.
 - Business-time calculations do not currently include public holidays.
-- The primary supported experience is the packaged Windows application; release signing, updater, and broad clean-machine qualification remain follow-up work.
+- The primary supported experience is the packaged Windows application. A signature-verified in-app updater is implemented; OS code signing/notarization is intentionally omitted (see **Installing an unsigned build**), and broad clean-machine qualification remains follow-up work.
 - Team workspaces, shared dashboards, cloud synchronization, role-based access, and multi-account operation are not implemented.
 
 ## Design principle
