@@ -52,6 +52,7 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'repositoryExplorer',
   'pullRequestDiff',
   'commitDiff',
+  'ciRun',
   'notifications',
   'organizations',
   'evidenceGraph',

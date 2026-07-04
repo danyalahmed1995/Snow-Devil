@@ -233,7 +233,18 @@ export function Inspector() {
             <ArrowRightCircle size={12} /> Open in Flow
           </button>
         )}
-        <button type="button" aria-label="Open in Default Browser" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><Globe size={12} /> Open in Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button><button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button></div>}
+        <button type="button" aria-label="Open in Default Browser" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><Globe size={12} /> Open in Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button>
+        {isAnalytics && flowState.selectedAnalyticsEntity?.kind === 'workflow_run' ? (
+           <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen native CI Run Watcher inside Snow Devil." onClick={() => {
+              const e = flowState.selectedAnalyticsEntity!;
+              const m = (e as any).metadata;
+              const runIdStr = m?.runId ?? e.id;
+              useTabsStore.getState().openNativeTab(`ciRun:${e.repositoryId}:${runIdStr}`, 'ciRun', `CI #${m?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: e.repositoryId || '', runId: String(runIdStr) });
+           }}>Open in Tab</button>
+        ) : (
+           <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button>
+        )}
+      </div>}
       {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open in Tab unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
     </footer>}
   </div>;

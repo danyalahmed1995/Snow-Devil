@@ -26,6 +26,7 @@ export type NativeTabKind =
   | "repositoryExplorer"
   | "pullRequestDiff"
   | "commitDiff"
+  | "ciRun"
   | "notifications"
   | "organizations"
   | "evidenceGraph";
@@ -34,6 +35,7 @@ export type NativeTabContext =
   | { type: "repository"; repository: string; ref?: string; path?: string }
   | { type: "pullRequest"; repository: string; number: number }
   | { type: "commit"; repository: string; sha: string }
+  | { type: "ciRun"; repository: string; runId: string; attempt?: number; jobId?: string }
   | { type: "evidenceGraph"; rootId?: string; repository?: string };
 
 /** A tab backed by a built-in React view. */

@@ -8,6 +8,7 @@ import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, Refr
 import { useRepositoryBranches } from '../../hooks/useRepositoryBranches';
 import { Select } from '../ui/Select';
 import { CIRunRow, formatDurationCompact } from './CIRunRow';
+import { useTabsStore } from '../../stores/tabs-store';
 
 export function CIActivityPage() {
   const analytics = useAnalyticsData();
@@ -306,7 +307,21 @@ export function CIActivityPage() {
                }
 
                return (
-                 <CIRunRow key={run.id} run={run} isSelected={selectedId === run.id} sparklineRuns={sparklineRuns} onSelect={selectRow} />
+                 <CIRunRow 
+                    key={run.id} 
+                    run={run} 
+                    isSelected={selectedId === run.id} 
+                    sparklineRuns={sparklineRuns} 
+                    onSelect={selectRow} 
+                    onOpenRun={() => {
+                       const runIdStr = (run.metadata as any)?.runId ?? run.id;
+                       useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr) });
+                    }}
+                    onOpenJob={(jobId) => {
+                       const runIdStr = (run.metadata as any)?.runId ?? run.id;
+                       useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr), jobId });
+                    }}
+                 />
                );
              })}
              {visibleRuns.length > limit && (

@@ -69,6 +69,7 @@ pub fn run() {
             commands::simulator::get_simulator_sync_state,
             commands::simulator::save_simulator_sync_state,
             commands::analytics::analytics_fetch_rest,
+            commands::analytics::analytics_fetch_job_log,
             commands::analytics::save_analytics_records,
             commands::analytics::get_analytics_records,
             commands::analytics::save_analytics_sync_state,

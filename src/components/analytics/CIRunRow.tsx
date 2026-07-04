@@ -36,7 +36,7 @@ export function StatusIcon({ status, conclusion, size = 14 }: { status?: string;
   return <AlertCircle size={size} className="status-icon status-icon--neutral" style={{ color: 'var(--text-secondary)' }} />;
 }
 
-export function CIRunRow({ run, isSelected, onSelect }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void }) {
+export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void; onOpenRun?: () => void; onOpenJob?: (jobId: string) => void; }) {
   const [expanded, setExpanded] = useState(false);
   const { data: jobs, isLoading, error } = useWorkflowJobs(run.repositoryId, run.metadata?.runId as string, expanded);
 
@@ -64,7 +64,16 @@ export function CIRunRow({ run, isSelected, onSelect }: { run: SimulatorEvent; i
   const avatarUrl = m?.actorAvatar || run.actor?.avatarUrl || (cleanLogin ? `https://github.com/${cleanLogin}.png?size=48` : undefined);
   
   return (
-    <div className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}>
+    <div 
+      className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}
+      onDoubleClick={onOpenRun}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && onOpenRun) {
+           onOpenRun();
+        }
+      }}
+      tabIndex={0}
+    >
       <div className="ci-activity-row__main" onClick={() => onSelect(run.id)}>
         <div className="ci-activity-row__status">
           <StatusIcon status={status} conclusion={conclusion} size={16} />
@@ -171,7 +180,7 @@ export function CIRunRow({ run, isSelected, onSelect }: { run: SimulatorEvent; i
           {jobs && jobs.length > 0 && (
             <ul className="ci-jobs-list">
               {jobs.map(job => (
-                <li key={job.id} className="ci-job-item">
+                <li key={job.id} className="ci-job-item" onClick={(e) => { e.stopPropagation(); onOpenJob?.(String(job.id)); }}>
                   <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
                   <span className="ci-job-name">{job.name}</span>
                   {job.status === 'in_progress' && job.steps?.length > 0 && (
