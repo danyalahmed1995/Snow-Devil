@@ -189,6 +189,7 @@ export function CIActivityPage() {
       void sync.sync({ priorityRepositories: activeRepo ? [activeRepo] : [] });
     }
     void analytics.refetch();
+    import('../../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['workflow_jobs'] })).catch(() => {});
   };
   
   let freshnessText = '';

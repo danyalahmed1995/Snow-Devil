@@ -287,7 +287,7 @@
 }
 
 .status-icon.queued { color: var(--text-muted); }
-.status-icon.running { color: var(--info-color); }
+.status-icon.running { color: var(--warning-color); }
 .status-icon.passed { color: var(--success-color); }
 .status-icon.failed { color: var(--danger-color); }
 .status-icon.cancelled, .status-icon.skipped { color: var(--text-muted); }

@@ -29,7 +29,7 @@ function timeAgo(dateString?: string) {
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
   if (status === 'queued' || status === 'waiting' || status === 'pending') return <Clock size={size} className="status-icon status-icon--queued" style={{ color: 'var(--warning)' }} />;
-  if (status === 'in_progress') return <CircleDotDashed size={size} className="status-icon status-icon--running is-spinning" style={{ color: 'var(--accent-primary)' }} />;
+  if (status === 'in_progress') return <CircleDotDashed size={size} className="status-icon status-icon--running is-spinning" style={{ color: 'var(--warning)' }} />;
   if (conclusion === 'success') return <CheckCircle2 size={size} className="status-icon status-icon--success" style={{ color: 'var(--success)' }} />;
   if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') return <XCircle size={size} className="status-icon status-icon--failure" style={{ color: 'var(--danger)' }} />;
   if (conclusion === 'cancelled') return <XCircle size={size} className="status-icon status-icon--cancelled" style={{ color: 'var(--text-muted)' }} />;
@@ -38,11 +38,11 @@ export function StatusIcon({ status, conclusion, size = 14 }: { status?: string;
 
 export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void; onOpenRun?: () => void; onOpenJob?: (jobId: string) => void; }) {
   const [expanded, setExpanded] = useState(false);
-  const { data: jobs, isLoading, error } = useWorkflowJobs(run.repositoryId, run.metadata?.runId as string, expanded);
-
   const m = run.metadata as Record<string, any> | undefined;
   const status = m?.status as string | undefined;
   const conclusion = m?.conclusion as string | null | undefined;
+  const isActiveRun = status !== 'completed' && conclusion === null;
+  const { data: jobs, isLoading, error } = useWorkflowJobs(run.repositoryId, run.metadata?.runId as string, expanded, isActiveRun);
   
   const title = run.subjectTitle || '';
   const msg = m?.commitMessage || '';

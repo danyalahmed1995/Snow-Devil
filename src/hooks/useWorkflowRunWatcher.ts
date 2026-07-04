@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import type { WorkflowJob } from './useWorkflowJobs';
+import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics/identity';
+import { useAuthStore } from '../stores/auth-store';
 
 interface ApiResponse {
   status: number;
@@ -70,6 +72,25 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
       if (runRes.status >= 400) throw new Error('github_error_' + runRes.status);
       const runData = runRes.body as WorkflowRunDetails;
       
+      // Save the updated run status to local DB so dashboard CI Activity is updated in real-time
+      const session = useAuthStore.getState().session;
+      const login = session.status === 'connected' ? session.account.login : null;
+      if (login) {
+        const repoNumericId = runData.repository?.id;
+        const canonicalId = getCanonicalWorkflowRunId(repoNumericId, repositoryId, runData.id);
+        const updated_at = getWorkflowRunTimestamp(runData);
+        const record = {
+          account_login: login,
+          repository_id: repositoryId,
+          source_type: 'workflow_run',
+          source_id: canonicalId,
+          updated_at,
+          payload_json: JSON.stringify(runData)
+        };
+        await invoke('save_analytics_records', { records: [record] }).catch(() => {});
+        import('../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] })).catch(() => {});
+      }
+
       let jobsEndpoint = '';
       if (attemptNumber && attemptNumber !== runData.run_attempt) {
          jobsEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId) + '/attempts/' + attemptNumber + '/jobs';
@@ -89,3 +110,4 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
     },
   });
 }
+

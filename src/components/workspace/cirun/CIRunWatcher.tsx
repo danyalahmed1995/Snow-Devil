@@ -49,7 +49,13 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
 
   const selectedJob = useMemo(() => jobs.find(j => String(j.id) === selectedJobId), [jobs, selectedJobId]);
   
-  const { data: logData, isLoading: isLogLoading, refetch: refetchLog, isFetching: isLogFetching } = useWorkflowJobLog(repositoryId, selectedJobId || '', Boolean(selectedJobId && selectedJob?.status === 'completed'));
+  const isJobActive = selectedJob?.status === 'in_progress';
+  const { data: logData, isLoading: isLogLoading, refetch: refetchLog, isFetching: isLogFetching } = useWorkflowJobLog(
+    repositoryId, 
+    selectedJobId || '', 
+    Boolean(selectedJobId && (selectedJob?.status === 'completed' || isJobActive)),
+    isJobActive
+  );
 
   const [expandedStepNumber, setExpandedStepNumber] = useState<number | null>(null);
 
