@@ -240,6 +240,11 @@ pub async fn analytics_fetch_job_log(repository: String, job_id: u64) -> Result<
         
     let status = response.status();
     
+    if status.is_success() {
+        let log_text = response.text().await.map_err(|e| e.to_string())?;
+        return Ok(JobLogResponse { status: status.as_u16(), text: Some(log_text), truncated: false, error_kind: None });
+    }
+    
     if status.is_redirection() {
         if let Some(location) = response.headers().get(reqwest::header::LOCATION) {
             let loc_str = location.to_str().map_err(|_| "Invalid location header")?;

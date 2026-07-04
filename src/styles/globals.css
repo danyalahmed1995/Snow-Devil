@@ -114,3 +114,12 @@ button, input, select, textarea, [tabindex] {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+.running-spinner {
+  display: inline-block;
+  border: 1.5px solid color-mix(in srgb, var(--warning) 15%, transparent);
+  border-top-color: var(--warning);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  box-sizing: border-box;
+}

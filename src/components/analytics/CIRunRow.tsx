@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
@@ -29,7 +29,7 @@ function timeAgo(dateString?: string) {
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
   if (status === 'queued' || status === 'waiting' || status === 'pending') return <Clock size={size} className="status-icon status-icon--queued" style={{ color: 'var(--warning)' }} />;
-  if (status === 'in_progress') return <CircleDotDashed size={size} className="status-icon status-icon--running is-spinning" style={{ color: 'var(--warning)' }} />;
+  if (status === 'in_progress') return <div className="status-icon running-spinner" style={{ width: size, height: size }} />;
   if (conclusion === 'success') return <CheckCircle2 size={size} className="status-icon status-icon--success" style={{ color: 'var(--success)' }} />;
   if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') return <XCircle size={size} className="status-icon status-icon--failure" style={{ color: 'var(--danger)' }} />;
   if (conclusion === 'cancelled') return <XCircle size={size} className="status-icon status-icon--cancelled" style={{ color: 'var(--text-muted)' }} />;

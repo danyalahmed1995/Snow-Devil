@@ -11,7 +11,7 @@ import './CIRunWatcher.css';
 
 function getStatusIcon(status: string, conclusion: string | null) {
   if (status === 'queued' || status === 'waiting' || status === 'pending') return <Clock size={14} className="status-icon queued" />;
-  if (status === 'in_progress') return <Loader2 size={14} className="status-icon running is-spinning" />;
+  if (status === 'in_progress') return <div className="status-icon running-spinner" style={{ width: 14, height: 14 }} />;
   if (conclusion === 'success') return <CheckCircle2 size={14} className="status-icon passed" />;
   if (conclusion === 'failure' || conclusion === 'timed_out') return <XCircle size={14} className="status-icon failed" />;
   if (conclusion === 'cancelled') return <MinusCircle size={14} className="status-icon cancelled" />;
