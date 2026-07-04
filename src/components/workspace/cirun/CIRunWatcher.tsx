@@ -6,6 +6,7 @@ import { useWorkflowJobLog } from '../../../hooks/useWorkflowJobLog';
 import { formatDurationCompact } from '../../analytics/CIRunRow';
 import { CheckCircle2, CircleDashed, Clock, XCircle, AlertCircle, Loader2, RefreshCw, MinusCircle, ChevronRight } from 'lucide-react';
 import { Select } from '../../ui/Select';
+import { CILogViewer, LogLineData } from './CILogViewer';
 import './CIRunWatcher.css';
 
 function getStatusIcon(status: string, conclusion: string | null) {
@@ -53,39 +54,70 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   const [expandedStepNumber, setExpandedStepNumber] = useState<number | null>(null);
 
   const stepLogs = useMemo(() => {
-     if (!logData?.text) return new Map<number, string>();
+     if (!logData?.text) return new Map<number, LogLineData[]>();
      
-     const lines = logData.text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').split(/\r?\n/);
-     const parsedLines: { time: number, text: string }[] = [];
+     // Note: Do NOT strip ANSI codes here, CILogViewer handles them
+     const lines = logData.text.split(/\r?\n/);
+     const parsedLines: { time: number, text: string, lineNumber: number }[] = [];
      let lastTime = 0;
      
-     for (const line of lines) {
+     for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
         const match = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\s(.*)/);
         if (match) {
            lastTime = new Date(match[1]).getTime();
-           parsedLines.push({ time: lastTime, text: match[2] });
+           parsedLines.push({ time: lastTime, text: match[2], lineNumber: index + 1 });
         } else {
-           parsedLines.push({ time: lastTime, text: line });
+           parsedLines.push({ time: lastTime, text: line, lineNumber: index + 1 });
         }
      }
 
-     const logsByStep = new Map<number, string>();
+     const logsByStep = new Map<number, LogLineData[]>();
      const steps = selectedJob?.steps || [];
      
-     for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
-        if (!step.started_at) continue;
-        
-        const startTime = new Date(step.started_at).getTime();
-        // Use the start time of the next step as the end time of the current step, or infinity if it's the last step
-        // Add a 1000ms buffer to the start time of the next step to catch any lagging log lines
-        const nextStep = steps[i + 1];
-        const endTime = nextStep?.started_at ? new Date(nextStep.started_at).getTime() + 1000 : Infinity;
-        
-        const stepLines = parsedLines.filter(l => l.time >= startTime && l.time <= endTime);
-        if (stepLines.length > 0) {
-           logsByStep.set(step.number, stepLines.map(l => l.text).join('\n'));
+     // Filter out skipped steps
+     const activeSteps = steps.filter(s => s.conclusion !== 'skipped');
+     if (activeSteps.length === 0 || parsedLines.length === 0) return logsByStep;
+
+     let currentStepIndex = 0;
+     for (const line of parsedLines) {
+        if (currentStepIndex < activeSteps.length - 1) {
+          const nextStep = activeSteps[currentStepIndex + 1];
+          let shouldTransition = false;
+          
+          const isPostRun = nextStep.name.startsWith('Post Run ') || nextStep.name.startsWith('Post job ');
+          const isCompleteJob = nextStep.name === 'Complete job';
+          
+          if (isPostRun) {
+            if (line.text.includes('Post job cleanup.')) {
+              shouldTransition = true;
+            }
+          } else if (isCompleteJob) {
+            if (line.text.includes('Cleaning up orphan processes') || line.text.includes('Complete job')) {
+              shouldTransition = true;
+            }
+          } else {
+            if (line.text.includes('##[group]Run ')) {
+              shouldTransition = true;
+            }
+          }
+
+          if (shouldTransition) {
+            currentStepIndex++;
+            // Skip adding the transition marker line if it's a ##[group]Run marker
+            // so we don't display it inside the step logs
+            if (line.text.includes('##[group]Run ')) {
+              continue;
+            }
+          }
         }
+        
+        const step = activeSteps[currentStepIndex];
+        if (!logsByStep.has(step.number)) {
+          logsByStep.set(step.number, []);
+        }
+        const stepLogsArr = logsByStep.get(step.number)!;
+        stepLogsArr.push({ lineNumber: stepLogsArr.length + 1, text: line.text });
      }
      
      return logsByStep;
@@ -189,7 +221,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
                            <div className="ci-job-logs-viewer">
                              {isLogLoading && <div className="log-loading"><Loader2 className="is-spinning" /> Loading logs...</div>}
                              {stepLogs.has(step.number) ? (
-                               <pre className="log-text">{stepLogs.get(step.number)}</pre>
+                               <CILogViewer lines={stepLogs.get(step.number)!} />
                              ) : !isLogLoading && (
                                <div className="log-empty">
                                  {selectedJob.status === 'completed' ? (
