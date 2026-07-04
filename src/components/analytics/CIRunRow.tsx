@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { CheckCircle2, CircleDotDashed, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
-import { formatDurationHours } from '../../analytics/math';
 
 export function formatDurationCompact(ms?: number) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return 'Unknown';
@@ -37,7 +36,7 @@ export function StatusIcon({ status, conclusion, size = 14 }: { status?: string;
   return <AlertCircle size={size} className="status-icon status-icon--neutral" style={{ color: 'var(--text-secondary)' }} />;
 }
 
-export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns: number[]; onSelect: (id: string) => void }) {
+export function CIRunRow({ run, isSelected, onSelect }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const { data: jobs, isLoading, error } = useWorkflowJobs(run.repositoryId, run.metadata?.runId as string, expanded);
 
@@ -63,15 +62,6 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
   const actorLogin = run.actor?.login || m?.actorName;
   const cleanLogin = actorLogin?.replace('[bot]', '');
   const avatarUrl = m?.actorAvatar || run.actor?.avatarUrl || (cleanLogin ? `https://github.com/${cleanLogin}.png?size=48` : undefined);
-
-  // Calculate sparkline points if we have >= 2 samples
-  const hasSparkline = sparklineRuns.length >= 2;
-  // const maxDuration = hasSparkline ? Math.max(...sparklineRuns) : 0;
-  // const sparklinePts = hasSparkline ? sparklineRuns.map((dur, i) => {
-  //   const x = (i / (sparklineRuns.length - 1)) * 40;
-  //   const y = 14 - ((dur / maxDuration) * 12);
-  //   return `${x},${y}`;
-  // }).join(' ') : '';
   
   return (
     <div className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}>
@@ -202,3 +192,7 @@ export function CIRunRow({ run, isSelected, sparklineRuns, onSelect }: { run: Si
     </div>
   );
 }
+
+
+
+

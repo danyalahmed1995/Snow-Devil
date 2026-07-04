@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
+import { getAnalyticsSyncState } from '../../analytics/sync';
+import { matchesRepository } from '../../analytics/identity';
 import { useFlowStore } from '../../stores/flow-store';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton } from './AnalyticsShared';
 import { Select } from '../ui/Select';
 import { CIRunRow, formatDurationCompact } from './CIRunRow';
-import type { SimulatorEvent } from '../../simulator/simulator-types';
 
 export function CIActivityPage() {
   const analytics = useAnalyticsData();
@@ -45,28 +45,60 @@ export function CIActivityPage() {
     return dataset.repositories.filter(r => set.has(r.id)).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
   }, [dataset, allRuns]);
 
+  const getFilterRepo = () => repositoryId === 'all' ? null : reposForFilter.find(r => r.id === repositoryId);
+
   const workflows = useMemo(() => {
-    const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => r.repositoryId === repositoryId);
+    const filterRepo = getFilterRepo();
+    const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => matchesRepository((r.metadata as any)?.repositoryNumericId, r.repositoryName ?? r.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId));
     return Array.from(new Set(runs.map(r => r.subjectTitle))).sort();
-  }, [allRuns, repositoryId]);
+  }, [allRuns, repositoryId, reposForFilter]);
 
   const branches = useMemo(() => {
-    const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => r.repositoryId === repositoryId);
+    const filterRepo = getFilterRepo();
+    const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => matchesRepository((r.metadata as any)?.repositoryNumericId, r.repositoryName ?? r.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId));
     return Array.from(new Set(runs.map(r => (r.metadata as any)?.headBranch).filter(Boolean))).sort();
-  }, [allRuns, repositoryId]);
+  }, [allRuns, repositoryId, reposForFilter]);
 
   // Apply filters
   const visibleRuns = useMemo(() => {
     const rangeDays = Number(rangeChoice);
     const cutoff = new Date(Date.now() - rangeDays * 86400000).toISOString();
     return allRuns.filter(run => {
-      if (repositoryId !== 'all' && run.repositoryId !== repositoryId) return false;
+      const isTarget = String((run.metadata as any)?.runId) === "28630872847";
+      if (isTarget) {
+        console.log("INSTRUMENT [28630872847]: START");
+        console.log("ID:", run.id);
+        console.log("Repository ID:", run.repositoryId);
+        console.log("Repository Name:", run.repositoryName);
+        console.log("Subject Type:", run.subjectType);
+        console.log("Event Type:", run.eventType);
+        console.log("Run ID:", (run.metadata as any)?.runId);
+        console.log("Branch:", (run.metadata as any)?.headBranch);
+        console.log("Status:", (run.metadata as any)?.status);
+        console.log("Conclusion:", (run.metadata as any)?.conclusion);
+        console.log("Occurred At:", run.occurredAt);
+        console.log("Started At:", (run.metadata as any)?.startedAt);
+        console.log("Completed At:", (run.metadata as any)?.completedAt);
+        console.log("Selected Repo Filter:", repositoryId);
+        console.log("Selected Range Choice:", rangeChoice);
+      }
+      
+      let passRepo = false;
+      if (repositoryId === 'all') {
+          passRepo = true;
+      } else {
+          const filterRepo = reposForFilter.find(r => r.id === repositoryId);
+          passRepo = matchesRepository((run.metadata as any)?.repositoryNumericId, run.repositoryName ?? run.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId);
+      }
+      if (isTarget) console.log("Predicate [repo]:", passRepo, repositoryId, run.repositoryId);
+      if (!passRepo) return false;
       const meta = run.metadata as any;
       
       const runStatus = meta?.status;
       const runConclusion = meta?.conclusion;
       
       if (statusFilter !== 'all') {
+        if (isTarget) console.log("Predicate [statusFilter]: checking", statusFilter);
         if (statusFilter === 'running' && runStatus !== 'in_progress') return false;
         if (statusFilter === 'queued' && (runStatus !== 'queued' && runStatus !== 'waiting' && runStatus !== 'pending')) return false;
         if (statusFilter === 'failed' && (runConclusion !== 'failure' && runConclusion !== 'timed_out' && runConclusion !== 'startup_failure')) return false;
@@ -74,10 +106,10 @@ export function CIActivityPage() {
         if (statusFilter === 'cancelled' && runConclusion !== 'cancelled') return false;
       }
       
-      if (workflowFilter !== 'all' && run.subjectTitle !== workflowFilter) return false;
-      if (branchFilter !== 'all' && meta?.headBranch !== branchFilter) return false;
-      if (eventFilter !== 'all' && meta?.event !== eventFilter) return false;
-      if (run.occurredAt < cutoff) return false;
+      let passWf = true; if (workflowFilter !== 'all' && run.subjectTitle !== workflowFilter) passWf = false; if (isTarget) console.log("Predicate [wf]:", passWf); if (!passWf) return false;
+      let passBranch = true; if (branchFilter !== 'all' && meta?.headBranch !== branchFilter) passBranch = false; if (isTarget) console.log("Predicate [branch]:", passBranch); if (!passBranch) return false;
+      let passEvent = true; if (eventFilter !== 'all' && meta?.event !== eventFilter) passEvent = false; if (isTarget) console.log("Predicate [event]:", passEvent); if (!passEvent) return false;
+      let passRange = true; if (run.occurredAt < cutoff) passRange = false; if (isTarget) console.log("Predicate [range]:", passRange, run.occurredAt, cutoff); if (!passRange) return false;
       
       return true;
     });
@@ -134,11 +166,33 @@ export function CIActivityPage() {
     });
   };
 
-  // const sync = useAnalyticsSync();
-  // const syncCounts = sync.state ? JSON.parse(sync.state.counts_json || '{}') : {};
-  // const includedCount = syncCounts.included_repositories ?? 0;
-  // const unsupportedCount = syncCounts.workflow_run_unsupported ?? 0;
-  // const lastSync = sync.state?.last_successful_at ? new Date(sync.state.last_successful_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'never';
+  const sync = useAnalyticsSync();
+  
+  const handleRefresh = () => {
+    if (repositoryId !== 'all') {
+      void sync.sync({ singleRepository: repositoryId });
+    } else {
+      const activeRepo = allRuns.find(r => r.id === selectedId)?.repositoryId;
+      void sync.sync({ priorityRepositories: activeRepo ? [activeRepo] : [] });
+    }
+    void analytics.refetch();
+  };
+  
+  let freshnessText = '';
+  if (repositoryId !== 'all') {
+    const ciFreshness = sync.getCIFreshness(repositoryId);
+    if (ciFreshness) {
+       const sec = Math.floor((Date.now() - new Date(ciFreshness).getTime()) / 1000);
+       freshnessText = `${repositoryId.split('/')[1]} CI synced ${sec < 60 ? sec + ' seconds ago' : Math.floor(sec/60) + ' minutes ago'}`;
+    } else {
+       freshnessText = `${repositoryId.split('/')[1]} CI sync pending`;
+    }
+  } else if (sync.syncing && sync.state?.continuation_json) {
+    const cont = JSON.parse(sync.state.continuation_json);
+    if (cont.currentJob) freshnessText = "CI data updating \\u00B7 ${cont.currentJob.completedRepositories} of ${cont.currentJob.totalRepositories} repositories refreshed";
+  } else if (sync.state?.last_successful_at) {
+    freshnessText = `All repositories synced ${new Date(sync.state.last_successful_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+  }
   
   // DIAGNOSTICS
   const cachedWorkflowRunsCount = dataset?.rawWorkflowRuns?.length ?? 0;
@@ -153,7 +207,10 @@ export function CIActivityPage() {
       <label>Branch<Select ariaLabel="Branch filter" searchable value={branchFilter} onChange={setBranchFilter} options={[{ value: 'all', label: 'All branches' }, ...branches.map(b => ({ value: b, label: b }))]}/></label>
       <label>Event<Select ariaLabel="Event filter" value={eventFilter} onChange={setEventFilter} options={[{ value: 'all', label: 'All events' }, { value: 'push', label: 'Push' }, { value: 'pull_request', label: 'Pull Request' }, { value: 'workflow_dispatch', label: 'Manual (Dispatch)' }, { value: 'schedule', label: 'Scheduled' }]}/></label>
       <label>Range<Select ariaLabel="Time range" value={rangeChoice} onChange={setRangeChoice} options={[{ value: '1', label: '24 hours' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]}/></label>
-      <RefreshButton refreshing={analytics.isFetching} onClick={() => void analytics.refetch()} />
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{freshnessText}</span>
+         <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? sync.isTargetSyncing(repositoryId) : sync.syncing)} onClick={handleRefresh} />
+      </div>
     </>}>
       {import.meta.env.DEV && (
         <details style={{ margin: '10px 0' }}>
@@ -222,3 +279,7 @@ export function CIActivityPage() {
     </AnalyticsPage>
   );
 }
+
+
+
+
