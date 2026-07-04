@@ -12,6 +12,7 @@ import { useTabsStore } from '../../stores/tabs-store';
 
 export function CIActivityPage() {
   const analytics = useAnalyticsData();
+  const sync = useAnalyticsSync();
   const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
@@ -151,6 +152,8 @@ export function CIActivityPage() {
     };
   }, [visibleRuns]);
 
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+
   // Auto-reset dependent filters when repository changes or branches are updated
   useEffect(() => {
     setWorkflowFilter('all');
@@ -161,6 +164,27 @@ export function CIActivityPage() {
       setBranchFilter('all');
     }
   }, [branches, branchFilter]);
+
+  // Auto-refresh the CI run list when the tab is active/focused to show new CI runs quickly
+  useEffect(() => {
+    if (!isActive) return;
+    
+    const triggerRefresh = () => {
+      // Skip if sync is already running
+      if (sync.syncing) return;
+      
+      if (repositoryId !== 'all') {
+        void sync.sync({ singleRepository: repositoryId });
+      } else {
+        const recentRepos = Array.from(new Set(allRuns.slice(0, 3).map(r => r.repositoryId)));
+        void sync.sync({ priorityRepositories: recentRepos });
+      }
+      void analytics.refetch();
+    };
+    
+    const interval = setInterval(triggerRefresh, 15000);
+    return () => clearInterval(interval);
+  }, [isActive, repositoryId, allRuns, sync.syncing, analytics]);
 
   const selectRow = (id: string) => {
     const run = allRuns.find(r => r.id === id);
@@ -179,7 +203,7 @@ export function CIActivityPage() {
     });
   };
 
-  const sync = useAnalyticsSync();
+
   
   const handleRefresh = () => {
     if (repositoryId !== 'all') {

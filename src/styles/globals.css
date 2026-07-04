@@ -117,9 +117,11 @@ button, input, select, textarea, [tabindex] {
 
 .running-spinner {
   display: inline-block;
-  border: 1.5px solid color-mix(in srgb, var(--warning) 15%, transparent);
-  border-top-color: var(--warning);
+  border: 2px solid transparent;
+  border-left-color: var(--warning);
+  border-right-color: var(--warning);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
   box-sizing: border-box;
+  filter: drop-shadow(0 0 3px var(--warning));
 }
