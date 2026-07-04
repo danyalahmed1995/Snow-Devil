@@ -120,7 +120,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
      }
      
      return logsByStep;
-  }, [logData?.text, selectedJob?.steps]);
+  }, [logData, selectedJob]);
 
   // Reset expanded step when job changes
   useEffect(() => {

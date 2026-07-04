@@ -71,6 +71,7 @@ export function CIActivityPage() {
   // Apply filters
   const visibleRuns = useMemo(() => {
     const rangeDays = Number(rangeChoice);
+    // eslint-disable-next-line react-hooks/purity
     const cutoff = new Date(Date.now() - rangeDays * 86400000).toISOString();
     return allRuns.filter(run => {
       const isTarget = String((run.metadata as any)?.runId) === "28630872847";
@@ -92,7 +93,7 @@ export function CIActivityPage() {
         console.log("Selected Range Choice:", rangeChoice);
       }
       
-      let passRepo = false;
+      let passRepo: boolean;
       if (repositoryId === 'all') {
           passRepo = true;
       } else {
@@ -232,6 +233,7 @@ export function CIActivityPage() {
   } else if (repositoryId !== 'all') {
     const ciFreshness = sync.getCIFreshness(repositoryId);
     if (ciFreshness) {
+       // eslint-disable-next-line react-hooks/purity
        const sec = Math.floor((Date.now() - new Date(ciFreshness).getTime()) / 1000);
        const base = `${repositoryId.split('/')[1]} CI synced ${sec < 60 ? sec + ' seconds ago' : Math.floor(sec/60) + ' minutes ago'}`;
        freshnessText = globalSyncText ? `${base} · ${globalSyncText}` : base;

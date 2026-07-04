@@ -28,7 +28,7 @@ function timeAgo(dateString?: string) {
 }
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
-  let stateClass = 'state-running';
+  let stateClass: string;
   if (status === 'queued' || status === 'waiting' || status === 'pending') {
     stateClass = 'state-queued';
   } else if (status === 'in_progress') {
@@ -82,6 +82,19 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
   const cleanLogin = actorLogin?.replace('[bot]', '');
   const avatarUrl = m?.actorAvatar || run.actor?.avatarUrl || (cleanLogin ? `https://github.com/${cleanLogin}.png?size=48` : undefined);
   
+  let branchState = 'grey';
+  if (isMerged) {
+    branchState = 'merged';
+  } else if (status === 'in_progress' || status === 'queued' || status === 'pending') {
+    branchState = 'running';
+  } else if (conclusion === 'success') {
+    branchState = 'success';
+  } else if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') {
+    branchState = 'failure';
+  } else if (conclusion === 'cancelled' || conclusion === 'skipped') {
+    branchState = 'skipped';
+  }
+  
   return (
     <div 
       className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}
@@ -107,16 +120,11 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
           <span className="ci-tag ci-tag--repo" title="Repository">{run.repositoryName}</span>
           <div className="ci-activity-row__git-tags">
             {branchName && (
-              <span className="ci-tag ci-tag--branch" title="Branch">
+              <span className={`ci-tag ci-tag--branch branch-state--${branchState}`} title="Branch">
                 {isMerged ? (
-                  <GitMerge size={12} color="#a371f7" />
+                  <GitMerge size={12} />
                 ) : (
-                  <GitBranch size={12} color={
-                    (status === 'in_progress' || status === 'queued' || status === 'pending') ? 'var(--warning)' : 
-                    (conclusion === 'success') ? 'var(--success)' : 
-                    (conclusion === 'failure' || conclusion === 'timed_out') ? 'var(--danger)' : 
-                    'var(--text-muted)'
-                  } />
+                  <GitBranch size={12} />
                 )} {branchName}
               </span>
             )}

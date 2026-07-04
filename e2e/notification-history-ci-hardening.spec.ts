@@ -274,7 +274,7 @@ test('shared tooltips support hover, focus, and Escape', async ({ page }) => {
   await expect(page.getByRole('tooltip')).toContainText('Open or activate this Snow Devil workspace');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
-  await page.getByRole('button', { name: 'CI Health', exact: true }).focus();
+  await page.getByRole('button', { name: 'CI Activity', exact: true }).focus();
   await expect(page.getByRole('tooltip')).toBeVisible();
 });
 

@@ -6,6 +6,7 @@ import type {
   DeliveryEvent,
   DeliveryRelationship,
 } from './types';
+import type { SimulatorEvent } from '../simulator/simulator-types';
 import { buildDeliveryLineage } from './lineage';
 
 export const DEMO_ANALYTICS_REFERENCE_DATE = '2026-06-21T12:00:00.000Z';
@@ -43,6 +44,7 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
   const events: DeliveryEvent[] = [];
   const relationships: DeliveryRelationship[] = [];
   const branches: DeliveryBranch[] = [];
+  const rawWorkflowRuns: SimulatorEvent[] = [];
 
   repositories.forEach((repository, repositoryIndex) => {
     const completedCount = repositoryIndex === 0 ? 22 : repositoryIndex === 1 ? 18 : repositoryIndex === 2 ? 13 : 8;
@@ -100,6 +102,45 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
         evidence: ['Merge commit and check suite head SHA matched'],
       };
       entities.push(issue, pr);
+      
+      const runId = 100000 + number;
+      const runStartedAt = prOpened;
+      const completedAt = merged;
+      const durationMs = new Date(completedAt).getTime() - new Date(runStartedAt).getTime();
+      rawWorkflowRuns.push({
+        id: `workflow_run:${repository.id}:${runId}`,
+        source: 'github',
+        occurredAt: completedAt,
+        repositoryId: repository.id,
+        repositoryName: repository.id.split('/')[1] || '',
+        repositoryOwner: repository.ownerLogin || '',
+        subjectId: `workflow_run:${repository.id}:${runId}`,
+        subjectType: 'workflow_run',
+        subjectTitle: 'CI',
+        subjectNumber: number,
+        eventType: 'workflow_succeeded',
+        actor: {
+          login: 'snowdevil-demo',
+          avatarUrl: 'https://github.com/snowdevil-demo.png',
+        },
+        sourceCompleteness: 'complete',
+        metadata: {
+          runId,
+          runNumber: index + 1,
+          status: 'completed',
+          conclusion: 'success',
+          checkState: 'success',
+          headBranch: pr.branchName || 'main',
+          headSha: 'sha-placeholder',
+          pullRequestNumber: pr.number,
+          htmlUrl: `https://github.com/${repository.id}/actions/runs/${runId}`,
+          durationMs,
+          runStartedAt,
+          completedAt,
+          commitMessage: pr.title,
+        }
+      });
+
       events.push(
         event(issue, 'opened', issueOpened, 'issues'),
         event(issue, 'closed', merged, 'merged'),
@@ -148,7 +189,7 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
     { id: 'inventory:closed', repositoryId: repositories[3].id, type: 'pull_request', number: 77, title: 'Retire legacy experiment', stage: 'closed', state: 'closed', author: 'snowdevil-demo', createdAt: at(22), updatedAt: at(15), closedAt: at(15), reviewState: 'none', checkState: 'unknown', sourceCompleteness: 'partial', evidence: ['Closed without merge evidence'] },
   ];
   entities.push(...current);
-  current.forEach(entity => {
+  current.forEach((entity, index) => {
     events.push(event(entity, 'opened', entity.createdAt, entity.stage));
     if (entity.reviewState === 'requested') events.push(event(entity, 'review_requested', entity.updatedAt, 'review'));
     if (entity.reviewState === 'changes_requested') events.push(event(entity, 'changes_requested', entity.updatedAt, 'review'));
@@ -156,6 +197,50 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
     if (entity.mergedAt) events.push(event(entity, 'merged', entity.mergedAt, 'merged'));
     if (entity.deployedAt) events.push(event(entity, 'deployment_succeeded', entity.deployedAt, 'deployed'));
     if (entity.closedAt && entity.state === 'closed') events.push(event(entity, 'closed', entity.closedAt, 'closed'));
+
+    if (entity.type === 'pull_request') {
+      const runId = 200000 + entity.number!;
+      const runStartedAt = entity.createdAt;
+      const checkState = entity.checkState ?? 'unknown';
+      const status = checkState === 'unknown' ? 'in_progress' : 'completed';
+      const conclusion = checkState === 'success' ? 'success' : checkState === 'failure' ? 'failure' : undefined;
+      const eventType = conclusion === 'success' ? 'workflow_succeeded' : conclusion === 'failure' ? 'workflow_failed' : 'workflow_started';
+      const completedAt = entity.updatedAt;
+      const durationMs = status === 'completed' ? new Date(completedAt).getTime() - new Date(runStartedAt).getTime() : undefined;
+      rawWorkflowRuns.push({
+        id: `workflow_run:${entity.repositoryId}:${runId}`,
+        source: 'github',
+        occurredAt: completedAt,
+        repositoryId: entity.repositoryId,
+        repositoryName: entity.repositoryId.split('/')[1] || '',
+        repositoryOwner: entity.repositoryId.split('/')[0] || '',
+        subjectId: `workflow_run:${entity.repositoryId}:${runId}`,
+        subjectType: 'workflow_run',
+        subjectTitle: 'CI',
+        subjectNumber: entity.number,
+        eventType,
+        actor: {
+          login: entity.author || '',
+          avatarUrl: entity.author ? `https://github.com/${entity.author}.png` : undefined,
+        },
+        sourceCompleteness: 'complete',
+        metadata: {
+          runId,
+          runNumber: index + 50,
+          status,
+          conclusion,
+          checkState,
+          headBranch: entity.branchName || 'main',
+          headSha: 'sha-placeholder',
+          pullRequestNumber: entity.number,
+          htmlUrl: `https://github.com/${entity.repositoryId}/actions/runs/${runId}`,
+          durationMs,
+          runStartedAt,
+          completedAt: status === 'completed' ? completedAt : undefined,
+          commitMessage: entity.title,
+        }
+      });
+    }
   });
 
   const activeBranchSpecs = [
@@ -206,7 +291,7 @@ export function createDemoAnalyticsDataset(): AnalyticsDataset {
     events: events.sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     branches,
     relationships: buildDeliveryLineage(entities, relationships),
-    rawWorkflowRuns: [],
+    rawWorkflowRuns,
     partial: true,
     partialReasons: ['One repository has incomplete release/deployment coverage', 'Some branch start times are estimated from first observed commits'],
   };

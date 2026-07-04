@@ -15,7 +15,7 @@ import type { FlowItem } from '../../types/flow';
 import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-presentation';
 import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
 import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
-import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
+import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { Loader2 } from 'lucide-react';
 import './Inspector.css';
 
@@ -78,19 +78,41 @@ function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
 
 function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable; tab: InspectorTab }) {
   const metadata = selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null;
-  const { data: jobs, isLoading, error } = useWorkflowJobs(selected.repositoryId || '', metadata?.runId as string, true);
+  
+  const { data: watcherState, isLoading, error } = useWorkflowRunWatcher(
+    selected.repositoryId || '',
+    metadata?.runId as string,
+    metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
+    true,
+    true
+  );
 
   if (!metadata) return <p className="inspector-empty">No workflow data available.</p>;
 
-  const durationStr = formatDurationCompact(metadata.durationMs);
+  const runObj = watcherState?.run;
+  const jobs = watcherState?.jobs;
 
-  const tone = selected.state === 'success' ? 'good' : selected.state === 'failure' ? 'danger' : 'neutral';
+  const durationMs = runObj 
+    ? (runObj.status === 'completed' 
+        ? new Date(runObj.updated_at).getTime() - new Date(runObj.run_started_at).getTime()
+        // eslint-disable-next-line react-hooks/purity
+        : Date.now() - new Date(runObj.run_started_at).getTime())
+    : metadata.durationMs;
+
+  const durationStr = formatDurationCompact(durationMs);
+  const currentConclusion = runObj ? runObj.conclusion : (metadata.conclusion ?? selected.state);
+  const currentStatusText = runObj 
+    ? (runObj.conclusion ?? runObj.status) 
+    : (metadata.conclusion ?? metadata.status ?? selected.state);
+
+  const tone = currentConclusion === 'success' ? 'good' : currentConclusion === 'failure' || currentConclusion === 'timed_out' ? 'danger' : 'neutral';
+  const completedTime = runObj ? (runObj.status === 'completed' ? runObj.updated_at : null) : metadata.completedAt;
 
   return <div className={`inspector-details inspector-details--${tab}`}>
     <section className="inspector-section inspector-header-section">
       <div className="inspector-entity-row">
         <Badge tone={tone}>Workflow Run</Badge>
-        {selected.state && <span className="inspector-stage-badge">{selected.state.replace(/_/g, ' ')}</span>}
+        {currentStatusText && <span className="inspector-stage-badge">{currentStatusText.replace(/_/g, ' ')}</span>}
       </div>
       <h4 className="inspector-title">{selected.title}</h4>
       {selected.repositoryId && <p className="inspector-repository">{selected.repositoryId}{metadata.runNumber ? ` #${metadata.runNumber}` : ''}</p>}
@@ -102,7 +124,7 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
         <Meta label="Workflow">{metadata.workflowPath?.split('/').pop() || 'Unknown'}</Meta>
         <Meta label="Event">{metadata.event || 'Unknown'}</Meta>
         <Meta label="Started">{metadata.startedAt ? new Date(metadata.startedAt).toLocaleString() : 'Unknown'}</Meta>
-        <Meta label="Completed">{metadata.completedAt ? new Date(metadata.completedAt).toLocaleString() : 'Running...'}</Meta>
+        <Meta label="Completed">{completedTime ? new Date(completedTime).toLocaleString() : 'Running...'}</Meta>
         <Meta label="Duration">{durationStr}</Meta>
         {metadata.headBranch && <Meta label="Branch">{metadata.headBranch}</Meta>}
         {metadata.pullRequestNumber && <Meta label="Pull Request"><a href={`https://github.com/${selected.repositoryId}/pull/${metadata.pullRequestNumber}`} target="_blank" rel="noreferrer" className="open-link">#{metadata.pullRequestNumber}</a></Meta>}

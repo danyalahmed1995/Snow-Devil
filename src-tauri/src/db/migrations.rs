@@ -372,4 +372,3 @@ mod tests {
         assert_eq!(canonical_event, 1);
     }
 }
-

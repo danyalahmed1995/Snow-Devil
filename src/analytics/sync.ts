@@ -188,7 +188,7 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       try {
         const { queryClient } = await import('../app/providers');
         void queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] });
-      } catch (e) {
+      } catch {
         // Ignore if queryClient is unavailable in this environment
       }
     }
@@ -216,7 +216,7 @@ const inFlightCIRefreshes = new Map<string, Promise<void>>();
 export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(repoName); }
 export function getCIFreshness(repoName: string) { return localStorage.getItem(`ci-freshness-${repoName}`); }
 
-export async function syncRepositoryCIRuns(account: string, repo: string, _settings: any = null) {
+export async function syncRepositoryCIRuns(account: string, repo: string) {
   if (inFlightCIRefreshes.has(repo)) return inFlightCIRefreshes.get(repo);
   const promise = (async () => {
     try {
@@ -232,7 +232,3 @@ export async function syncRepositoryCIRuns(account: string, repo: string, _setti
   inFlightCIRefreshes.set(repo, promise);
   return promise;
 }
-
-
-
-

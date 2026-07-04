@@ -91,12 +91,9 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
         import('../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] })).catch(() => {});
       }
 
-      let jobsEndpoint = '';
-      if (attemptNumber && attemptNumber !== runData.run_attempt) {
-         jobsEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId) + '/attempts/' + attemptNumber + '/jobs';
-      } else {
-         jobsEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId) + '/jobs?filter=latest';
-      }
+      const jobsEndpoint = (attemptNumber && attemptNumber !== runData.run_attempt)
+        ? `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}/attempts/${attemptNumber}/jobs`
+        : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}/jobs?filter=latest`;
       
       const jobsRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: jobsEndpoint });
       if (jobsRes.status >= 400) throw new Error('github_error_' + jobsRes.status);

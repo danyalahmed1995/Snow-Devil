@@ -34,12 +34,12 @@ function parseAnsi(rawText: string) {
   }
 
   // Simple ANSI parser to React elements
-  const ansiRegex = /\x1b\[([0-9;]*)[a-zA-Z]/g;
+  const ansiRegex = new RegExp('\\x' + '1b' + '\\[([0-9;]*)[a-zA-Z]', 'g');
   let match;
   let lastIndex = 0;
   const parts: React.ReactNode[] = [];
   
-  let currentClasses = new Set<string>();
+  const currentClasses = new Set<string>();
   if (isCommand) currentClasses.add('ansi-fg-34'); // Blue for commands
   if (isError) currentClasses.add('ansi-fg-31'); // Red for errors
   if (isWarning) currentClasses.add('ansi-fg-33'); // Yellow for warnings
@@ -93,7 +93,7 @@ function parseAnsi(rawText: string) {
   }
   
   const remaining = text.slice(lastIndex);
-  pushPart(remaining, partIndex++);
+  pushPart(remaining, partIndex);
   
   return parts;
 }

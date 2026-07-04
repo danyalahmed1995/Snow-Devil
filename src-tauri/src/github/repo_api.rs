@@ -327,7 +327,7 @@ pub async fn fetch_commit_details(
     let client = Client::new();
 
     let rest_url = format!("{}/repos/{}/{}/commits/{}", REST_URL, owner, name, sha);
-    
+
     // 1. Fetch JSON metadata
     let json_res = client
         .get(&rest_url)
