@@ -20,6 +20,18 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   
   const [selectedAttempt, setSelectedAttempt] = useState<number | undefined>(initialAttempt);
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>(initialJobId);
+
+  useEffect(() => {
+    if (initialJobId) {
+      setSelectedJobId(initialJobId);
+    }
+  }, [initialJobId]);
+
+  useEffect(() => {
+    if (initialAttempt) {
+      setSelectedAttempt(initialAttempt);
+    }
+  }, [initialAttempt]);
   
   const { data: watcherState, error, isLoading, refetch, isFetching } = useWorkflowRunWatcher(repositoryId, runId, selectedAttempt, isForeground, isActive);
   

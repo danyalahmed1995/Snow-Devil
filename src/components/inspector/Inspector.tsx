@@ -141,7 +141,26 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
       {jobs && jobs.length > 0 && (
         <ul className="ci-jobs-list">
           {jobs.map(job => (
-            <li key={job.id} className="ci-job-item">
+            <li 
+              key={job.id} 
+              className="ci-job-item"
+              onClick={() => {
+                const runIdStr = metadata?.runId ?? selected.id;
+                useTabsStore.getState().openNativeTab(
+                  `ciRun:${selected.repositoryId}:${runIdStr}`,
+                  'ciRun',
+                  `CI #${metadata?.runNumber ?? '?'}`,
+                  false,
+                  true,
+                  {
+                    type: 'ciRun',
+                    repository: selected.repositoryId || '',
+                    runId: String(runIdStr),
+                    jobId: String(job.id)
+                  }
+                );
+              }}
+            >
               <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
               <span className="ci-job-name" title={job.name}>{job.name}</span>
               {job.status === 'in_progress' && job.steps?.length > 0 && (
