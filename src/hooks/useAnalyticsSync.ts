@@ -24,7 +24,11 @@ export function useAnalyticsSync() {
     sync: async (options?: { priorityRepositories?: string[], singleRepository?: string }) => { 
         if (!account) return;
         if (options?.singleRepository) {
-            await syncRepositoryCIRuns(account, options.singleRepository!);
+            await syncRepositoryCIRuns(account, options.singleRepository);
+        } else if (options?.priorityRepositories && options.priorityRepositories.length > 0) {
+            await Promise.all(
+                options.priorityRepositories.map(repo => syncRepositoryCIRuns(account, repo).catch(() => {}))
+            );
         } else {
             await startAnalyticsSync(account, settings);
         }
