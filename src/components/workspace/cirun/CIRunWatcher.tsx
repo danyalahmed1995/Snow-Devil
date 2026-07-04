@@ -3,21 +3,14 @@ import { useTabsStore } from '../../../stores/tabs-store';
 import { useCurrentTabId } from '../TabInstanceContext';
 import { useWorkflowRunWatcher } from '../../../hooks/useWorkflowRunWatcher';
 import { useWorkflowJobLog } from '../../../hooks/useWorkflowJobLog';
-import { formatDurationCompact } from '../../analytics/CIRunRow';
-import { CheckCircle2, CircleDashed, Clock, XCircle, AlertCircle, Loader2, RefreshCw, MinusCircle, ChevronRight } from 'lucide-react';
+import { formatDurationCompact, StatusIcon } from '../../analytics/CIRunRow';
+import { AlertCircle, Loader2, RefreshCw, ChevronRight } from 'lucide-react';
 import { Select } from '../../ui/Select';
 import { CILogViewer, LogLineData } from './CILogViewer';
 import './CIRunWatcher.css';
 
 function getStatusIcon(status: string, conclusion: string | null) {
-  if (status === 'queued' || status === 'waiting' || status === 'pending') return <Clock size={14} className="status-icon queued" />;
-  if (status === 'in_progress') return <div className="status-icon running-spinner" style={{ width: 14, height: 14 }} />;
-  if (conclusion === 'success') return <CheckCircle2 size={14} className="status-icon passed" />;
-  if (conclusion === 'failure' || conclusion === 'timed_out') return <XCircle size={14} className="status-icon failed" />;
-  if (conclusion === 'cancelled') return <MinusCircle size={14} className="status-icon cancelled" />;
-  if (conclusion === 'skipped') return <CircleDashed size={14} className="status-icon skipped" />;
-  if (conclusion === 'action_required') return <AlertCircle size={14} className="status-icon warning" />;
-  return <CircleDashed size={14} className="status-icon neutral" />;
+  return <StatusIcon status={status} conclusion={conclusion} size={14} />;
 }
 
 export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId }: { repositoryId: string, runId: string, initialAttempt?: number, initialJobId?: string }) {
@@ -233,7 +226,12 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
                                  {selectedJob.status === 'completed' ? (
                                     'No log output available for this step.'
                                  ) : (
-                                    'GitHub has not made log output available for this job yet.'
+                                    <div className="log-in-progress-info">
+                                      <p>GitHub REST API does not provide log archives for in-progress steps until the job completes.</p>
+                                      <a href={run.html_url} target="_blank" rel="noreferrer" className="ci-inline-browser-link">
+                                        Open GitHub Live Stream ↗
+                                      </a>
+                                    </div>
                                  )}
                                </div>
                              )}

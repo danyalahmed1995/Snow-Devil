@@ -115,13 +115,111 @@ button, input, select, textarea, [tabindex] {
   to { transform: rotate(360deg); }
 }
 
-.running-spinner {
-  display: inline-block;
+.status-icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* Spinner Ring (Symmetric Dual Arcs) */
+.status-icon-wrapper .spinner-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
   border: 2px solid transparent;
   border-left-color: var(--warning);
   border-right-color: var(--warning);
   border-radius: 50%;
-  animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
   box-sizing: border-box;
   filter: drop-shadow(0 0 3px var(--warning));
+  opacity: 0;
+  transform: scale(0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base SVGs hidden initially */
+.status-icon-wrapper .status-icon-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transform: scale(0.6) rotate(-20deg);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* --- STATE: QUEUED --- */
+.status-icon-wrapper.state-queued .queued-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--warning);
+}
+
+/* --- STATE: RUNNING --- */
+.status-icon-wrapper.state-running .spinner-ring {
+  opacity: 1;
+  transform: scale(1);
+  animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+}
+
+/* --- STATE: SUCCESS --- */
+.status-icon-wrapper.state-success .success-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--success);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--success) 40%, transparent));
+  transition-delay: 0.1s;
+}
+
+/* --- STATE: FAILURE --- */
+.status-icon-wrapper.state-failure .failure-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--danger);
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--danger) 40%, transparent));
+  transition-delay: 0.1s;
+}
+
+/* --- STATE: SKIPPED / CANCELLED --- */
+.status-icon-wrapper.state-skipped .skipped-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--text-muted);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--text-muted) 30%, transparent));
+  transition-delay: 0.1s;
+}
+
+/* --- STATE: NEUTRAL --- */
+.status-icon-wrapper.state-neutral .neutral-svg {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  color: var(--text-secondary);
+  transition-delay: 0.1s;
+}
+
+/* --- transition: Ripple Dissolve keyframe triggers --- */
+.status-icon-wrapper.state-success .spinner-ring,
+.status-icon-wrapper.state-failure .spinner-ring,
+.status-icon-wrapper.state-skipped .spinner-ring {
+  animation: ripple-dissolve-out 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes ripple-dissolve-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    border-left-color: var(--warning);
+    border-right-color: var(--warning);
+    border-width: 2px;
+  }
+  40% {
+    border-left-color: currentColor;
+    border-right-color: currentColor;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+    border-width: 0.5px;
+  }
 }

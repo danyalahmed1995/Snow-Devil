@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2, MinusCircle } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
@@ -28,12 +28,31 @@ function timeAgo(dateString?: string) {
 }
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
-  if (status === 'queued' || status === 'waiting' || status === 'pending') return <Clock size={size} className="status-icon status-icon--queued" style={{ color: 'var(--warning)' }} />;
-  if (status === 'in_progress') return <div className="status-icon running-spinner" style={{ width: size, height: size }} />;
-  if (conclusion === 'success') return <CheckCircle2 size={size} className="status-icon status-icon--success" style={{ color: 'var(--success)' }} />;
-  if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') return <XCircle size={size} className="status-icon status-icon--failure" style={{ color: 'var(--danger)' }} />;
-  if (conclusion === 'cancelled') return <XCircle size={size} className="status-icon status-icon--cancelled" style={{ color: 'var(--text-muted)' }} />;
-  return <AlertCircle size={size} className="status-icon status-icon--neutral" style={{ color: 'var(--text-secondary)' }} />;
+  let stateClass = 'state-running';
+  if (status === 'queued' || status === 'waiting' || status === 'pending') {
+    stateClass = 'state-queued';
+  } else if (status === 'in_progress') {
+    stateClass = 'state-running';
+  } else if (conclusion === 'success') {
+    stateClass = 'state-success';
+  } else if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') {
+    stateClass = 'state-failure';
+  } else if (conclusion === 'cancelled' || conclusion === 'skipped') {
+    stateClass = 'state-skipped';
+  } else {
+    stateClass = 'state-neutral';
+  }
+
+  return (
+    <div className={`status-icon-wrapper ${stateClass}`} style={{ width: size, height: size }}>
+      <Clock size={size} className="status-icon-svg queued-svg" />
+      <div className="spinner-ring" style={{ width: size, height: size }} />
+      <CheckCircle2 size={size} className="status-icon-svg success-svg" />
+      <XCircle size={size} className="status-icon-svg failure-svg" />
+      <MinusCircle size={size} className="status-icon-svg skipped-svg" />
+      <AlertCircle size={size} className="status-icon-svg neutral-svg" />
+    </div>
+  );
 }
 
 export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void; onOpenRun?: () => void; onOpenJob?: (jobId: string) => void; }) {

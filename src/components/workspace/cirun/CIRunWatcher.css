@@ -268,13 +268,64 @@
   word-wrap: break-word;
 }
 
-.log-empty, .log-loading {
+.log-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100%;
   color: #888;
   gap: 10px;
+}
+
+.log-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #888;
+  gap: 10px;
+  text-align: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.log-in-progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+}
+
+.log-in-progress-info p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.ci-inline-browser-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  background: var(--surface-nested);
+  border: 1px solid var(--border-subtle);
+  color: var(--warning);
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--warning) 10%, transparent);
+}
+
+.ci-inline-browser-link:hover {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-nested));
+  border-color: var(--warning);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--warning) 25%, transparent);
 }
 
 .is-spinning {

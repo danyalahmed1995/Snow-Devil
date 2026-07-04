@@ -36,7 +36,7 @@ interface ApiResponse {
 
 export function useWorkflowJobs(repositoryId: string, runId: string, enabled: boolean, isActive?: boolean) {
   return useQuery({
-    queryKey: ['workflow_jobs', repositoryId, runId],
+    queryKey: ['workflow_jobs', repositoryId, runId, isActive],
     enabled: enabled && Boolean(repositoryId) && Boolean(runId),
     staleTime: isActive ? 5000 : 60 * 1000,
     refetchInterval: isActive ? 10000 : false,
