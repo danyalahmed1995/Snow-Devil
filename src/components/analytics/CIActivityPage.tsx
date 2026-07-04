@@ -170,9 +170,6 @@ export function CIActivityPage() {
     if (!isActive) return;
     
     const triggerRefresh = () => {
-      // Skip if sync is already running
-      if (sync.syncing) return;
-      
       if (repositoryId !== 'all') {
         void sync.sync({ singleRepository: repositoryId });
       } else {
@@ -182,9 +179,9 @@ export function CIActivityPage() {
       void analytics.refetch();
     };
     
-    const interval = setInterval(triggerRefresh, 15000);
+    const interval = setInterval(triggerRefresh, 10000);
     return () => clearInterval(interval);
-  }, [isActive, repositoryId, allRuns, sync.syncing, analytics]);
+  }, [isActive, repositoryId, allRuns, analytics]);
 
   const selectRow = (id: string) => {
     const run = allRuns.find(r => r.id === id);
