@@ -55,6 +55,7 @@ pub async fn analytics_fetch_rest(endpoint: String) -> Result<AnalyticsApiRespon
         .bearer_auth(token)
         .header("User-Agent", "snow-devil-analytics")
         .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(30))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -205,3 +206,4 @@ pub fn get_analytics_sync_state(
         .map_err(|e| e.to_string())?;
     rows.next().transpose().map_err(|e| e.to_string())
 }
+

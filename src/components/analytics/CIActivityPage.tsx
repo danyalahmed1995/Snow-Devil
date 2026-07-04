@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
-import { getAnalyticsSyncState } from '../../analytics/sync';
 import { matchesRepository } from '../../analytics/identity';
 import { useFlowStore } from '../../stores/flow-store';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton } from './AnalyticsShared';
+import { useRepositoryBranches } from '../../hooks/useRepositoryBranches';
 import { Select } from '../ui/Select';
 import { CIRunRow, formatDurationCompact } from './CIRunRow';
 
@@ -53,11 +53,18 @@ export function CIActivityPage() {
     return Array.from(new Set(runs.map(r => r.subjectTitle))).sort();
   }, [allRuns, repositoryId, reposForFilter]);
 
+  const remoteBranchesData = useRepositoryBranches(repositoryId);
+
   const branches = useMemo(() => {
     const filterRepo = getFilterRepo();
     const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => matchesRepository((r.metadata as any)?.repositoryNumericId, r.repositoryName ?? r.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId));
-    return Array.from(new Set(runs.map(r => (r.metadata as any)?.headBranch).filter(Boolean))).sort();
-  }, [allRuns, repositoryId, reposForFilter]);
+    const runBranches = runs.map(r => (r.metadata as any)?.headBranch).filter(Boolean);
+    let allBranchNames = runBranches;
+    if (repositoryId !== 'all' && remoteBranchesData.data) {
+      allBranchNames = allBranchNames.concat(remoteBranchesData.data.map(b => b.name));
+    }
+    return Array.from(new Set(allBranchNames)).sort();
+  }, [allRuns, repositoryId, reposForFilter, remoteBranchesData.data]);
 
   // Apply filters
   const visibleRuns = useMemo(() => {
@@ -143,11 +150,16 @@ export function CIActivityPage() {
     };
   }, [visibleRuns]);
 
-  // Auto-reset dependent filters when repository changes
+  // Auto-reset dependent filters when repository changes or branches are updated
   useEffect(() => {
     setWorkflowFilter('all');
-    setBranchFilter('all');
   }, [repositoryId]);
+  
+  useEffect(() => {
+    if (branchFilter !== 'all' && branches.length > 0 && !branches.includes(branchFilter)) {
+      setBranchFilter('all');
+    }
+  }, [branches, branchFilter]);
 
   const selectRow = (id: string) => {
     const run = allRuns.find(r => r.id === id);
@@ -179,17 +191,32 @@ export function CIActivityPage() {
   };
   
   let freshnessText = '';
+  let isTargetingRefreshing = false;
   if (repositoryId !== 'all') {
+    isTargetingRefreshing = sync.isTargetSyncing(repositoryId);
+  }
+  
+  let globalSyncText = '';
+  if (sync.syncing && sync.state?.continuation_json) {
+    const cont = JSON.parse(sync.state.continuation_json);
+    if (cont.currentJob) {
+      globalSyncText = `Background sync ${cont.currentJob.completedRepositories} of ${cont.currentJob.totalRepositories}`;
+    }
+  }
+  
+  if (isTargetingRefreshing) {
+    freshnessText = `Refreshing ${repositoryId.split('/')[1]} CI...`;
+  } else if (repositoryId !== 'all') {
     const ciFreshness = sync.getCIFreshness(repositoryId);
     if (ciFreshness) {
        const sec = Math.floor((Date.now() - new Date(ciFreshness).getTime()) / 1000);
-       freshnessText = `${repositoryId.split('/')[1]} CI synced ${sec < 60 ? sec + ' seconds ago' : Math.floor(sec/60) + ' minutes ago'}`;
+       const base = `${repositoryId.split('/')[1]} CI synced ${sec < 60 ? sec + ' seconds ago' : Math.floor(sec/60) + ' minutes ago'}`;
+       freshnessText = globalSyncText ? `${base} · ${globalSyncText}` : base;
     } else {
        freshnessText = `${repositoryId.split('/')[1]} CI sync pending`;
     }
-  } else if (sync.syncing && sync.state?.continuation_json) {
-    const cont = JSON.parse(sync.state.continuation_json);
-    if (cont.currentJob) freshnessText = "CI data updating \\u00B7 ${cont.currentJob.completedRepositories} of ${cont.currentJob.totalRepositories} repositories refreshed";
+  } else if (globalSyncText) {
+    freshnessText = globalSyncText;
   } else if (sync.state?.last_successful_at) {
     freshnessText = `All repositories synced ${new Date(sync.state.last_successful_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
   }
@@ -208,8 +235,9 @@ export function CIActivityPage() {
       <label>Event<Select ariaLabel="Event filter" value={eventFilter} onChange={setEventFilter} options={[{ value: 'all', label: 'All events' }, { value: 'push', label: 'Push' }, { value: 'pull_request', label: 'Pull Request' }, { value: 'workflow_dispatch', label: 'Manual (Dispatch)' }, { value: 'schedule', label: 'Scheduled' }]}/></label>
       <label>Range<Select ariaLabel="Time range" value={rangeChoice} onChange={setRangeChoice} options={[{ value: '1', label: '24 hours' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]}/></label>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+         {remoteBranchesData.isFetching && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Loading branches...</span>}
          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{freshnessText}</span>
-         <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? sync.isTargetSyncing(repositoryId) : sync.syncing)} onClick={handleRefresh} />
+         <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? isTargetingRefreshing : false)} onClick={handleRefresh} />
       </div>
     </>}>
       {import.meta.env.DEV && (
@@ -247,8 +275,21 @@ export function CIActivityPage() {
           <div className="ci-activity-list">
              {visibleRuns.length === 0 && (
                <EmptyState>
-                 No workflow runs match the current filters.
-                 {rangeChoice === '1' && <div style={{ marginTop: '1rem' }}><button className="analytics-button" onClick={() => setRangeChoice('7')}>View last 7 days</button></div>}
+                 {branchFilter !== 'all' && branches.includes(branchFilter) ? (
+                   <>
+                     <p style={{ marginBottom: '1rem' }}>This branch exists, but no GitHub Actions runs were found for the selected time range.</p>
+                     <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                       <button className="analytics-button" onClick={() => setRangeChoice('90')}>Expand time range</button>
+                       {repositoryId !== 'all' && <button className="analytics-button" onClick={handleRefresh}>Refresh repository</button>}
+                       <button className="analytics-button" onClick={() => setBranchFilter('all')}>Clear branch filter</button>
+                     </div>
+                   </>
+                 ) : (
+                   <>
+                     No workflow runs match the current filters.
+                     {rangeChoice === '1' && <div style={{ marginTop: '1rem' }}><button className="analytics-button" onClick={() => setRangeChoice('7')}>View last 7 days</button></div>}
+                   </>
+                 )}
                </EmptyState>
              )}
              {visibleRuns.slice(0, limit).map(run => {
@@ -279,6 +320,7 @@ export function CIActivityPage() {
     </AnalyticsPage>
   );
 }
+
 
 
 
