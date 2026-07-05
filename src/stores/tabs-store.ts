@@ -179,6 +179,7 @@ function normalizeKnownTab(tab: WorkspaceTab): WorkspaceTab {
   }
   if (isNativeTab(tab) && tab.kind === 'accountSimulator') return { ...tab, title: 'Account History' };
   if (isNativeTab(tab) && tab.kind === 'repositorySimulator') return { ...tab, title: 'Repository History' };
+  if (isNativeTab(tab) && tab.kind === 'inventory') return { ...tab, title: 'Delivery Risks' };
   return tab;
 }
 

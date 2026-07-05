@@ -54,7 +54,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     closable: true,
   },
   { label: 'CI Activity', tabId: 'native:ci-health', family: 'native', nativeKind: 'ciHealth', pinned: false, closable: true },
-  { label: 'Inventory', tabId: 'native:inventory', family: 'native', nativeKind: 'inventory', pinned: false, closable: true },
+  { label: 'Delivery Risks', tabId: 'native:inventory', family: 'native', nativeKind: 'inventory', pinned: false, closable: true },
   { label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native', nativeKind: 'flowAnalytics', pinned: false, closable: true },
   { label: 'Personal Focus', tabId: 'native:personal-focus', family: 'native', nativeKind: 'personalFocus', pinned: false, closable: true },
   {

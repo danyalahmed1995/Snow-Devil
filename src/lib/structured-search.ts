@@ -32,13 +32,16 @@ export interface SearchableWorkItem {
   ageDays?: number;
   branch?: string;
   sha?: string;
+  assignees?: string[];
+  reviewers?: string[];
+  evidence?: string[];
 }
 
 function matchesToken(item: SearchableWorkItem, token: SearchToken): boolean {
   const value = token.value;
   if (!token.key) {
     if (/^#\d+$/.test(value)) return item.number === Number(value.slice(1));
-    return `${item.title ?? ''} ${item.repository ?? ''} ${item.number ?? ''}`.toLowerCase().includes(value);
+    return `${item.title ?? ''} ${item.repository ?? ''} ${item.number ?? ''} ${item.author ?? ''} ${(item.assignees ?? []).join(' ')} ${(item.reviewers ?? []).join(' ')} ${item.reason ?? ''} ${item.branch ?? ''} ${item.sha ?? ''} ${(item.labels ?? []).join(' ')} ${(item.evidence ?? []).join(' ')}`.toLowerCase().includes(value);
   }
   switch (token.key) {
     case 'repo': return (item.repository ?? '').toLowerCase().includes(value);

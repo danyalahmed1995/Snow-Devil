@@ -293,3 +293,5 @@
 .open-link:hover {
   color: var(--text-color-bright);
 }
+.inspector-subtitle{margin-top:14px!important}.inspector-evidence-label{margin:0 0 8px;color:var(--text-muted);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.inspector-technical{margin-top:9px;border:1px solid var(--border-subtle);border-radius:5px}.inspector-technical summary{padding:7px 8px;cursor:pointer;color:var(--text-secondary);font-size:9px;font-weight:650}.inspector-technical[open] summary{border-bottom:1px solid var(--border-subtle)}.inspector-technical p{padding:0 8px;overflow-wrap:anywhere}.inspector-actions--context{flex-wrap:wrap}

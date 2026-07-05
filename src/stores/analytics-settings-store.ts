@@ -18,7 +18,7 @@ export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   businessTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
   businessDays: [1, 2, 3, 4, 5],
   branchThresholdHours: 16,
-  inventoryThresholds: { agingDays: 4, staleDays: 10 },
+  inventoryThresholds: { agingDays: 8, staleDays: 30, reviewWaitDays: 3 },
   staleDefaultBranchDays: 7,
   cacheRetentionDays: 180,
   refreshIntervalMinutes: 30,
@@ -27,6 +27,11 @@ export const DEFAULT_ANALYTICS_SETTINGS: AnalyticsSettings = {
   deploymentMatchingStrategy: 'environment_or_sha',
   minimumPercentileSamples: 5,
   reducedMotion: false,
+  mutedDeliveryRiskItems: [],
+  mutedDeliveryRiskRepositories: [],
+  mutedDeliveryRiskReasons: [],
+  deliveryRiskMuteMetadata: {},
+  deliveryRiskSavedViews: [],
   repositoryOverrides: {},
 };
 
@@ -52,10 +57,22 @@ export const useAnalyticsSettingsStore = create<AnalyticsSettingsStore>()(persis
   resetSettings: () => set({ settings: DEFAULT_ANALYTICS_SETTINGS }),
 }), {
   name: 'snow-devil-analytics-settings',
-  version: 2,
+  version: 4,
   merge: (persisted, current) => {
     const saved = persisted as Partial<AnalyticsSettingsStore>;
-    const savedSettings = saved.settings ?? DEFAULT_ANALYTICS_SETTINGS;
+    const savedSettings = saved.settings && typeof saved.settings === 'object' ? saved.settings : DEFAULT_ANALYTICS_SETTINGS;
+    const savedViews = Array.isArray(savedSettings.deliveryRiskSavedViews) ? savedSettings.deliveryRiskSavedViews.map(view => ({
+      ...view,
+      category: String(view.category) === 'merged_delivery_unknown' ? 'delivery_status_unknown' : view.category,
+      muted: view.muted ?? 'hide',
+      confidence: view.confidence ?? 'all',
+      backlog: view.backlog ?? 'active',
+      sort: view.sort ?? 'priority',
+    })) : [];
+    const lastView = savedSettings.deliveryRiskLastView ? {
+      ...savedSettings.deliveryRiskLastView,
+      category: String(savedSettings.deliveryRiskLastView.category) === 'merged_delivery_unknown' ? 'delivery_status_unknown' : savedSettings.deliveryRiskLastView.category,
+    } : undefined;
     return {
       ...current,
       ...saved,
@@ -64,6 +81,12 @@ export const useAnalyticsSettingsStore = create<AnalyticsSettingsStore>()(persis
         ...savedSettings,
         analyticsIncludeBots: savedSettings.analyticsIncludeBots ?? savedSettings.includeBots ?? false,
         inventoryThresholds: { ...DEFAULT_ANALYTICS_SETTINGS.inventoryThresholds, ...savedSettings.inventoryThresholds },
+        mutedDeliveryRiskItems: Array.isArray(savedSettings.mutedDeliveryRiskItems) ? savedSettings.mutedDeliveryRiskItems : [],
+        mutedDeliveryRiskRepositories: Array.isArray(savedSettings.mutedDeliveryRiskRepositories) ? savedSettings.mutedDeliveryRiskRepositories : Array.isArray(savedSettings.ignoredRepositories) ? savedSettings.ignoredRepositories : [],
+        mutedDeliveryRiskReasons: Array.isArray(savedSettings.mutedDeliveryRiskReasons) ? savedSettings.mutedDeliveryRiskReasons : [],
+        deliveryRiskMuteMetadata: savedSettings.deliveryRiskMuteMetadata && typeof savedSettings.deliveryRiskMuteMetadata === 'object' ? savedSettings.deliveryRiskMuteMetadata : {},
+        deliveryRiskSavedViews: savedViews,
+        deliveryRiskLastView: lastView,
         repositoryOverrides: savedSettings.repositoryOverrides ?? {},
       },
     };

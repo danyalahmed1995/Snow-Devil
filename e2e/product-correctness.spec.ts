@@ -41,8 +41,9 @@ test('analytics surfaces use responsibility and maintained-repository defaults',
   await expect(page.getByRole('heading', { name: 'Do now' })).toBeVisible();
   await expect(page.getByText('Bump vite from 7.3.4 to 7.3.5')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Inventory', exact: true }).click();
-  await expect(page.getByLabel('Inventory repository scope')).toHaveText('Repositories I maintain');
+  await page.getByRole('button', { name: 'Delivery Risks', exact: true }).click();
+  await expect(page.getByLabel('Delivery Risks repository scope')).toHaveText('Repositories I maintain');
+  await expect(page.getByLabel('Saved Delivery Risks views')).toHaveText('Active Risks');
 
   await page.getByRole('button', { name: 'Flow Analytics', exact: true }).click();
   await expect(page.getByLabel('Analytics repository scope')).toHaveText('Repositories I maintain');

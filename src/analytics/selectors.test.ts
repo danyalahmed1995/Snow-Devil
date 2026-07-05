@@ -21,10 +21,10 @@ describe('delivery analytics selectors', () => {
     expect(integrationStreak(dataset, 'nova-labs/snow-devil')).toBeGreaterThan(10);
   });
 
-  it('classifies evidence-backed inventory and repository capabilities', () => {
+  it('classifies evidence-backed delivery risks and repository capabilities', () => {
     const items = inventoryItems(createDemoAnalyticsDataset(), settings);
-    const types = items.map(item => item.type);
-    expect(types).toEqual(expect.arrayContaining(['merged_not_released', 'merged_not_deployed', 'deployed_not_released', 'waiting_for_review', 'changes_requested', 'checks_failing', 'stale_draft', 'stale_branch', 'closed_unmerged']));
+    const categories = items.map(item => item.riskCategory);
+    expect(categories).toEqual(expect.arrayContaining(['delivery_status_unknown', 'awaiting_review', 'blocked', 'ready_to_merge', 'stale']));
     expect(items.every(item => item.blockingReason.length > 3)).toBe(true);
   });
 

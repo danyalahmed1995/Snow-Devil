@@ -14,9 +14,13 @@ function anyStringMetadata(events: SimulatorEvent[], key: string): string | unde
   return events.map(event => stringMetadata(event, key)).find(Boolean);
 }
 
+function latestMetadata(events: SimulatorEvent[], key: string): unknown {
+  return [...events].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).map(event => event.metadata[key]).find(value => value != null);
+}
+
 export function analyticsDatasetFromSimulatorEvents(
   simulatorEvents: SimulatorEvent[],
-  repositoryRows: Array<{ id: string; name: string; url?: string; viewerPermission?: string; ownerLogin?: string; fork?: boolean; archived?: boolean; private?: boolean; template?: boolean; empty?: boolean }>,
+  repositoryRows: Array<{ id: string; databaseId?: string | number; name: string; url?: string; viewerPermission?: string; ownerLogin?: string; fork?: boolean; archived?: boolean; private?: boolean; template?: boolean; empty?: boolean }>,
   referenceDate = new Date().toISOString(),
   viewerLogin?: string,
 ): AnalyticsDataset {
@@ -27,7 +31,7 @@ export function analyticsDatasetFromSimulatorEvents(
     const repositoryEvents = simulatorEvents.filter(event => event.repositoryId === id);
     const releaseMatching = repositoryEvents.some(event => event.subjectType === 'release' || event.eventType === 'released');
     const deploymentMatching = repositoryEvents.some(event => event.subjectType === 'deployment' || event.eventType.startsWith('deployment_'));
-    return { id, nameWithOwner: row?.name ?? id, url: row?.url, defaultBranch: 'main', archived: row?.archived, fork: row?.fork, private: row?.private, template: row?.template, empty: row?.empty, ownerLogin: row?.ownerLogin ?? (row?.name ?? id).split('/')[0], viewerPermission: normalizeRepositoryPermission(row?.viewerPermission), releaseMatching, deploymentMatching, capabilityNote: !releaseMatching && !deploymentMatching ? 'No explicit release or deployment evidence was observed in cached history.' : undefined };
+    return { id, databaseId: row?.databaseId, nameWithOwner: row?.name ?? id, url: row?.url, defaultBranch: 'main', archived: row?.archived, fork: row?.fork, private: row?.private, template: row?.template, empty: row?.empty, ownerLogin: row?.ownerLogin ?? (row?.name ?? id).split('/')[0], viewerPermission: normalizeRepositoryPermission(row?.viewerPermission), releaseMatching, deploymentMatching, capabilityNote: !releaseMatching && !deploymentMatching ? 'No explicit release or deployment evidence was observed in cached history.' : undefined };
   });
   const entities: DeliveryEntity[] = state.map(entity => {
     const sourceEvents = simulatorEvents.filter(event => event.subjectId === entity.id && event.repositoryId === entity.repositoryId);
@@ -51,6 +55,7 @@ export function analyticsDatasetFromSimulatorEvents(
       prOpenedAt: entity.subjectType === 'pull_request' ? findDate(['opened']) : undefined,
       firstReviewAt: findDate(['review_submitted', 'approved', 'changes_requested']),
       mergedAt: entity.mergedAt,
+      closedAt: entity.status === 'closed' ? [...sourceEvents].reverse().find(event => event.eventType === 'closed')?.occurredAt ?? entity.updatedAt : undefined,
       deployedAt: entity.deployedAt,
       releasedAt: entity.releasedAt,
       branchName: first ? stringMetadata(first, 'headRefName') ?? stringMetadata(first, 'headBranch') ?? stringMetadata(first, 'ref') : undefined,
@@ -61,6 +66,7 @@ export function analyticsDatasetFromSimulatorEvents(
       isDraft: entity.status === 'draft',
       reviewState: entity.reviewState,
       checkState: entity.checkState,
+      mergeability: (() => { const raw = latestMetadata(sourceEvents, 'mergeable'); const value = typeof raw === 'string' ? raw.toLowerCase() : raw; return value === true || ['mergeable', 'clean', 'unstable', 'has_hooks'].includes(String(value)) ? 'mergeable' : value === false || ['conflicting', 'dirty'].includes(String(value)) ? 'conflicting' : value === 'blocked' ? 'blocked' : value != null ? 'unknown' : undefined; })(),
       requestedReviewers: entity.reviewers.map(reviewer => reviewer.login),
       assignees: entity.assignees.map(assignee => assignee.login),
       sourceCompleteness: entity.sourceCompleteness ?? 'unknown',
