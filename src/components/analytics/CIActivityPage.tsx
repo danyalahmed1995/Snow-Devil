@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
 import { matchesRepository } from '../../analytics/identity';
@@ -47,13 +47,13 @@ export function CIActivityPage() {
     return dataset.repositories.filter(r => set.has(r.id)).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
   }, [dataset, allRuns]);
 
-  const getFilterRepo = () => repositoryId === 'all' ? null : reposForFilter.find(r => r.id === repositoryId);
+  const getFilterRepo = useCallback(() => repositoryId === 'all' ? null : reposForFilter.find(r => r.id === repositoryId), [repositoryId, reposForFilter]);
 
   const workflows = useMemo(() => {
     const filterRepo = getFilterRepo();
     const runs = repositoryId === 'all' ? allRuns : allRuns.filter(r => matchesRepository((r.metadata as any)?.repositoryNumericId, r.repositoryName ?? r.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId));
     return Array.from(new Set(runs.map(r => r.subjectTitle))).sort();
-  }, [allRuns, repositoryId, reposForFilter]);
+  }, [allRuns, repositoryId, getFilterRepo]);
 
   const remoteBranchesData = useRepositoryBranches(repositoryId);
 
@@ -66,71 +66,57 @@ export function CIActivityPage() {
       allBranchNames = allBranchNames.concat(remoteBranchesData.data.map(b => b.name));
     }
     return Array.from(new Set(allBranchNames)).sort();
-  }, [allRuns, repositoryId, reposForFilter, remoteBranchesData.data]);
+  }, [allRuns, repositoryId, getFilterRepo, remoteBranchesData.data]);
 
-  // Apply filters
-  const visibleRuns = useMemo(() => {
+  // Apply all filters except status filter (to compute stable stats counters)
+  const runsForStats = useMemo(() => {
     const rangeDays = Number(rangeChoice);
     // eslint-disable-next-line react-hooks/purity
     const cutoff = new Date(Date.now() - rangeDays * 86400000).toISOString();
     return allRuns.filter(run => {
-      const isTarget = String((run.metadata as any)?.runId) === "28630872847";
-      if (isTarget) {
-        console.log("INSTRUMENT [28630872847]: START");
-        console.log("ID:", run.id);
-        console.log("Repository ID:", run.repositoryId);
-        console.log("Repository Name:", run.repositoryName);
-        console.log("Subject Type:", run.subjectType);
-        console.log("Event Type:", run.eventType);
-        console.log("Run ID:", (run.metadata as any)?.runId);
-        console.log("Branch:", (run.metadata as any)?.headBranch);
-        console.log("Status:", (run.metadata as any)?.status);
-        console.log("Conclusion:", (run.metadata as any)?.conclusion);
-        console.log("Occurred At:", run.occurredAt);
-        console.log("Started At:", (run.metadata as any)?.startedAt);
-        console.log("Completed At:", (run.metadata as any)?.completedAt);
-        console.log("Selected Repo Filter:", repositoryId);
-        console.log("Selected Range Choice:", rangeChoice);
-      }
-      
       let passRepo: boolean;
       if (repositoryId === 'all') {
-          passRepo = true;
+        passRepo = true;
       } else {
-          const filterRepo = reposForFilter.find(r => r.id === repositoryId);
-          passRepo = matchesRepository((run.metadata as any)?.repositoryNumericId, run.repositoryName ?? run.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId);
+        const filterRepo = reposForFilter.find(r => r.id === repositoryId);
+        passRepo = matchesRepository((run.metadata as any)?.repositoryNumericId, run.repositoryName ?? run.repositoryId, filterRepo ? { id: filterRepo.id, fullName: filterRepo.nameWithOwner } : null, repositoryId);
       }
-      if (isTarget) console.log("Predicate [repo]:", passRepo, repositoryId, run.repositoryId);
       if (!passRepo) return false;
       const meta = run.metadata as any;
       
-      const runStatus = meta?.status;
-      const runConclusion = meta?.conclusion;
-      
-      if (statusFilter !== 'all') {
-        if (isTarget) console.log("Predicate [statusFilter]: checking", statusFilter);
-        if (statusFilter === 'running' && runStatus !== 'in_progress') return false;
-        if (statusFilter === 'queued' && (runStatus !== 'queued' && runStatus !== 'waiting' && runStatus !== 'pending')) return false;
-        if (statusFilter === 'failed' && (runConclusion !== 'failure' && runConclusion !== 'timed_out' && runConclusion !== 'startup_failure')) return false;
-        if (statusFilter === 'passed' && runConclusion !== 'success') return false;
-        if (statusFilter === 'cancelled' && runConclusion !== 'cancelled') return false;
-      }
-      
-      let passWf = true; if (workflowFilter !== 'all' && run.subjectTitle !== workflowFilter) passWf = false; if (isTarget) console.log("Predicate [wf]:", passWf); if (!passWf) return false;
-      let passBranch = true; if (branchFilter !== 'all' && meta?.headBranch !== branchFilter) passBranch = false; if (isTarget) console.log("Predicate [branch]:", passBranch); if (!passBranch) return false;
-      let passEvent = true; if (eventFilter !== 'all' && meta?.event !== eventFilter) passEvent = false; if (isTarget) console.log("Predicate [event]:", passEvent); if (!passEvent) return false;
-      let passRange = true; if (run.occurredAt < cutoff) passRange = false; if (isTarget) console.log("Predicate [range]:", passRange, run.occurredAt, cutoff); if (!passRange) return false;
+      let passWf = true; if (workflowFilter !== 'all' && run.subjectTitle !== workflowFilter) passWf = false; if (!passWf) return false;
+      let passBranch = true; if (branchFilter !== 'all' && meta?.headBranch !== branchFilter) passBranch = false; if (!passBranch) return false;
+      let passEvent = true; if (eventFilter !== 'all' && meta?.event !== eventFilter) passEvent = false; if (!passEvent) return false;
+      let passRange = true; if (run.occurredAt < cutoff) passRange = false; if (!passRange) return false;
       
       return true;
     });
-  }, [allRuns, repositoryId, statusFilter, workflowFilter, branchFilter, eventFilter, rangeChoice]);
+  }, [allRuns, repositoryId, workflowFilter, branchFilter, eventFilter, rangeChoice, reposForFilter]);
 
-  // Calculate stats for summary cards
+  // Apply status filter on top of the generic runsForStats
+  const visibleRuns = useMemo(() => {
+    return runsForStats.filter(run => {
+      if (statusFilter === 'all') return true;
+      const meta = run.metadata as any;
+      const runStatus = meta?.status;
+      const runConclusion = meta?.conclusion;
+      
+      if (statusFilter === 'running' && runStatus !== 'in_progress') return false;
+      if (statusFilter === 'queued' && (runStatus !== 'queued' && runStatus !== 'waiting' && runStatus !== 'pending')) return false;
+      if (statusFilter === 'failed' && (runConclusion !== 'failure' && runConclusion !== 'timed_out' && runConclusion !== 'startup_failure')) return false;
+      if (statusFilter === 'passed' && runConclusion !== 'success') return false;
+      if (statusFilter === 'cancelled' && runConclusion !== 'cancelled') return false;
+      
+      return true;
+    });
+  }, [runsForStats, statusFilter]);
+
+  // Calculate stats for summary cards based on runsForStats (so they remain stable)
   const stats = useMemo(() => {
     let running = 0, queued = 0, failed = 0, passed = 0, cancelled = 0;
     let totalDurationMs = 0, durationCount = 0;
 
-    for (const run of visibleRuns) {
+    for (const run of runsForStats) {
       const meta = run.metadata as any;
       const status = meta?.status;
       const conclusion = meta?.conclusion;
@@ -151,7 +137,7 @@ export function CIActivityPage() {
       running, queued, failed, passed, cancelled,
       avgDuration: durationCount > 0 ? totalDurationMs / durationCount : undefined
     };
-  }, [visibleRuns]);
+  }, [runsForStats]);
 
   const isActive = useTabsStore(state => state.activeTabId === activeTabId);
 
@@ -182,7 +168,7 @@ export function CIActivityPage() {
     
     const interval = setInterval(triggerRefresh, 10000);
     return () => clearInterval(interval);
-  }, [isActive, repositoryId, allRuns, analytics]);
+  }, [isActive, repositoryId, allRuns, analytics, sync]);
 
   const selectRow = (id: string) => {
     const run = allRuns.find(r => r.id === id);
@@ -289,11 +275,11 @@ export function CIActivityPage() {
       ) : dataset && (
         <div className="analytics-layout-split">
           <MetricGrid>
-            <MetricCard label="Running" value={stats.running} tone={stats.running > 0 ? 'info' : 'neutral'} onClick={() => setStatusFilter('running')} />
-            <MetricCard label="Queued" value={stats.queued} tone={stats.queued > 0 ? 'warning' : 'neutral'} onClick={() => setStatusFilter('queued')} />
-            <MetricCard label="Failed" value={stats.failed} tone={stats.failed > 0 ? 'danger' : 'neutral'} onClick={() => setStatusFilter('failed')} />
-            <MetricCard label="Passed" value={stats.passed} tone={stats.passed > 0 ? 'good' : 'neutral'} onClick={() => setStatusFilter('passed')} />
-            <MetricCard label="Cancelled" value={stats.cancelled} tone="neutral" onClick={() => setStatusFilter('cancelled')} />
+            <MetricCard label="Running" value={stats.running} tone={stats.running > 0 ? 'info' : 'neutral'} active={statusFilter === 'running'} onClick={() => setStatusFilter(statusFilter === 'running' ? 'all' : 'running')} />
+            <MetricCard label="Queued" value={stats.queued} tone={stats.queued > 0 ? 'warning' : 'neutral'} active={statusFilter === 'queued'} onClick={() => setStatusFilter(statusFilter === 'queued' ? 'all' : 'queued')} />
+            <MetricCard label="Failed" value={stats.failed} tone={stats.failed > 0 ? 'danger' : 'neutral'} active={statusFilter === 'failed'} onClick={() => setStatusFilter(statusFilter === 'failed' ? 'all' : 'failed')} />
+            <MetricCard label="Passed" value={stats.passed} tone={stats.passed > 0 ? 'good' : 'neutral'} active={statusFilter === 'passed'} onClick={() => setStatusFilter(statusFilter === 'passed' ? 'all' : 'passed')} />
+            <MetricCard label="Cancelled" value={stats.cancelled} tone="neutral" active={statusFilter === 'cancelled'} onClick={() => setStatusFilter(statusFilter === 'cancelled' ? 'all' : 'cancelled')} />
             <MetricCard label="Avg Duration" value={stats.avgDuration ? formatDurationCompact(stats.avgDuration) : 'N/A'} tone="neutral" />
           </MetricGrid>
           

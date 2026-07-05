@@ -1,5 +1,5 @@
-import { useMemo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Square } from 'lucide-react';
+import { useMemo, type ReactNode, useState, useEffect, useRef } from 'react';
+import { AlertTriangle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import type { CiStatus } from '../../analytics/types';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
@@ -13,6 +13,18 @@ export function useAnalyticsTabRefresh(refetch: () => Promise<unknown> | unknown
   useTabRefresh(activeTabId, useMemo(() => ({ label: 'Refresh tab', refresh: async () => { await refetch(); } }), [refetch]));
 }
 
+function SyncStatusIcon({ state }: { state: 'running' | 'idle' | 'success' | 'failure' }) {
+  const size = 11;
+  return (
+    <div className={`status-icon-wrapper state-${state}`} style={{ width: size, height: size, marginRight: 10 }}>
+      <RefreshCw size={size} className="status-icon-svg idle-svg" />
+      <div className="spinner-ring" style={{ width: size, height: size }} />
+      <CheckCircle2 size={size} className="status-icon-svg success-svg" />
+      <XCircle size={size} className="status-icon-svg failure-svg" />
+    </div>
+  );
+}
+
 export function AnalyticsPage({ title, description, demo, controls, children }: { title: string; description: string; demo: boolean; controls?: ReactNode; children: ReactNode }) {
   const sync = useAnalyticsSync();
   const failedRepositories = sync.state ? safeArray(sync.state.failed_repositories_json) : [];
@@ -21,6 +33,25 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
   const unsupported = [counts.release_unsupported ? 'Releases unavailable' : '', counts.deployment_unsupported ? 'Deployments unavailable' : ''].filter(Boolean).join(' · ');
   const fetchedRecords = Object.entries(counts).filter(([key]) => key !== 'repositories' && !key.endsWith('_unsupported')).reduce((sum, [, value]) => sum + value, 0);
   const syncSummary = buildSyncCoverageSummary(sync.state, counts.accessible_repositories ?? 0, counts.included_repositories ?? 0);
+
+  const [lastSyncState, setLastSyncState] = useState<'idle' | 'success' | 'failure'>('idle');
+  const wasSyncing = useRef(sync.syncing);
+
+  useEffect(() => {
+    if (wasSyncing.current && !sync.syncing) {
+      if (sync.coverage === 'failed' || failed > 0) {
+        setLastSyncState('failure');
+      } else {
+        setLastSyncState('success');
+      }
+      const timer = setTimeout(() => {
+        setLastSyncState('idle');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    wasSyncing.current = sync.syncing;
+  }, [sync.syncing, sync.coverage, failed]);
+
   return (
     <main className="analytics-page">
       <header className="analytics-header">
@@ -31,12 +62,42 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
         {controls && <div className="analytics-controls">{controls}</div>}
       </header>
       {!demo && <section className={`analytics-sync analytics-sync--${sync.coverage}`} aria-label="Analytics synchronization and coverage">
-        <div><strong>{sync.coverage === 'complete' ? 'Complete for configured retention window' : sync.coverage}</strong><span>Last completed: {syncSummary.snapshotCompletedAt ? new Date(syncSummary.snapshotCompletedAt).toLocaleString() : 'Never'}</span>{sync.syncing && syncSummary.snapshotCompletedAt && <span>Displaying previous snapshot while refresh runs</span>}</div>
-        <div><span>{sync.state?.current_stage?.replace(/_/g, ' ') ?? 'Cache ready'}</span><span>{syncSummary.accessibleNow} accessible · {syncSummary.includedBySettings} included · {syncSummary.eligibleForSync} eligible · {syncSummary.fullySynchronized} synchronized · {syncSummary.failed} failed</span><span>{syncSummary.skippedOrUnsupported} skipped/unsupported · {fetchedRecords.toLocaleString()} normalized records</span>{syncSummary.currentJob && <span>Current job: repository {syncSummary.currentJob.completedRepositories + 1} of {syncSummary.currentJob.totalRepositories}{syncSummary.currentJob.repository ? ` · ${syncSummary.currentJob.repository}` : ''}</span>}<span>{sync.state?.coverage_start ? `${new Date(sync.state.coverage_start).toLocaleDateString()} – ${sync.state.coverage_end ? new Date(sync.state.coverage_end).toLocaleDateString() : 'Current'}` : 'History unavailable'}</span></div>
-        {sync.state?.error && <span className="analytics-sync__error">{sync.state.error.includes('rate_limited') ? 'GitHub rate limit reached; saved progress will resume safely.' : sync.state.error.includes('authentication_expired') ? 'GitHub authentication expired.' : 'Synchronization was interrupted.'}</span>}
-        {!sync.state?.error && unsupported && <span className="analytics-sync__error">{unsupported}</span>}
-        {failedRepositories.length > 0 && <span className="analytics-sync__error" data-tooltip={failedRepositories.map(value => typeof value === 'string' ? value : String((value as Record<string, unknown>).repository ?? 'Unknown repository')).join(', ')}>{failed} repository source{failed === 1 ? '' : 's'} failed</span>}
-        <div className="analytics-sync__actions">{sync.syncing ? <button type="button" data-tooltip="Cancel synchronization\nStop after the current safe checkpoint; the previous valid snapshot remains available." onClick={sync.cancel}><Square size={11} /> Cancel sync</button> : <button type="button" data-tooltip="Synchronize GitHub data\nRefresh normalized delivery evidence while preserving the current snapshot during loading or failure." onClick={() => void sync.sync()} disabled={!sync.available}><RefreshCw size={11} /> {failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data'}</button>}</div>
+        <div className="analytics-sync__content">
+          <div className="analytics-sync__pulse-dot" />
+          <div className="analytics-sync__info">
+            <div className="analytics-sync__meta">
+              <strong>{sync.coverage === 'complete' ? 'Complete for configured retention window' : sync.coverage}</strong>
+              <span>Last completed: {syncSummary.snapshotCompletedAt ? new Date(syncSummary.snapshotCompletedAt).toLocaleString() : 'Never'}</span>
+              {sync.syncing && syncSummary.snapshotCompletedAt && <span className="analytics-sync__previous-note">Displaying previous snapshot while refresh runs</span>}
+            </div>
+            <div className="analytics-sync__details">
+              <span className="analytics-sync__stage">{sync.state?.current_stage?.replace(/_/g, ' ') ?? 'Cache ready'}</span>
+              <span className="analytics-sync__stats">{syncSummary.accessibleNow} accessible · {syncSummary.includedBySettings} included · {syncSummary.eligibleForSync} eligible · {syncSummary.fullySynchronized} synchronized · {syncSummary.failed} failed</span>
+              <span className="analytics-sync__records">{syncSummary.skippedOrUnsupported} skipped/unsupported · {fetchedRecords.toLocaleString()} normalized records</span>
+              {syncSummary.currentJob && (
+                <span className="analytics-sync__job">
+                  Current job: repository {syncSummary.currentJob.completedRepositories + 1} of {syncSummary.currentJob.totalRepositories}
+                  {syncSummary.currentJob.repository ? ` · ${syncSummary.currentJob.repository}` : ''}
+                </span>
+              )}
+              <span className="analytics-sync__dates">{sync.state?.coverage_start ? `${new Date(sync.state.coverage_start).toLocaleDateString()} – ${sync.state.coverage_end ? new Date(sync.state.coverage_end).toLocaleDateString() : 'Current'}` : 'History unavailable'}</span>
+            </div>
+            {sync.state?.error && <span className="analytics-sync__error">{sync.state.error.includes('rate_limited') ? 'GitHub rate limit reached; saved progress will resume safely.' : sync.state.error.includes('authentication_expired') ? 'GitHub authentication expired.' : 'Synchronization was interrupted.'}</span>}
+            {!sync.state?.error && unsupported && <span className="analytics-sync__error">{unsupported}</span>}
+            {failedRepositories.length > 0 && <span className="analytics-sync__error" data-tooltip={failedRepositories.map(value => typeof value === 'string' ? value : String((value as Record<string, unknown>).repository ?? 'Unknown repository')).join(', ')}>{failed} repository source{failed === 1 ? '' : 's'} failed</span>}
+          </div>
+        </div>
+        <div className="analytics-sync__actions">
+          <button
+            type="button"
+            data-tooltip={sync.syncing ? "Cancel synchronization\nStop after the current safe checkpoint; the previous valid snapshot remains available." : "Synchronize GitHub data\nRefresh normalized delivery evidence while preserving the current snapshot during loading or failure."}
+            onClick={sync.syncing ? sync.cancel : () => void sync.sync()}
+            disabled={!sync.syncing && !sync.available}
+          >
+            <SyncStatusIcon state={sync.syncing ? 'running' : lastSyncState} />
+            <span>{sync.syncing ? 'Cancel sync' : (failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data')}</span>
+          </button>
+        </div>
       </section>}
       {children}
     </main>
@@ -54,9 +115,10 @@ export function MetricGrid({ children }: { children: ReactNode }) {
   return <section className="analytics-metric-grid">{children}</section>;
 }
 
-export function MetricCard({ label, value, detail, tone = 'neutral', title, onClick }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'neutral' | 'good' | 'warning' | 'danger' | 'info'; title?: string; onClick?: () => void }) {
+export function MetricCard({ label, value, detail, tone = 'neutral', title, onClick, active }: { label: string; value: ReactNode; detail?: ReactNode; tone?: 'neutral' | 'good' | 'warning' | 'danger' | 'info'; title?: string; onClick?: () => void; active?: boolean }) {
   const content = <><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</>;
-  return onClick ? <button type="button" className={`analytics-metric analytics-metric--action analytics-tone--${tone}`} data-tooltip={title} onClick={onClick}>{content}</button> : <article className={`analytics-metric analytics-tone--${tone}`} data-tooltip={title}>{content}</article>;
+  const activeClass = active ? 'is-active' : '';
+  return onClick ? <button type="button" className={`analytics-metric analytics-metric--action analytics-tone--${tone} ${activeClass}`} data-tooltip={title} onClick={onClick}>{content}</button> : <article className={`analytics-metric analytics-tone--${tone} ${activeClass}`} data-tooltip={title}>{content}</article>;
 }
 
 export function StatusPill({ status }: { status: CiStatus }) {

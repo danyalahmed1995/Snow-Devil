@@ -8,6 +8,10 @@
 
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 
+html, #root {
+  background-color: var(--bg-primary, #040912);
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -78,7 +82,7 @@ button, input, select, textarea, [tabindex] {
 .analytics-button--primary { border-color: var(--accent) !important; background: var(--accent) !important; }
 .analytics-sync--complete { border-left-color: var(--success) !important; }
 .analytics-sync--failed { border-left-color: var(--danger) !important; }
-.analytics-sync--syncing { border-left-color: var(--accent) !important; }
+.analytics-sync--syncing { border-left-color: var(--warning) !important; }
 .badge-review.badge-approved,.badge-checks.badge-success { background: var(--status-success-bg) !important; color: var(--status-success-fg) !important; }
 .badge-review.badge-changes_requested,.badge-checks.badge-failure,.badge-checks.badge-error { background: var(--status-danger-bg) !important; color: var(--status-danger-fg) !important; }
 .badge-checks.badge-pending { background: var(--status-warning-bg) !important; color: var(--status-warning-fg) !important; }

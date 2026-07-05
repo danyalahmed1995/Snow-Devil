@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, PlayCircle, Loader2, MinusCircle } from 'lucide-react';
+import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, Loader2, MinusCircle, ChevronRight } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
@@ -94,10 +94,23 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
   } else if (conclusion === 'cancelled' || conclusion === 'skipped') {
     branchState = 'skipped';
   }
+
+  let rowStateClass = 'state-neutral';
+  if (status === 'queued' || status === 'waiting' || status === 'pending') {
+    rowStateClass = 'state-queued';
+  } else if (status === 'in_progress') {
+    rowStateClass = 'state-running';
+  } else if (conclusion === 'success') {
+    rowStateClass = 'state-success';
+  } else if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') {
+    rowStateClass = 'state-failure';
+  } else if (conclusion === 'cancelled' || conclusion === 'skipped') {
+    rowStateClass = 'state-skipped';
+  }
   
   return (
     <div 
-      className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''}`}
+      className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''} ${rowStateClass}`}
       onDoubleClick={onOpenRun}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && onOpenRun) {
@@ -195,7 +208,7 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
             </button>
           )}
           <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
-            <PlayCircle size={14} className={expanded ? 'is-expanded' : ''} />
+            <ChevronRight size={14} className={expanded ? 'is-expanded' : ''} />
           </button>
         </div>
       </div>
@@ -206,21 +219,37 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
           {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
           {jobs && jobs.length > 0 && (
             <ul className="ci-jobs-list">
-              {jobs.map(job => (
-                <li key={job.id} className="ci-job-item" onClick={(e) => { e.stopPropagation(); onOpenJob?.(String(job.id)); }}>
-                  <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
-                  <span className="ci-job-name">{job.name}</span>
-                  {job.status === 'in_progress' && job.steps?.length > 0 && (
-                    <span className="ci-job-steps">
-                      {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
+              {jobs.map(job => {
+                const statusStr = job.status as string;
+                const conclusionStr = job.conclusion as string | null;
+                let jobState = 'state-neutral';
+                if (statusStr === 'queued' || statusStr === 'waiting' || statusStr === 'pending') {
+                  jobState = 'state-queued';
+                } else if (statusStr === 'in_progress') {
+                  jobState = 'state-running';
+                } else if (conclusionStr === 'success') {
+                  jobState = 'state-success';
+                } else if (conclusionStr === 'failure' || conclusionStr === 'timed_out' || conclusionStr === 'startup_failure') {
+                  jobState = 'state-failure';
+                } else if (conclusionStr === 'cancelled' || conclusionStr === 'skipped') {
+                  jobState = 'state-skipped';
+                }
+                return (
+                  <li key={job.id} className={`ci-job-item ${jobState}`} onClick={(e) => { e.stopPropagation(); onOpenJob?.(String(job.id)); }}>
+                    <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
+                    <span className="ci-job-name">{job.name}</span>
+                    {job.status === 'in_progress' && job.steps?.length > 0 && (
+                      <span className="ci-job-steps">
+                        {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
+                      </span>
+                    )}
+                    <span className="ci-job-duration">
+                      {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
+                      {job.started_at && !job.completed_at ? 'Running...' : ''}
                     </span>
-                  )}
-                  <span className="ci-job-duration">
-                    {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
-                    {job.started_at && !job.completed_at ? 'Running...' : ''}
-                  </span>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

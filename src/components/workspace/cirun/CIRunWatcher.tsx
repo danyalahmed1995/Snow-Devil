@@ -184,6 +184,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
     }
   };
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const stepLogs = useMemo(() => {
      if (!logData?.text) return new Map<number, LogLineData[]>();
      
@@ -369,7 +370,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
         
         <main className="ci-run-main">
           {selectedJob ? (
-            <div className="ci-job-details">
+            <div className="ci-job-details" key={selectedJob.id}>
                <div className="ci-job-details-header">
                   <h3>{selectedJob.name}</h3>
                   <div className="ci-job-meta">

@@ -117,12 +117,12 @@
 }
 
 .ci-job-item:hover {
-  background: var(--bg-hover);
+  background: var(--surface-hover);
 }
 
 .ci-job-item.selected {
-  background: var(--bg-active);
-  border-left: 3px solid var(--primary-color);
+  background: var(--surface-selected);
+  border-left: 3px solid var(--accent);
 }
 
 .ci-job-item span {
@@ -142,12 +142,25 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--bg-primary);
 }
 
 .ci-job-details {
   display: flex;
   flex-direction: column;
   height: 100%;
+  animation: ci-job-fade-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes ci-job-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ci-job-details-header {
