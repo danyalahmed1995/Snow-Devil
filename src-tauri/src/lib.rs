@@ -74,6 +74,7 @@ pub fn run() {
             commands::analytics::get_analytics_records,
             commands::analytics::save_analytics_sync_state,
             commands::analytics::get_analytics_sync_state,
+            commands::analytics::save_log_file,
             commands::diagnostics::get_safe_diagnostics,
             commands::notifications::poll_github_notifications,
             commands::notifications::mark_github_notification_read,

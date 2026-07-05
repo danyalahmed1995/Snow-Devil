@@ -324,3 +324,21 @@ pub async fn analytics_fetch_job_log(
         error_kind: Some("no_redirect".to_string()),
     })
 }
+
+#[tauri::command]
+pub async fn save_log_file(content: String, default_filename: String) -> Result<bool, String> {
+    let file_path = rfd::AsyncFileDialog::new()
+        .set_title("Save Log File")
+        .set_file_name(&default_filename)
+        .add_filter("Text Files", &["txt"])
+        .save_file()
+        .await;
+
+    if let Some(file) = file_path {
+        let path = file.path();
+        std::fs::write(path, content).map_err(|e| e.to_string())?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}

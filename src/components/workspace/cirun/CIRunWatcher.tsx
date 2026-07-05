@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { useTabsStore } from '../../../stores/tabs-store';
 import { useCurrentTabId } from '../TabInstanceContext';
 import { useWorkflowRunWatcher } from '../../../hooks/useWorkflowRunWatcher';
 import { useWorkflowJobLog } from '../../../hooks/useWorkflowJobLog';
 import { formatDurationCompact, StatusIcon } from '../../analytics/CIRunRow';
-import { AlertCircle, Loader2, RefreshCw, ChevronRight } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, ChevronRight, Download, Check, Copy } from 'lucide-react';
 import { Select } from '../../ui/Select';
 import { CILogViewer, LogLineData } from './CILogViewer';
 import './CIRunWatcher.css';
@@ -20,6 +21,13 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   
   const [selectedAttempt, setSelectedAttempt] = useState<number | undefined>(initialAttempt);
   const [selectedJobId, setSelectedJobId] = useState<string | undefined>(initialJobId);
+
+  const [isDownloadDropdownOpen, setIsDownloadDropdownOpen] = useState(false);
+  const [downloadScope, setDownloadScope] = useState<'all' | 'failed'>('all');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [copiedStepNumber, setCopiedStepNumber] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialJobId) {
@@ -63,6 +71,118 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   );
 
   const [expandedStepNumber, setExpandedStepNumber] = useState<number | null>(null);
+
+  const failedJobsCount = useMemo(() => jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out').length, [jobs]);
+
+  const stripAnsi = (text: string) => {
+    return text.replace(new RegExp('\\x' + '1b' + '\\[[0-9;]*[a-zA-Z]', 'g'), '');
+  };
+
+  const handleDownloadLogs = async () => {
+    if (!watcherState?.run || jobs.length === 0) return;
+    setIsDownloading(true);
+    setDownloadProgress('');
+
+    const targetJobs = downloadScope === 'all'
+      ? jobs
+      : jobs.filter(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
+
+    if (targetJobs.length === 0) {
+      setIsDownloading(false);
+      return;
+    }
+
+    const logs: string[] = [];
+    for (let i = 0; i < targetJobs.length; i++) {
+      const job = targetJobs[i];
+      setDownloadProgress(` (${i + 1}/${targetJobs.length})`);
+      try {
+        const res = await invoke<{ text: string | null }>('analytics_fetch_job_log', {
+          repository: repositoryId,
+          jobId: job.id
+        });
+        const plainText = res.text ? stripAnsi(res.text) : 'No logs available.';
+        logs.push(
+          `======================================================================\n` +
+          `JOB: ${job.name} (Status: ${job.status}, Conclusion: ${job.conclusion || 'N/A'})\n` +
+          `======================================================================\n\n` +
+          plainText + `\n\n`
+        );
+      } catch (err) {
+        logs.push(
+          `======================================================================\n` +
+          `JOB: ${job.name} (Status: ${job.status}, Conclusion: ${job.conclusion || 'N/A'})\n` +
+          `======================================================================\n\n` +
+          `Error fetching logs: ${err instanceof Error ? err.message : String(err)}\n\n`
+        );
+      }
+    }
+
+    const header =
+      `======================================================================\n` +
+      `REPOSITORY: ${repositoryId}\n` +
+      `WORKFLOW RUN: ${watcherState.run.name} (Run #${watcherState.run.run_number})\n` +
+      `DOWNLOAD SCOPE: ${downloadScope === 'all' ? 'All Jobs' : 'Failed Jobs Only'}\n` +
+      `DOWNLOADED AT: ${new Date().toLocaleString()}\n` +
+      `======================================================================\n\n`;
+
+    const fileContent = header + logs.join('\n');
+    const safeRepo = repositoryId.replace(/\//g, '_');
+    const suffix = downloadScope === 'all' ? 'all_logs' : 'failed_logs';
+    const filename = `${safeRepo}_run_${watcherState.run.run_number}_${suffix}.txt`;
+
+    try {
+      const saved = await invoke<boolean>('save_log_file', {
+        content: fileContent,
+        defaultFilename: filename
+      });
+      if (!saved) {
+        console.log('User cancelled the log file saving.');
+      }
+    } catch (err) {
+      console.error('Tauri save_log_file failed, falling back:', err);
+      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    setIsDownloading(false);
+    setIsDownloadDropdownOpen(false);
+  };
+
+  const handleCopyJobLogs = async () => {
+    if (!logData?.text) return;
+    const plainText = stripAnsi(logData.text);
+    try {
+      await navigator.clipboard.writeText(plainText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy logs to clipboard:', err);
+    }
+  };
+
+  const handleCopyStepLogs = async (stepNumber: number, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const lines = stepLogs.get(stepNumber);
+    if (!lines || lines.length === 0) return;
+
+    const rawText = lines.map(line => line.text).join('\n');
+    const plainText = stripAnsi(rawText);
+    try {
+      await navigator.clipboard.writeText(plainText);
+      setCopiedStepNumber(stepNumber);
+      setTimeout(() => setCopiedStepNumber(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy step logs:', err);
+    }
+  };
 
   const stepLogs = useMemo(() => {
      if (!logData?.text) return new Map<number, LogLineData[]>();
@@ -184,6 +304,52 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
            {attemptOptions.length > 1 && <Select options={attemptOptions} value={String(selectedAttempt || run.run_attempt)} onChange={(v) => setSelectedAttempt(parseInt(v, 10))} ariaLabel="Run Attempt" />}
            <button className="ci-btn" onClick={() => refetch()}><RefreshCw size={14} className={isFetching ? 'is-spinning' : ''}/> Refresh</button>
            <a className="ci-btn" href={run.html_url} target="_blank" rel="noreferrer">Open in Browser</a>
+
+           <div className="download-dropdown-container" style={{ position: 'relative', marginLeft: 'auto' }}>
+             <button className="ci-btn" onClick={() => setIsDownloadDropdownOpen(!isDownloadDropdownOpen)} disabled={jobs.length === 0}>
+               <Download size={14} /> Download Logs
+             </button>
+             {isDownloadDropdownOpen && (
+               <>
+                 <div className="download-dropdown-overlay" onClick={() => setIsDownloadDropdownOpen(false)} />
+                 <div className="download-dropdown-menu">
+                   <div className="download-dropdown-header">Log Download Scope</div>
+                   <div 
+                     className="download-dropdown-option"
+                     onClick={() => setDownloadScope('all')}
+                   >
+                     <div className="download-dropdown-option-icon">
+                       {downloadScope === 'all' && <Check size={12} />}
+                     </div>
+                     <span>All Jobs ({jobs.length})</span>
+                   </div>
+                   <div 
+                     className={`download-dropdown-option ${failedJobsCount === 0 ? 'is-disabled' : ''}`}
+                     onClick={() => failedJobsCount > 0 && setDownloadScope('failed')}
+                   >
+                     <div className="download-dropdown-option-icon">
+                       {downloadScope === 'failed' && <Check size={12} />}
+                     </div>
+                     <span>Failed Jobs Only ({failedJobsCount})</span>
+                   </div>
+                   <button 
+                     className="download-dropdown-action-btn"
+                     onClick={handleDownloadLogs}
+                     disabled={isDownloading || (downloadScope === 'failed' && failedJobsCount === 0)}
+                   >
+                     {isDownloading ? (
+                       <>
+                         <Loader2 size={12} className="is-spinning" />
+                         Downloading{downloadProgress}...
+                       </>
+                     ) : (
+                       'Start Download'
+                     )}
+                   </button>
+                 </div>
+               </>
+             )}
+           </div>
         </div>
       </header>
       
@@ -214,19 +380,45 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
                <div className="ci-job-steps">
                  <div className="ci-job-steps-header">
                    <h4>Steps</h4>
-                   <button className="ci-btn" onClick={() => refetchLog()} disabled={isLogFetching}><RefreshCw size={12} className={isLogFetching ? 'is-spinning' : ''}/> {isLogFetching ? 'Loading Logs' : 'Refresh Logs'}</button>
+                   <div style={{ display: 'flex', gap: '8px' }}>
+                     <button 
+                       className="ci-btn" 
+                       onClick={handleCopyJobLogs}
+                       disabled={!logData?.text || isLogFetching}
+                       title="Copy all logs of this job to clipboard"
+                     >
+                       {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied!' : 'Copy Logs'}
+                     </button>
+                     <button className="ci-btn" onClick={() => refetchLog()} disabled={isLogFetching}>
+                       <RefreshCw size={12} className={isLogFetching ? 'is-spinning' : ''}/> {isLogFetching ? 'Loading Logs' : 'Refresh Logs'}
+                     </button>
+                   </div>
                  </div>
                  <ul className="ci-step-list">
                    {selectedJob.steps.map(step => (
                      <li key={step.number} className={`ci-step-container ${expandedStepNumber === step.number ? 'expanded' : ''}`}>
-                       <div className="ci-step-item" onClick={() => setExpandedStepNumber(expandedStepNumber === step.number ? null : step.number)}>
-                         <ChevronRight size={14} className={`ci-step-chevron ${expandedStepNumber === step.number ? 'expanded' : ''}`} />
-                         {getStatusIcon(step.status, step.conclusion)}
-                         <span>{step.name}</span>
-                         <span className="ci-step-time">
-                           {step.status === 'completed' && step.completed_at && step.started_at ? formatDurationCompact(new Date(step.completed_at).getTime() - new Date(step.started_at).getTime()) : step.status}
-                         </span>
-                       </div>
+                        <div className="ci-step-item" onClick={() => setExpandedStepNumber(expandedStepNumber === step.number ? null : step.number)}>
+                          <ChevronRight size={14} className={`ci-step-chevron ${expandedStepNumber === step.number ? 'expanded' : ''}`} />
+                          {getStatusIcon(step.status, step.conclusion)}
+                          <span>{step.name}</span>
+                          {expandedStepNumber === step.number && stepLogs.has(step.number) && (
+                            <button
+                              className="ci-step-copy-btn"
+                              onClick={(e) => handleCopyStepLogs(step.number, e)}
+                              title="Copy step logs to clipboard"
+                              style={{ marginLeft: 'auto' }}
+                            >
+                              {copiedStepNumber === step.number ? (
+                                <Check size={12} style={{ color: 'var(--success-color)' }} />
+                              ) : (
+                                <Copy size={12} />
+                              )}
+                            </button>
+                          )}
+                          <span className="ci-step-time" style={expandedStepNumber === step.number && stepLogs.has(step.number) ? { marginLeft: 0 } : {}}>
+                            {step.status === 'completed' && step.completed_at && step.started_at ? formatDurationCompact(new Date(step.completed_at).getTime() - new Date(step.started_at).getTime()) : step.status}
+                          </span>
+                        </div>
                        {expandedStepNumber === step.number && (
                          <div className="ci-job-logs-section">
                            <div className="ci-job-logs-viewer">
