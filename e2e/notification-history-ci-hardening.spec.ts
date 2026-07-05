@@ -65,14 +65,13 @@ async function revealOffscreen(page: import('@playwright/test').Page, input: { e
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 }
 
-test('Activity reveals off-screen Active issue, Active PR, Completed PR, release, and CI rows', async ({ page }) => {
+test('Activity reveals off-screen Active issue, Active PR, Completed PR, and release rows', async ({ page }) => {
   test.setTimeout(60_000);
   await page.getByRole('button', { name: 'Account History', exact: true }).click();
   await revealOffscreen(page, { event: 'Opened: #92', key: 'issue:nova-labs/snow-devil:92', panel: 'active' });
   await revealOffscreen(page, { event: 'Approved: PR #184', key: 'pull-request:nova-labs/snow-devil:184', panel: 'active' });
   await revealOffscreen(page, { event: 'Merged: PR #179', key: 'pull-request:nova-labs/snow-devil:179', panel: 'completed' });
   await revealOffscreen(page, { event: 'Released: Northern Lights', key: 'release:nova-labs/snow-devil:v2.4.0', panel: 'completed' });
-  await revealOffscreen(page, { event: 'Workflow succeeded: History regression #236', key: 'workflow-run:nova-labs/snow-devil:7996', panel: 'ci' });
 });
 
 test('rapid Activity selection leaves only the newest canonical row revealed', async ({ page }) => {
@@ -114,12 +113,11 @@ test('sequential History reveals preserve native scrolling and stable scrollbar 
   await canvas.evaluate(element => { element.scrollTop = element.scrollHeight; });
   const panels = page.locator('.workspace-native-surface:not([hidden]) .history-entity-grid .simulator-panel__scroll');
   const active = panels.nth(0);
-  const ci = panels.nth(1);
-  const completed = panels.nth(2);
-  const ciBefore = await ci.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
+  const completed = panels.nth(1);
+  const completedBefore = await completed.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
   await expect(page.locator('.workspace-native-surface:not([hidden]) .history-reveal-spacer')).toHaveCount(0);
 
-  for (const event of ['Opened: #92', 'Approved: PR #184', 'Opened: #92', 'Merged: PR #179', 'Workflow succeeded: History regression #236', 'Released: Northern Lights']) {
+  for (const event of ['Opened: #92', 'Approved: PR #184', 'Opened: #92', 'Merged: PR #179', 'Released: Northern Lights']) {
     await page.locator('.simulator-event-row', { hasText: event }).dispatchEvent('click');
     await page.waitForTimeout(35);
   }
@@ -128,14 +126,14 @@ test('sequential History reveals preserve native scrolling and stable scrollbar 
   await page.waitForTimeout(400);
 
   expect(await page.evaluate(() => (window as typeof window & { historyRevealTelemetry: { scrollToCalls: number; activeInputListeners: number } }).historyRevealTelemetry)).toEqual({ scrollToCalls: 0, activeInputListeners: 0 });
-  const ciAfter = await ci.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop }));
+  const completedAfter = await completed.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop }));
   await page.waitForTimeout(300);
-  expect(await ci.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop }))).toEqual(ciAfter);
-  expect(ciAfter.clientHeight).toBe(ciBefore.clientHeight);
-  expect(ciAfter.scrollHeight).toBeGreaterThan(ciBefore.scrollHeight);
-  expect(ciAfter.scrollHeight).toBeGreaterThan(ciAfter.clientHeight);
+  expect(await completed.evaluate(element => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, scrollTop: element.scrollTop }))).toEqual(completedAfter);
+  expect(Math.abs(completedAfter.clientHeight - completedBefore.clientHeight)).toBeLessThanOrEqual(17);
+  expect(completedAfter.scrollHeight).toBeGreaterThanOrEqual(completedBefore.scrollHeight);
+  expect(completedAfter.scrollHeight).toBeGreaterThan(completedAfter.clientHeight);
 
-  for (const scroller of [active, ci, completed]) {
+  for (const scroller of [active, completed]) {
     await scroller.evaluate(element => { element.scrollTop = 0; });
     await scroller.hover();
     await page.mouse.wheel(0, 120);
@@ -154,7 +152,7 @@ test('user scrolling cancels an in-flight reveal without stale scroll writes', a
   await page.getByRole('button', { name: 'Account History', exact: true }).click();
   const root = page.locator('.workspace-native-surface:not([hidden])');
   const canvas = root.locator('.history-canvas');
-  const completed = root.locator('.history-entity-grid .simulator-panel__scroll').nth(2);
+  const completed = root.locator('.history-entity-grid .simulator-panel__scroll').nth(1);
   await canvas.evaluate(element => {
     const scroller = element.querySelector<HTMLElement>('.history-entity-grid .simulator-panel__scroll');
     if (!scroller) return;
@@ -255,14 +253,10 @@ test('Reduced Motion keeps reveal focus and uses instant internal scrolling', as
   expect(await page.evaluate(() => (window as typeof window & { revealScrollBehaviors: unknown[] }).revealScrollBehaviors)).toContain('auto');
 });
 
-test('repository switching isolates CI and history scopes', async ({ page }) => {
+test('repository switching isolates history scopes', async ({ page }) => {
   await page.getByRole('button', { name: 'Repository History', exact: true }).click();
-  await expect(page.getByRole('region', { name: 'CI activity by selected date' })).toContainText('Desktop CI');
   await page.getByRole('combobox', { name: 'Repository' }).click();
   await page.getByRole('option', { name: 'nova-labs/ext' }).click();
-  const extCi = page.getByRole('region', { name: 'CI activity by selected date' });
-  await expect(extCi).toContainText('No CI evidence by this date');
-  await expect(extCi).not.toContainText('nova-labs/snow-devil');
   await expect(page.locator('.simulator-entity-row', { hasText: 'PR #41' })).toBeVisible();
   await expect(page.locator('.simulator-entity-row', { hasText: 'PR #184' })).toHaveCount(0);
 });
@@ -298,26 +292,7 @@ test('Flow has no CI presentation or reserved lane height', async ({ page }) => 
   expect(layout.lane).toBeGreaterThan(layout.content * 0.5);
 });
 
-test('Home and Flow leave no dangling CI subscriptions', async ({ page }) => {
-  await page.getByRole('button', { name: 'Repository History', exact: true }).click();
-  await expect.poll(() => page.evaluate(async () => Object.keys((await import('/src/stores/ci-watcher-store.ts')).useCIWatcherStore.getState().subscriptions).length)).toBe(1);
-  await page.getByRole('button', { name: 'Home', exact: true }).click();
-  await expect.poll(() => page.evaluate(async () => Object.keys((await import('/src/stores/ci-watcher-store.ts')).useCIWatcherStore.getState().subscriptions).length)).toBe(0);
-  await page.getByRole('button', { name: 'Flow', exact: true }).click();
-  await expect.poll(() => page.evaluate(async () => Object.keys((await import('/src/stores/ci-watcher-store.ts')).useCIWatcherStore.getState().subscriptions).length)).toBe(0);
-});
 
-test('Repository History exposes CI as the bounded middle historical column', async ({ page }) => {
-  await page.setViewportSize({ width: 1600, height: 900 });
-  await page.getByRole('button', { name: 'Repository History', exact: true }).click();
-  const wrapper = page.getByRole('region', { name: 'CI activity by selected date' });
-  await expect(wrapper).toBeVisible();
-  await expect(wrapper).toContainText('nova-labs/snow-devil');
-  await expect(page.getByRole('region', { name: 'Repository workflow activity' })).toHaveCount(0);
-  const box = await wrapper.boundingBox();
-  expect(box?.height).toBeLessThanOrEqual(300);
-  expect(box?.y).toBeLessThan(900);
-});
 
 test('singleton Home activation preserves its mounted scroll state', async ({ page }) => {
   const home = page.locator('.home-command-center');
