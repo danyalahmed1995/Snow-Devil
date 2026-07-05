@@ -57,6 +57,13 @@ pub async fn get_repo_issues(owner: String, name: String) -> Result<Value, Strin
 }
 
 #[tauri::command]
+pub async fn get_commit_details(owner: String, name: String, sha: String) -> Result<Value, String> {
+    crate::github::repo_api::fetch_commit_details(&owner, &name, &sha)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_pr_details(owner: String, name: String, number: i64) -> Result<Value, String> {
     crate::github::repo_api::fetch_pr_details(&owner, &name, number)
         .await

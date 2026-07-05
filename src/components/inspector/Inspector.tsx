@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { AnalyticsInspectable } from '../../analytics/types';
 import { useMemo, useState } from 'react';
 import { Copy, X, ArrowRightCircle, Globe, History } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout-store';
@@ -13,6 +14,9 @@ import { isNativeTab, useTabsStore } from '../../stores/tabs-store';
 import type { FlowItem } from '../../types/flow';
 import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-presentation';
 import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
+import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
+import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
+import { Loader2 } from 'lucide-react';
 import './Inspector.css';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
@@ -72,6 +76,113 @@ function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
   </div>;
 }
 
+function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable; tab: InspectorTab }) {
+  const metadata = selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null;
+  
+  const { data: watcherState, isLoading, error } = useWorkflowRunWatcher(
+    selected.repositoryId || '',
+    metadata?.runId as string,
+    metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
+    true,
+    true
+  );
+
+  if (!metadata) return <p className="inspector-empty">No workflow data available.</p>;
+
+  const runObj = watcherState?.run;
+  const jobs = watcherState?.jobs;
+
+  const durationMs = runObj 
+    ? (runObj.status === 'completed' 
+        ? new Date(runObj.updated_at).getTime() - new Date(runObj.run_started_at).getTime()
+        // eslint-disable-next-line react-hooks/purity
+        : Date.now() - new Date(runObj.run_started_at).getTime())
+    : metadata.durationMs;
+
+  const durationStr = formatDurationCompact(durationMs);
+  const currentConclusion = runObj ? runObj.conclusion : (metadata.conclusion ?? selected.state);
+  const currentStatusText = runObj 
+    ? (runObj.conclusion ?? runObj.status) 
+    : (metadata.conclusion ?? metadata.status ?? selected.state);
+
+  const tone = currentConclusion === 'success' ? 'good' : currentConclusion === 'failure' || currentConclusion === 'timed_out' ? 'danger' : 'neutral';
+  const completedTime = runObj ? (runObj.status === 'completed' ? runObj.updated_at : null) : metadata.completedAt;
+
+  return <div className={`inspector-details inspector-details--${tab}`}>
+    <section className="inspector-section inspector-header-section">
+      <div className="inspector-entity-row">
+        <Badge tone={tone}>Workflow Run</Badge>
+        {currentStatusText && <span className="inspector-stage-badge">{currentStatusText.replace(/_/g, ' ')}</span>}
+      </div>
+      <h4 className="inspector-title">{selected.title}</h4>
+      {selected.repositoryId && <p className="inspector-repository">{selected.repositoryId}{metadata.runNumber ? ` #${metadata.runNumber}` : ''}</p>}
+    </section>
+    
+    <section className="inspector-section">
+      <h5 className="section-title">Details</h5>
+      <div className="metadata">
+        <Meta label="Workflow">{metadata.workflowPath?.split('/').pop() || 'Unknown'}</Meta>
+        <Meta label="Event">{metadata.event || 'Unknown'}</Meta>
+        <Meta label="Started">{metadata.startedAt ? new Date(metadata.startedAt).toLocaleString() : 'Unknown'}</Meta>
+        <Meta label="Completed">{completedTime ? new Date(completedTime).toLocaleString() : 'Running...'}</Meta>
+        <Meta label="Duration">{durationStr}</Meta>
+        {metadata.headBranch && <Meta label="Branch">{metadata.headBranch}</Meta>}
+        {metadata.pullRequestNumber && <Meta label="Pull Request"><a href={`https://github.com/${selected.repositoryId}/pull/${metadata.pullRequestNumber}`} target="_blank" rel="noreferrer" className="open-link">#{metadata.pullRequestNumber}</a></Meta>}
+        {metadata.headSha && <Meta label="Commit"><a role="button" tabIndex={0} className="open-link" onClick={() => useTabsStore.getState().openNativeTab(`native:commit:${selected.repositoryId}:${metadata.headSha}`, 'commitDiff', (metadata.headSha as string).substring(0, 7), false, true, { type: 'commit', repository: selected.repositoryId || '', sha: metadata.headSha as string })}>{(metadata.headSha as string).substring(0, 7)}</a></Meta>}
+      </div>
+      {metadata.commitMessage && <p className="inspector-partial">Message: {metadata.commitMessage}</p>}
+    </section>
+
+    <section className="inspector-section">
+      <h5 className="section-title">Jobs</h5>
+      {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
+      {error && <div className="ci-jobs-error">Failed to load jobs</div>}
+      {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
+      {jobs && jobs.length > 0 && (
+        <ul className="ci-jobs-list">
+          {jobs.map(job => (
+            <li 
+              key={job.id} 
+              className="ci-job-item"
+              onClick={() => {
+                const runIdStr = metadata?.runId ?? selected.id;
+                useTabsStore.getState().openNativeTab(
+                  `ciRun:${selected.repositoryId}:${runIdStr}`,
+                  'ciRun',
+                  `CI #${metadata?.runNumber ?? '?'}`,
+                  false,
+                  true,
+                  {
+                    type: 'ciRun',
+                    repository: selected.repositoryId || '',
+                    runId: String(runIdStr),
+                    jobId: String(job.id)
+                  }
+                );
+              }}
+            >
+              <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
+              <span className="ci-job-name" title={job.name}>{job.name}</span>
+              {job.status === 'in_progress' && job.steps?.length > 0 && (
+                <span className="ci-job-steps">{job.steps.filter(s => s.status === 'completed').length} / {job.steps.length}</span>
+              )}
+              <span className="ci-job-duration">
+                {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
+                {job.started_at && !job.completed_at ? 'Running...' : ''}
+              </span>
+              {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
+                <span className="ci-job-failed-step" style={{ display: 'block', width: '100%', fontSize: '10px', color: 'var(--danger)', marginTop: '4px' }}>
+                  Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  </div>;
+}
+
 function FlowDetails({ item, mode, tab }: { item: FlowItem; mode: 'live' | 'demo'; tab: InspectorTab }) {
   const value = normalizeWorkflowItem(item, mode);
   const tone = value.status === 'failing' ? 'danger' : value.status === 'changes_requested' ? 'warning' : value.stage === 'ready' || value.stage === 'merged' || value.stage === 'released' || value.stage === 'deployed' ? 'good' : 'info';
@@ -110,7 +221,11 @@ export function Inspector() {
   let content: ReactNode;
 
   if (isAnalytics || homeRepositoryContext) {
-    content = <AnalyticsDetails tab={inspectorTab} />;
+    if (flowState.selectedAnalyticsEntity?.kind === 'ci_health') {
+      content = <WorkflowRunDetails selected={flowState.selectedAnalyticsEntity} tab={inspectorTab} />;
+    } else {
+      content = <AnalyticsDetails tab={inspectorTab} />;
+    }
   } else if (simulatorEvent && isSimulator && !simulatorEntity) {
     content = <div className="inspector-details"><section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge>Event</Badge></div><h4 className="inspector-title">{humanizeSimulatorValue(simulatorEvent.eventType)}</h4><p className="inspector-repository">{formatEventTitle(simulatorEvent)}</p></section><section className="inspector-section"><h5 className="section-title">Event Details</h5><div className="metadata"><Meta label="Timestamp">{new Date(simulatorEvent.occurredAt).toLocaleString()}</Meta><Meta label="Actor">{simulatorEvent.actor?.login ?? 'Unknown'}</Meta><Meta label="Provenance">{simulatorEvent.metadata.nativeOrDerived === 'derived' ? 'Derived' : 'Native'}</Meta><Meta label="Source API">{simulatorEvent.source}</Meta></div></section>{!simulatorCurrentEntity && <section className="inspector-section"><h5 className="section-title">Historical entity unavailable</h5><p className="inspector-partial">Event evidence exists, but no canonical entity snapshot is available at this cutoff. The source may be historically limited or partial; Snow Devil will not guess a repository or navigate to a different item.</p></section>}</div>;
   } else if (simulatorEntity && isSimulator) {
@@ -130,7 +245,12 @@ export function Inspector() {
     {(targetSource || isSimulator) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections"><button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
-      {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context"><button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button>{flowState.selectedAnalyticsEntity.kind === 'ci_health' && <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Repository History</button>}</div>}
+      {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context">
+        <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button>
+        {flowState.selectedAnalyticsEntity.kind === 'ci_health' && (
+          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
+        )}
+      </div>}
       {target && <div className="inspector-actions">
         {activeTabId === 'native:home' && selectedItem && (
           <button
@@ -154,7 +274,18 @@ export function Inspector() {
             <ArrowRightCircle size={12} /> Open in Flow
           </button>
         )}
-        <button type="button" aria-label="Open in Default Browser" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><Globe size={12} /> Open in Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button><button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button></div>}
+        <button type="button" aria-label="Open in Default Browser" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><Globe size={12} /> Open in Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button>
+        {isAnalytics && flowState.selectedAnalyticsEntity?.kind === 'workflow_run' ? (
+           <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen native CI Run Watcher inside Snow Devil." onClick={() => {
+              const e = flowState.selectedAnalyticsEntity!;
+              const m = (e as any).metadata;
+              const runIdStr = m?.runId ?? e.id;
+              useTabsStore.getState().openNativeTab(`ciRun:${e.repositoryId}:${runIdStr}`, 'ciRun', `CI #${m?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: e.repositoryId || '', runId: String(runIdStr) });
+           }}>Open in Tab</button>
+        ) : (
+           <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen or activate the canonical GitHub entity inside Snow Devil." onClick={() => openBrowserTab(target.id, target.kind, target.title, target.url, false, true)}>Open in Tab</button>
+        )}
+      </div>}
       {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open in Tab unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
     </footer>}
   </div>;

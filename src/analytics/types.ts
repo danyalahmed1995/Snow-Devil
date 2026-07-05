@@ -122,6 +122,7 @@ export interface AnalyticsDataset {
   relationships: DeliveryRelationship[];
   partial: boolean;
   partialReasons: string[];
+  rawWorkflowRuns: import('../simulator/simulator-types').SimulatorEvent[];
 }
 
 export interface InventoryThresholds {

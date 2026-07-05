@@ -51,6 +51,8 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'repositorySimulator',
   'repositoryExplorer',
   'pullRequestDiff',
+  'commitDiff',
+  'ciRun',
   'notifications',
   'organizations',
   'evidenceGraph',
@@ -109,6 +111,12 @@ function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext 
   if (context.type === 'pullRequest' && typeof context.repository === 'string' && typeof context.number === 'number') {
     return { type: 'pullRequest', repository: context.repository, number: context.number };
   }
+  if (context.type === 'commit' && typeof context.repository === 'string' && typeof context.sha === 'string') {
+    return { type: 'commit', repository: context.repository, sha: context.sha };
+  }
+  if (context.type === 'evidenceGraph') {
+    return { type: 'evidenceGraph' };
+  }
   return undefined;
 }
 
@@ -133,6 +141,7 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
     };
     if (normalized.kind === 'repositoryExplorer' && normalized.context?.type !== 'repository') return undefined;
     if (normalized.kind === 'pullRequestDiff' && normalized.context?.type !== 'pullRequest') return undefined;
+    if (normalized.kind === 'commitDiff' && normalized.context?.type !== 'commit') return undefined;
     if (normalized.kind === 'evidenceGraph' && normalized.context?.type !== 'evidenceGraph') normalized.context = { type: 'evidenceGraph' };
     return normalized;
   }

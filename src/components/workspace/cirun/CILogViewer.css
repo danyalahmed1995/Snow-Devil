@@ -1,0 +1,105 @@
+.ci-log-viewer-container {
+  display: flex;
+  flex-direction: column;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.ci-log-line {
+  display: flex;
+  min-height: 20px;
+  padding: 0 8px;
+}
+
+.ci-log-line:hover {
+  background: var(--surface-hover);
+}
+
+.ci-log-lineno {
+  width: 40px;
+  min-width: 40px;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--text-muted);
+  user-select: none;
+  font-size: 11px;
+}
+
+.ci-log-content {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.ci-log-group-header {
+  cursor: pointer;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ci-log-group-header:hover {
+  background: var(--surface-hover);
+}
+
+.ci-log-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ci-log-group-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.ci-log-group-children {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ANSI Colors */
+.ansi-bold { font-weight: bold; }
+
+/* Foreground */
+.ansi-fg-30 { color: #000000; }
+.ansi-fg-31 { color: #cd3131; }
+.ansi-fg-32 { color: #0dbc79; }
+.ansi-fg-33 { color: #e5e510; }
+.ansi-fg-34 { color: #2472c8; }
+.ansi-fg-35 { color: #bc3fbc; }
+.ansi-fg-36 { color: #11a8cd; }
+.ansi-fg-37 { color: #e5e5e5; }
+
+/* Bright Foreground */
+.ansi-fg-90 { color: #666666; }
+.ansi-fg-91 { color: #f14c4c; }
+.ansi-fg-92 { color: #23d18b; }
+.ansi-fg-93 { color: #f5f543; }
+.ansi-fg-94 { color: #3b8eea; }
+.ansi-fg-95 { color: #d670d6; }
+.ansi-fg-96 { color: #29b8db; }
+.ansi-fg-97 { color: #e5e5e5; }
+
+/* Background */
+.ansi-bg-40 { background-color: #000000; }
+.ansi-bg-41 { background-color: #cd3131; }
+.ansi-bg-42 { background-color: #0dbc79; }
+.ansi-bg-43 { background-color: #e5e510; }
+.ansi-bg-44 { background-color: #2472c8; }
+.ansi-bg-45 { background-color: #bc3fbc; }
+.ansi-bg-46 { background-color: #11a8cd; }
+.ansi-bg-47 { background-color: #e5e5e5; }
+
+/* Bright Background */
+.ansi-bg-100 { background-color: #666666; }
+.ansi-bg-101 { background-color: #f14c4c; }
+.ansi-bg-102 { background-color: #23d18b; }
+.ansi-bg-103 { background-color: #f5f543; }
+.ansi-bg-104 { background-color: #3b8eea; }
+.ansi-bg-105 { background-color: #d670d6; }
+.ansi-bg-106 { background-color: #29b8db; }
+.ansi-bg-107 { background-color: #e5e5e5; }

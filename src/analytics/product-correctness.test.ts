@@ -33,6 +33,7 @@ function dataset(entities: DeliveryEntity[]): AnalyticsDataset {
     ],
     branches: [],
     relationships: [],
+    rawWorkflowRuns: [],
     partial: false,
     partialReasons: [],
   };
@@ -106,6 +107,7 @@ describe('analytics product correctness', () => {
       events: [],
       branches: [],
       relationships: [],
+      rawWorkflowRuns: [],
       partial: false,
       partialReasons: [],
     };

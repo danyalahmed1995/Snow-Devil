@@ -55,6 +55,7 @@ pub async fn analytics_fetch_rest(endpoint: String) -> Result<AnalyticsApiRespon
         .bearer_auth(token)
         .header("User-Agent", "snow-devil-analytics")
         .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(30))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -204,4 +205,140 @@ pub fn get_analytics_sync_state(
         })
         .map_err(|e| e.to_string())?;
     rows.next().transpose().map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JobLogResponse {
+    pub status: u16,
+    pub text: Option<String>,
+    pub truncated: bool,
+    pub error_kind: Option<String>,
+}
+
+#[tauri::command]
+pub async fn analytics_fetch_job_log(
+    repository: String,
+    job_id: u64,
+) -> Result<JobLogResponse, String> {
+    let token = get_token()
+        .map_err(|e| e.to_string())?
+        .ok_or("authentication_expired")?;
+
+    let client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let endpoint = format!(
+        "https://api.github.com/repos/{}/actions/jobs/{}/logs",
+        repository, job_id
+    );
+
+    let response = client
+        .get(&endpoint)
+        .bearer_auth(&token)
+        .header("User-Agent", "snow-devil-analytics")
+        .header("Accept", "application/vnd.github+json")
+        .timeout(std::time::Duration::from_secs(15))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let status = response.status();
+
+    if status.is_success() {
+        let log_text = response.text().await.map_err(|e| e.to_string())?;
+        return Ok(JobLogResponse {
+            status: status.as_u16(),
+            text: Some(log_text),
+            truncated: false,
+            error_kind: None,
+        });
+    }
+
+    if status.is_redirection() {
+        if let Some(location) = response.headers().get(reqwest::header::LOCATION) {
+            let loc_str = location.to_str().map_err(|_| "Invalid location header")?;
+
+            if !loc_str.starts_with("https://") {
+                return Ok(JobLogResponse {
+                    status: status.as_u16(),
+                    text: None,
+                    truncated: false,
+                    error_kind: Some("invalid_redirect".to_string()),
+                });
+            }
+
+            let dl_client = reqwest::Client::builder()
+                .build()
+                .map_err(|e| e.to_string())?;
+
+            let mut dl_response = dl_client
+                .get(loc_str)
+                .timeout(std::time::Duration::from_secs(30))
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let dl_status = dl_response.status();
+            if !dl_status.is_success() {
+                return Ok(JobLogResponse {
+                    status: dl_status.as_u16(),
+                    text: None,
+                    truncated: false,
+                    error_kind: Some("download_failed".to_string()),
+                });
+            }
+
+            let mut log_text = String::new();
+            let mut size = 0;
+            let max_size = 5 * 1024 * 1024; // 5 MB
+
+            while let Some(chunk) = dl_response.chunk().await.map_err(|e| e.to_string())? {
+                size += chunk.len();
+                let text_chunk = String::from_utf8_lossy(&chunk);
+                log_text.push_str(&text_chunk);
+                if size > max_size {
+                    return Ok(JobLogResponse {
+                        status: 200,
+                        text: Some(log_text),
+                        truncated: true,
+                        error_kind: None,
+                    });
+                }
+            }
+
+            return Ok(JobLogResponse {
+                status: 200,
+                text: Some(log_text),
+                truncated: false,
+                error_kind: None,
+            });
+        }
+    }
+
+    Ok(JobLogResponse {
+        status: status.as_u16(),
+        text: None,
+        truncated: false,
+        error_kind: Some("no_redirect".to_string()),
+    })
+}
+
+#[tauri::command]
+pub async fn save_log_file(content: String, default_filename: String) -> Result<bool, String> {
+    let file_path = rfd::AsyncFileDialog::new()
+        .set_title("Save Log File")
+        .set_file_name(&default_filename)
+        .add_filter("Text Files", &["txt"])
+        .save_file()
+        .await;
+
+    if let Some(file) = file_path {
+        let path = file.path();
+        std::fs::write(path, content).map_err(|e| e.to_string())?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }

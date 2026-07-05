@@ -193,9 +193,28 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  animation: none !important;
 }
 
-.workspace-native-surface[hidden] { display: none !important; }
+.workspace-native-surface:not([hidden]) {
+  display: block !important;
+  animation: workspace-tab-fade-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards !important;
+}
+
+.workspace-native-surface[hidden] {
+  display: none !important;
+}
+
+@keyframes workspace-tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .workspace-content > * {
   animation: workspace-content-enter var(--motion-normal) var(--ease-standard);

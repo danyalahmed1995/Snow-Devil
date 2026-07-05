@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CI Activity Panel Redesigns</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Demo Playground Framework */
+    :root {
+      --demo-bg: #030712;
+      --demo-text: #f3f4f6;
+      --demo-sidebar: #0f172a;
+      --demo-border: #1f2937;
+      --demo-accent: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--demo-bg);
+      color: var(--demo-text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Selector Sidebar */
+    .selector-sidebar {
+      width: 280px;
+      background: var(--demo-sidebar);
+      border-right: 1px solid var(--demo-border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .selector-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 8px;
+    }
+
+    .theme-btn {
+      width: 100%;
+      background: #1e293b;
+      border: 1px solid var(--demo-border);
+      color: #94a3b8;
+      padding: 12px 16px;
+      text-align: left;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .theme-btn:hover {
+      background: #334155;
+      color: #f1f5f9;
+      border-color: #475569;
+    }
+
+    .theme-btn.active {
+      background: var(--demo-accent);
+      color: #ffffff;
+      border-color: var(--demo-accent);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .theme-btn-desc {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    /* Main Preview Container */
+    .preview-viewport {
+      flex-grow: 1;
+      height: 100%;
+      overflow-y: auto;
+      padding: 40px;
+      background: #020617;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .preview-canvas {
+      width: 100%;
+      max-width: 1100px;
+      min-height: 600px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* STATUS COLOR TOKENS */
+    /* (These will be custom styled per theme, but standard values are defined below) */
+    
+    /* ====================================================================== */
+    /* THEME 1: NEO-GLOW CYBERPUNK                                            */
+    /* ====================================================================== */
+    .theme-cyberpunk {
+      font-family: 'Fira Code', monospace;
+      background: #000000;
+      padding: 24px;
+      border: 2px solid #ff007f;
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.15);
+      border-radius: 0px;
+    }
+    .theme-cyberpunk .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .theme-cyberpunk .metric-card {
+      background: #080808;
+      border: 1px solid #333333;
+      padding: 16px;
+      text-align: center;
+      position: relative;
+    }
+    .theme-cyberpunk .metric-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0; height: 3px;
+      background: #3b82f6;
+    }
+    .theme-cyberpunk .metric-card.failed::after { background: #ff0055; }
+    .theme-cyberpunk .metric-card.passed::after { background: #00ffcc; }
+    .theme-cyberpunk .metric-card .val {
+      font-size: 24px;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 0 8px rgba(255,255,255,0.3);
+    }
+    .theme-cyberpunk .metric-card.failed .val { color: #ff0055; text-shadow: 0 0 10px rgba(255,0,85,0.4); }
+    .theme-cyberpunk .metric-card.passed .val { color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.4); }
+    .theme-cyberpunk .metric-card .lbl { font-size: 10px; color: #888888; text-transform: uppercase; margin-top: 4px;}
+    
+    .theme-cyberpunk .ci-list { display: flex; flex-direction: column; gap: 16px; }
+    .theme-cyberpunk .ci-item {
+      background: #050505;
+      border: 1px solid #1f2937;
+      padding: 16px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .theme-cyberpunk .ci-item.failed { border-left: 4px solid #ff0055; }
+    .theme-cyberpunk .ci-item.passed { border-left: 4px solid #00ffcc; }
+    .theme-cyberpunk .ci-item.cancelled { border-left: 4px solid #666666; }
+    .theme-cyberpunk .ci-item:hover {
+      background: #0a0a0a;
+      box-shadow: 0 0 15px rgba(255,255,255,0.05);
+    }
+    .theme-cyberpunk .ci-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .theme-cyberpunk .ci-left { display: flex; align-items: center; gap: 16px; }
+    .theme-cyberpunk .ci-status-icon {
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+    }
+    .theme-cyberpunk .ci-item.failed .ci-status-icon { color: #ff0055; }
+    .theme-cyberpunk .ci-item.passed .ci-status-icon { color: #00ffcc; }
+    .theme-cyberpunk .ci-item.cancelled .ci-status-icon { color: #888888; }
+    .theme-cyberpunk .ci-info { display: flex; flex-direction: column; gap: 4px; }
+    .theme-cyberpunk .ci-title { font-size: 13px; color: #ffffff; }
+    .theme-cyberpunk .ci-meta-row { display: flex; gap: 8px; font-size: 11px; align-items: center; }
+    .theme-cyberpunk .badge {
+      padding: 2px 6px;
+      background: #111;
+      border: 1px solid #333;
+      color: #888;
+    }
+    .theme-cyberpunk .badge.branch { border-color: #ff007f; color: #ff007f; }
+    .theme-cyberpunk .badge.pr { border-color: #3b82f6; color: #3b82f6; }
+    
+    .theme-cyberpunk .ci-right { display: flex; align-items: center; gap: 16px; font-size: 11px; }
+    .theme-cyberpunk .ci-time { text-align: right; }
+    .theme-cyberpunk .ci-duration { color: #ffffff; }
+    .theme-cyberpunk .ci-ago { color: #666; }
+    .theme-cyberpunk .ci-actions { display: flex; gap: 8px; color: #888; }
+    
+    .theme-cyberpunk .ci-jobs-panel {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px dashed #333;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .theme-cyberpunk .job-pill {
+      background: #0b0b0b;
+      border: 1px solid #222;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+    }
+    .theme-cyberpunk .job-pill.failed { border-color: #ff0055; color: #ff0055; }
+    .theme-cyberpunk .job-pill.passed { border-color: #00ffcc; color: #00ffcc; }
+
+    /* ====================================================================== */
+    /* THEME 2: GLASSMORPHISM SLEEK                                           */
+    /* ====================================================================== */
+    .theme-glass {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      padding: 30px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+    }
+    .theme-glass .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+    .theme-glass .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 18px;
+      border-radius: 12px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s ease;
+    }
+    .theme-glass .metric-card:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .theme-glass .metric-card .val { font-size: 26px; font-weight: 600; color: #f8fafc; }
+    .theme-glass .metric-card.failed .val { color: #f43f5e; }
+    .theme-glass .metric-card.passed .val { color: #10b981; }
+    .theme-glass .metric-card .lbl { font-size: 11px; color: #94a3b8; font-weight: 500; margin-top: 4px; text-transform: uppercase; }
+
+    .theme-glass .ci-list { display: flex; flex-direction: column; gap: 14px; }
+    .theme-glass .ci-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .theme-glass .ci-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .theme-glass .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-glass .ci-left { display: flex; gap: 16px; align-items: center; }
+    .theme-glass .ci-status-icon {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .theme-glass .ci-item.failed .ci-status-icon { background: rgba(244, 63, 94, 0.1); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.2); }
+    .theme-glass .ci-item.passed .ci-status-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .theme-glass .ci-item.cancelled .ci-status-icon { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
+
+    .theme-glass .ci-info { display: flex; flex-direction: column; gap: 6px; }
+    .theme-glass .ci-title { font-size: 14px; font-weight: 500; color: #f1f5f9; }
+    .theme-glass .ci-meta-row { display: flex; gap: 8px; font-size: 11px; align-items: center; }
+    .theme-glass .badge {
+      padding: 3px 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 20px;
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .theme-glass .badge.branch { background: rgba(99, 102, 241, 0.08); color: #a5b4fc; border-color: rgba(99, 102, 241, 0.2); }
+    .theme-glass .badge.pr { background: rgba(59, 130, 246, 0.08); color: #93c5fd; border-color: rgba(59, 130, 246, 0.2); }
+
+    .theme-glass .ci-right { display: flex; gap: 20px; align-items: center; }
+    .theme-glass .ci-time { text-align: right; font-size: 12px; }
+    .theme-glass .ci-duration { color: #f1f5f9; font-weight: 500; }
+    .theme-glass .ci-ago { color: #64748b; }
+    .theme-glass .ci-actions { display: flex; gap: 10px; color: #94a3b8; }
+    .theme-glass .ci-actions svg:hover { color: #ffffff; }
+
+    .theme-glass .ci-jobs-panel {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .theme-glass .job-pill {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .theme-glass .job-pill.failed { border-color: rgba(244, 63, 94, 0.15); background: rgba(244, 63, 94, 0.02); }
+    .theme-glass .job-pill.passed { border-color: rgba(16, 185, 129, 0.15); background: rgba(16, 185, 129, 0.02); }
+    .theme-glass .job-pill .status-indicator {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .theme-glass .job-pill.failed .status-indicator { background: #f43f5e; box-shadow: 0 0 8px #f43f5e; }
+    .theme-glass .job-pill.passed .status-indicator { background: #10b981; box-shadow: 0 0 8px #10b981; }
+
+    /* ====================================================================== */
+    /* THEME 3: JETBRAINS IDE COMPACT                                         */
+    /* ====================================================================== */
+    .theme-jetbrains {
+      font-family: 'JetBrains Mono', monospace;
+      background: #2b2b2b;
+      padding: 12px;
+      border: 1px solid #3c3f41;
+      border-radius: 3px;
+    }
+    .theme-jetbrains .metric-grid {
+      display: flex; gap: 4px; margin-bottom: 12px;
+      background: #3c3f41; padding: 2px;
+    }
+    .theme-jetbrains .metric-card {
+      background: #313335;
+      padding: 8px 12px;
+      flex-grow: 1;
+      text-align: left;
+      font-size: 11px;
+      border: 1px solid transparent;
+    }
+    .theme-jetbrains .metric-card .val { font-size: 16px; font-weight: bold; color: #a9b7c6; }
+    .theme-jetbrains .metric-card.failed .val { color: #ff5252; }
+    .theme-jetbrains .metric-card.passed .val { color: #4e8052; }
+    .theme-jetbrains .metric-card .lbl { font-size: 9px; color: #808080; text-transform: uppercase; margin-top: 2px; }
+
+    .theme-jetbrains .ci-list { display: flex; flex-direction: column; gap: 2px; }
+    .theme-jetbrains .ci-item {
+      background: #313335;
+      border: 1px solid #323232;
+      padding: 8px 12px;
+    }
+    .theme-jetbrains .ci-item.selected {
+      background: #2d4765;
+      border-color: #3b5f8a;
+    }
+    .theme-jetbrains .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-jetbrains .ci-left { display: flex; gap: 10px; align-items: center; }
+    .theme-jetbrains .ci-status-icon { font-size: 12px; font-weight: bold; }
+    .theme-jetbrains .ci-item.failed .ci-status-icon { color: #ff5252; }
+    .theme-jetbrains .ci-item.passed .ci-status-icon { color: #4e8052; }
+    .theme-jetbrains .ci-item.cancelled .ci-status-icon { color: #909090; }
+
+    .theme-jetbrains .ci-info { display: flex; gap: 12px; align-items: center; }
+    .theme-jetbrains .ci-title { font-size: 12px; color: #a9b7c6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+    .theme-jetbrains .ci-item.selected .ci-title { color: #ffffff; }
+    .theme-jetbrains .ci-meta-row { display: flex; gap: 6px; font-size: 11px; align-items: center; }
+    .theme-jetbrains .badge {
+      padding: 1px 4px;
+      background: #2b2b2b;
+      border: 1px solid #4e5254;
+      color: #909090;
+      font-size: 10px;
+    }
+    .theme-jetbrains .badge.branch { color: #9876aa; }
+    .theme-jetbrains .badge.pr { color: #507ad0; }
+
+    .theme-jetbrains .ci-right { display: flex; gap: 12px; align-items: center; font-size: 11px; }
+    .theme-jetbrains .ci-time { text-align: right; display: flex; gap: 6px; }
+    .theme-jetbrains .ci-duration { color: #a9b7c6; }
+    .theme-jetbrains .ci-ago { color: #606060; }
+    .theme-jetbrains .ci-actions { display: flex; gap: 6px; color: #808080; }
+
+    .theme-jetbrains .ci-jobs-panel {
+      margin-top: 8px;
+      padding: 8px;
+      background: #2b2b2b;
+      border: 1px solid #3c3f41;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .theme-jetbrains .job-pill {
+      padding: 4px 8px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 11px;
+      border-bottom: 1px solid #3c3f41;
+    }
+    .theme-jetbrains .job-pill:last-child { border-bottom: none; }
+    .theme-jetbrains .job-pill.failed { color: #ff5252; }
+    .theme-jetbrains .job-pill.passed { color: #4e8052; }
+
+    /* ====================================================================== */
+    /* THEME 4: VERCEL MODERN MINIMALIST                                      */
+    /* ====================================================================== */
+    .theme-vercel {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #000000;
+      padding: 32px;
+      border: 1px solid #111111;
+      border-radius: 8px;
+    }
+    .theme-vercel .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      gap: 1px; background: #111111; margin-bottom: 32px;
+      border: 1px solid #111111;
+    }
+    .theme-vercel .metric-card {
+      background: #000000; padding: 20px;
+    }
+    .theme-vercel .metric-card .val { font-size: 28px; font-weight: 700; color: #ffffff; letter-spacing: -0.03em;}
+    .theme-vercel .metric-card .lbl { font-size: 10px; color: #666666; font-weight: 600; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.05em; }
+
+    .theme-vercel .ci-list { display: flex; flex-direction: column; gap: 0px; border: 1px solid #111111; border-radius: 6px; overflow: hidden; }
+    .theme-vercel .ci-item {
+      background: #000000;
+      border-bottom: 1px solid #111111;
+      padding: 20px;
+      transition: background 0.15s ease;
+    }
+    .theme-vercel .ci-item:last-child { border-bottom: none; }
+    .theme-vercel .ci-item:hover { background: #0a0a0a; }
+    .theme-vercel .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-vercel .ci-left { display: flex; gap: 16px; align-items: center; }
+    .theme-vercel .ci-status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    .theme-vercel .ci-item.failed .ci-status-dot { background: #ee0000; }
+    .theme-vercel .ci-item.passed .ci-status-dot { background: #0070f3; }
+    .theme-vercel .ci-item.cancelled .ci-status-dot { background: #444444; }
+
+    .theme-vercel .ci-info { display: flex; flex-direction: column; gap: 8px; }
+    .theme-vercel .ci-title { font-size: 14px; font-weight: 600; color: #ffffff; }
+    .theme-vercel .ci-meta-row { display: flex; gap: 12px; font-size: 12px; color: #666666; }
+    .theme-vercel .badge { color: #888888; font-family: monospace; }
+    .theme-vercel .badge.branch { color: #ffffff; font-weight: 500; }
+
+    .theme-vercel .ci-right { display: flex; gap: 24px; align-items: center; font-size: 12px; }
+    .theme-vercel .ci-duration { color: #ffffff; font-weight: 500; }
+    .theme-vercel .ci-ago { color: #666666; }
+    
+    .theme-vercel .ci-jobs-panel {
+      margin-top: 20px;
+      padding: 16px;
+      background: #050505;
+      border: 1px solid #111111;
+      border-radius: 4px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .theme-vercel .job-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px;
+    }
+    .theme-vercel .job-name { color: #888888; display: flex; align-items: center; gap: 8px; }
+    .theme-vercel .job-row.failed .job-name { color: #ee0000; }
+    .theme-vercel .job-time { color: #ffffff; font-family: monospace; }
+
+    /* ====================================================================== */
+    /* THEME 5: LINEAR DARK SPACE                                             */
+    /* ====================================================================== */
+    .theme-linear {
+      font-family: 'Inter', sans-serif;
+      background: #0b0f19;
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+    }
+    .theme-linear .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      gap: 16px; margin-bottom: 32px;
+    }
+    .theme-linear .metric-card {
+      background: #111827; border: 1px solid #1f2937;
+      padding: 20px; border-radius: 8px; text-align: left;
+    }
+    .theme-linear .metric-card .val { font-size: 26px; font-weight: 600; color: #f9fafb; }
+    .theme-linear .metric-card.failed .val { color: #ef4444; }
+    .theme-linear .metric-card.passed .val { color: #10b981; }
+    .theme-linear .metric-card .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; margin-top: 6px; font-weight: 600; letter-spacing: 0.05em; }
+
+    .theme-linear .ci-list { display: flex; flex-direction: column; gap: 12px; }
+    .theme-linear .ci-item {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .theme-linear .ci-item:hover {
+      border-color: #374151;
+      transform: scale(1.005);
+    }
+    .theme-linear .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-linear .ci-left { display: flex; gap: 18px; align-items: center; }
+    .theme-linear .ci-status-indicator {
+      width: 6px; height: 24px; border-radius: 3px;
+    }
+    .theme-linear .ci-item.failed .ci-status-indicator { background: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.5); }
+    .theme-linear .ci-item.passed .ci-status-indicator { background: #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.5); }
+    .theme-linear .ci-item.cancelled .ci-status-indicator { background: #4b5563; }
+
+    .theme-linear .ci-info { display: flex; flex-direction: column; gap: 6px; }
+    .theme-linear .ci-title { font-size: 14px; font-weight: 500; color: #f3f4f6; }
+    .theme-linear .ci-meta-row { display: flex; gap: 10px; font-size: 11px; align-items: center; }
+    .theme-linear .badge {
+      padding: 2px 6px;
+      background: #1f2937;
+      border-radius: 4px;
+      color: #9ca3af;
+    }
+    .theme-linear .badge.branch { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+    .theme-linear .badge.pr { background: rgba(59, 130, 246, 0.1); color: #60a5fa; }
+
+    .theme-linear .ci-right { display: flex; gap: 20px; align-items: center; font-size: 12px; }
+    .theme-linear .ci-time { text-align: right; }
+    .theme-linear .ci-duration { color: #f3f4f6; font-weight: 600; }
+    .theme-linear .ci-ago { color: #6b7280; }
+
+    .theme-linear .ci-jobs-panel {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #1f2937;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    .theme-linear .job-pill {
+      background: #1f2937;
+      border-radius: 6px;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+      font-size: 12px;
+    }
+    .theme-linear .job-pill.failed { border-left: 3px solid #ef4444; }
+    .theme-linear .job-pill.passed { border-left: 3px solid #10b981; }
+    .theme-linear .job-pill-name { color: #f3f4f6; font-weight: 500; }
+    .theme-linear .job-pill-time { color: #9ca3af; font-size: 11px; }
+
+    /* ====================================================================== */
+    /* THEME 6: SPLIT COLUMN BOARD                                            */
+    /* ====================================================================== */
+    .theme-split {
+      font-family: 'Inter', sans-serif;
+      background: #020617;
+      padding: 24px;
+    }
+    .theme-split .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;
+    }
+    .theme-split .metric-card {
+      background: #0f172a; padding: 16px; border-radius: 6px; text-align: center;
+      border-bottom: 2px solid #1e293b;
+    }
+    .theme-split .metric-card .val { font-size: 22px; font-weight: 700; color: #f8fafc; }
+    .theme-split .metric-card.failed .val { color: #ef4444; }
+    .theme-split .metric-card.passed .val { color: #10b981; }
+    .theme-split .metric-card .lbl { font-size: 10px; color: #64748b; text-transform: uppercase; margin-top: 4px; }
+
+    .theme-split .ci-list { display: flex; flex-direction: column; gap: 16px; }
+    .theme-split .ci-item {
+      background: #0f172a;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #1e293b;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+    }
+    .theme-split .ci-left-col {
+      padding: 20px;
+      border-right: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      background: #090d16;
+    }
+    .theme-split .ci-left-col.failed { border-left: 4px solid #ef4444; }
+    .theme-split .ci-left-col.passed { border-left: 4px solid #10b981; }
+    
+    .theme-split .ci-right-col {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 12px;
+    }
+    .theme-split .ci-title { font-size: 13px; font-weight: 600; color: #f8fafc; }
+    .theme-split .ci-meta-row { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; }
+    .theme-split .badge {
+      padding: 2px 6px; border-radius: 3px; background: #1e293b; color: #94a3b8;
+    }
+    
+    .theme-split .ci-right-info { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b; }
+    .theme-split .ci-jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .theme-split .job-badge {
+      padding: 8px 12px;
+      background: #1e293b;
+      border-radius: 4px;
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .theme-split .job-badge.failed { border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; }
+    .theme-split .job-badge.passed { border: 1px solid rgba(16, 185, 129, 0.3); color: #34d399; }
+
+    /* ====================================================================== */
+    /* THEME 7: TIMELINE STREAM                                               */
+    /* ====================================================================== */
+    .theme-timeline {
+      font-family: 'Outfit', sans-serif;
+      background: #030712;
+      padding: 32px;
+    }
+    .theme-timeline .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 32px;
+    }
+    .theme-timeline .metric-card {
+      background: #111827; padding: 16px; border-radius: 8px; text-align: center;
+    }
+    .theme-timeline .metric-card .val { font-size: 24px; color: #f9fafb; font-weight: 700; }
+    .theme-timeline .metric-card.failed .val { color: #f43f5e; }
+    .theme-timeline .metric-card.passed .val { color: #10b981; }
+    .theme-timeline .metric-card .lbl { font-size: 11px; color: #4b5563; text-transform: uppercase; margin-top: 4px; }
+
+    .theme-timeline .ci-list {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding-left: 32px;
+    }
+    .theme-timeline .ci-list::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: #1f2937;
+    }
+    .theme-timeline .ci-item {
+      position: relative;
+      margin-bottom: 24px;
+    }
+    .theme-timeline .ci-node {
+      position: absolute;
+      left: -32px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #1f2937;
+      border: 3px solid #030712;
+      z-index: 2;
+    }
+    .theme-timeline .ci-item.failed .ci-node { background: #f43f5e; box-shadow: 0 0 8px #f43f5e; }
+    .theme-timeline .ci-item.passed .ci-node { background: #10b981; box-shadow: 0 0 8px #10b981; }
+    
+    .theme-timeline .ci-card {
+      background: #0f172a;
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid #1e293b;
+    }
+    .theme-timeline .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-timeline .ci-title { font-size: 14px; font-weight: 600; color: #f8fafc; }
+    .theme-timeline .ci-meta-row { display: flex; gap: 8px; font-size: 11px; margin-top: 4px; }
+    .theme-timeline .badge { color: #94a3b8; }
+    .theme-timeline .badge.branch { color: #818cf8; }
+    
+    .theme-timeline .ci-jobs-panel {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .theme-timeline .job-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .theme-timeline .job-row.failed { color: #f87171; }
+
+    /* ====================================================================== */
+    /* THEME 8: STRIPE ELEGANT DASHBOARD                                      */
+    /* ====================================================================== */
+    .theme-stripe {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a1120;
+      padding: 32px;
+    }
+    .theme-stripe .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 32px;
+    }
+    .theme-stripe .metric-card {
+      background: #111a2e; padding: 20px; border-radius: 8px; border: 1px solid #1e2e4f;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .theme-stripe .metric-card .val { font-size: 24px; font-weight: 700; color: #f8fafc; }
+    .theme-stripe .metric-card.failed .val { color: #f43f5e; }
+    .theme-stripe .metric-card.passed .val { color: #10b981; }
+    .theme-stripe .metric-card .lbl { font-size: 10px; color: #475569; font-weight: 600; text-transform: uppercase; margin-top: 4px; }
+
+    .theme-stripe .ci-list { display: flex; flex-direction: column; gap: 16px; }
+    .theme-stripe .ci-item {
+      background: #111a2e;
+      border-radius: 8px;
+      padding: 20px;
+      border: 1px solid #1e2e4f;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .theme-stripe .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-stripe .ci-left { display: flex; gap: 16px; align-items: center; }
+    .theme-stripe .ci-status-pill {
+      padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    }
+    .theme-stripe .ci-item.failed .ci-status-pill { background: rgba(244, 63, 94, 0.1); color: #f43f5e; }
+    .theme-stripe .ci-item.passed .ci-status-pill { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+
+    .theme-stripe .ci-info { display: flex; flex-direction: column; gap: 4px; }
+    .theme-stripe .ci-title { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+    .theme-stripe .ci-meta-row { display: flex; gap: 8px; font-size: 11px; color: #64748b; }
+    
+    .theme-stripe .ci-right { display: flex; gap: 16px; align-items: center; font-size: 12px; }
+    .theme-stripe .ci-duration { color: #f1f5f9; font-weight: 600; }
+    
+    .theme-stripe .ci-jobs-panel {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #1e2e4f;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    }
+    .theme-stripe .job-pill {
+      background: #0f172a;
+      border: 1px solid #1e2e4f;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 12px;
+    }
+    .theme-stripe .job-pill.failed { border-left: 3px solid #f43f5e; }
+    .theme-stripe .job-pill.passed { border-left: 3px solid #10b981; }
+
+    /* ====================================================================== */
+    /* THEME 9: SUPABASE VIBRANT ACCENT                                       */
+    /* ====================================================================== */
+    .theme-supabase {
+      font-family: 'Inter', sans-serif;
+      background: #1c1c1c;
+      padding: 24px;
+      border-radius: 8px;
+      border: 1px solid #2e2e2e;
+    }
+    .theme-supabase .metric-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px;
+    }
+    .theme-supabase .metric-card {
+      background: #121212; padding: 16px; border-radius: 6px; border: 1px solid #2e2e2e;
+    }
+    .theme-supabase .metric-card .val { font-size: 24px; font-weight: 700; color: #ffffff; }
+    .theme-supabase .metric-card.failed .val { color: #fa5252; }
+    .theme-supabase .metric-card.passed .val { color: #3ecf8e; }
+    .theme-supabase .metric-card .lbl { font-size: 10px; color: #888888; text-transform: uppercase; margin-top: 4px; }
+
+    .theme-supabase .ci-list { display: flex; flex-direction: column; gap: 12px; }
+    .theme-supabase .ci-item {
+      background: #121212;
+      border: 1px solid #2e2e2e;
+      border-radius: 6px;
+      padding: 16px;
+      transition: border-color 0.2s;
+    }
+    .theme-supabase .ci-item:hover { border-color: #3ecf8e; }
+    .theme-supabase .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-supabase .ci-left { display: flex; gap: 14px; align-items: center; }
+    .theme-supabase .ci-status-accent {
+      width: 4px; height: 32px; border-radius: 2px;
+    }
+    .theme-supabase .ci-item.failed .ci-status-accent { background: #fa5252; }
+    .theme-supabase .ci-item.passed .ci-status-accent { background: #3ecf8e; }
+
+    .theme-supabase .ci-info { display: flex; flex-direction: column; gap: 4px; }
+    .theme-supabase .ci-title { font-size: 14px; font-weight: 500; color: #ffffff; }
+    .theme-supabase .ci-meta-row { display: flex; gap: 8px; font-size: 11px; color: #888888; }
+    .theme-supabase .badge {
+      padding: 1px 6px; background: #1c1c1c; border: 1px solid #2e2e2e; border-radius: 3px;
+    }
+
+    .theme-supabase .ci-right { display: flex; gap: 16px; align-items: center; font-size: 12px; }
+    .theme-supabase .ci-duration { color: #ffffff; }
+
+    .theme-supabase .ci-jobs-panel {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #2e2e2e;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .theme-supabase .job-pill {
+      background: #1c1c1c; border: 1px solid #2e2e2e; padding: 6px 12px; border-radius: 4px;
+      font-size: 11px; display: flex; align-items: center; gap: 8px;
+    }
+    .theme-supabase .job-pill.failed { border-color: rgba(250, 82, 82, 0.4); color: #fa5252; }
+    .theme-supabase .job-pill.passed { border-color: rgba(62, 207, 142, 0.4); color: #3ecf8e; }
+
+    /* ====================================================================== */
+    /* THEME 10: GITHUB NEXT ROW                                              */
+    /* ====================================================================== */
+    .theme-githubnext {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #0d1117;
+      padding: 24px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+    }
+    .theme-githubnext .metric-grid {
+      display: flex; gap: 8px; margin-bottom: 24px; overflow-x: auto;
+    }
+    .theme-githubnext .metric-card {
+      background: #161b22; border: 1px solid #30363d; padding: 12px 18px; border-radius: 6px; min-width: 140px;
+    }
+    .theme-githubnext .metric-card .val { font-size: 20px; font-weight: 600; color: #c9d1d9; }
+    .theme-githubnext .metric-card.failed .val { color: #f85149; }
+    .theme-githubnext .metric-card.passed .val { color: #56d364; }
+    .theme-githubnext .metric-card .lbl { font-size: 10px; color: #8b949e; text-transform: uppercase; margin-top: 2px; }
+
+    .theme-githubnext .ci-list { display: flex; flex-direction: column; gap: 8px; }
+    .theme-githubnext .ci-item {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+    }
+    .theme-githubnext .ci-item.failed { background: linear-gradient(90deg, rgba(248, 81, 73, 0.05) 0%, #161b22 100%); }
+    .theme-githubnext .ci-item.passed { background: linear-gradient(90deg, rgba(86, 211, 100, 0.05) 0%, #161b22 100%); }
+    
+    .theme-githubnext .ci-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .theme-githubnext .ci-left { display: flex; gap: 12px; align-items: center; }
+    .theme-githubnext .ci-status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+    }
+    .theme-githubnext .ci-item.failed .ci-status-dot { background: #f85149; box-shadow: 0 0 6px #f85149; }
+    .theme-githubnext .ci-item.passed .ci-status-dot { background: #56d364; box-shadow: 0 0 6px #56d364; }
+
+    .theme-githubnext .ci-info { display: flex; flex-direction: column; gap: 4px; }
+    .theme-githubnext .ci-title { font-size: 14px; font-weight: 600; color: #c9d1d9; }
+    .theme-githubnext .ci-meta-row { display: flex; gap: 8px; font-size: 11px; color: #8b949e; }
+    
+    .theme-githubnext .ci-right { display: flex; gap: 16px; align-items: center; font-size: 12px; }
+    .theme-githubnext .ci-duration { color: #c9d1d9; }
+
+    .theme-githubnext .ci-jobs-panel {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #30363d;
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .theme-githubnext .job-pill {
+      background: #0d1117; border: 1px solid #30363d; padding: 6px 12px; border-radius: 20px;
+      font-size: 11px; display: flex; align-items: center; gap: 6px; color: #8b949e;
+    }
+    .theme-githubnext .job-pill.failed { border-color: rgba(248, 81, 73, 0.4); color: #f85149; }
+    .theme-githubnext .job-pill.passed { border-color: rgba(86, 211, 100, 0.4); color: #56d364; }
+
+  </style>
+</head>
+<body>
+
+  <!-- Selector Sidebar -->
+  <div class="selector-sidebar">
+    <div class="selector-title">Design Variations</div>
+    
+    <button class="theme-btn active" onclick="switchTheme('cyberpunk')">
+      <span>1. Neo-Glow Cyberpunk</span>
+      <span class="theme-btn-desc">High saturated neon indicators</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('glass')">
+      <span>2. Glassmorphism Sleek</span>
+      <span class="theme-btn-desc">Translucent frosted cards</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('jetbrains')">
+      <span>3. JetBrains IDE</span>
+      <span class="theme-btn-desc">High-density pixel borders</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('vercel')">
+      <span>4. Vercel Minimalist</span>
+      <span class="theme-btn-desc">Monochrome typography focus</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('linear')">
+      <span>5. Linear Dark Space</span>
+      <span class="theme-btn-desc">Refined layout with glowing indicators</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('split')">
+      <span>6. Split Column Board</span>
+      <span class="theme-btn-desc">Two-column meta & job badges</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('timeline')">
+      <span>7. Timeline Stream</span>
+      <span class="theme-btn-desc">Vertical execution timeline stream</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('stripe')">
+      <span>8. Stripe Elegant Dashboard</span>
+      <span class="theme-btn-desc">Deep navy slate cards & status pills</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('supabase')">
+      <span>9. Supabase Accent Grid</span>
+      <span class="theme-btn-desc">Emerald status left bars</span>
+    </button>
+    
+    <button class="theme-btn" onclick="switchTheme('githubnext')">
+      <span>10. GitHub Next Row</span>
+      <span class="theme-btn-desc">Vibrant background gradients</span>
+    </button>
+  </div>
+
+  <!-- Preview Canvas -->
+  <div class="preview-viewport">
+    <div class="preview-canvas theme-cyberpunk" id="canvas">
+      
+      <!-- Metrics Grid -->
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="val">0</div>
+          <div class="lbl">Running</div>
+        </div>
+        <div class="metric-card">
+          <div class="val">0</div>
+          <div class="lbl">Queued</div>
+        </div>
+        <div class="metric-card failed">
+          <div class="val">39</div>
+          <div class="lbl">Failed</div>
+        </div>
+        <div class="metric-card passed">
+          <div class="val">105</div>
+          <div class="lbl">Passed</div>
+        </div>
+        <div class="metric-card">
+          <div class="val">4</div>
+          <div class="lbl">Cancelled</div>
+        </div>
+        <div class="metric-card">
+          <div class="val">13m 32s</div>
+          <div class="lbl">Avg Duration</div>
+        </div>
+      </div>
+
+      <!-- Runs List -->
+      <div class="ci-list">
+        
+        <!-- Run Item 1 (Expanded) -->
+        <div class="ci-item failed">
+          <div class="ci-header" onclick="toggleJobs(this)">
+            <div class="ci-left">
+              <span class="ci-status-accent"></span>
+              <span class="ci-status-dot"></span>
+              <span class="ci-status-icon">⊗</span>
+              <div class="ci-info">
+                <div class="ci-title">ci log copy to clip board and save option added</div>
+                <div class="ci-meta-row">
+                  <span class="badge repo">Snow-Devil</span>
+                  <span class="badge branch">feat/ci-activity</span>
+                  <span class="badge commit">7f98974</span>
+                  <span class="badge pr">PR #8</span>
+                </div>
+              </div>
+            </div>
+            <div class="ci-right">
+              <div class="ci-time">
+                <div class="ci-duration">9m 44s</div>
+                <div class="ci-ago">2h ago</div>
+              </div>
+              <div class="ci-actions">
+                <span>↗</span>
+                <span>▼</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Expanded Jobs Panel -->
+          <div class="ci-jobs-panel">
+            <div class="job-pill failed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Frontend Quality</span>
+              <span class="job-time">28s</span>
+            </div>
+            <div class="job-pill passed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Windows Tauri Build</span>
+              <span class="job-time">9m 41s</span>
+            </div>
+            <div class="job-pill passed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Rust Quality</span>
+              <span class="job-time">5m 16s</span>
+            </div>
+            <div class="job-pill passed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Playwright E2E</span>
+              <span class="job-time">2m 37s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run Item 2 (Collapsed) -->
+        <div class="ci-item passed">
+          <div class="ci-header" onclick="toggleJobs(this)">
+            <div class="ci-left">
+              <span class="ci-status-accent"></span>
+              <span class="ci-status-dot"></span>
+              <span class="ci-status-icon">✓</span>
+              <div class="ci-info">
+                <div class="ci-title">fix: resolve lint/formatting issues and stabilize unit and E2E tests</div>
+                <div class="ci-meta-row">
+                  <span class="badge repo">Snow-Devil</span>
+                  <span class="badge branch">feat/ci-activity</span>
+                  <span class="badge commit">08a8c1d</span>
+                  <span class="badge pr">PR #8</span>
+                </div>
+              </div>
+            </div>
+            <div class="ci-right">
+              <div class="ci-time">
+                <div class="ci-duration">3m 54s</div>
+                <div class="ci-ago">12h ago</div>
+              </div>
+              <div class="ci-actions">
+                <span>↗</span>
+                <span>▶</span>
+              </div>
+            </div>
+          </div>
+          <div class="ci-jobs-panel" style="display: none;">
+            <div class="job-pill passed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Frontend Quality</span>
+              <span class="job-time">30s</span>
+            </div>
+            <div class="job-pill passed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Windows Tauri Build</span>
+              <span class="job-time">3m 24s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Run Item 3 (Collapsed) -->
+        <div class="ci-item failed">
+          <div class="ci-header" onclick="toggleJobs(this)">
+            <div class="ci-left">
+              <span class="ci-status-accent"></span>
+              <span class="ci-status-dot"></span>
+              <span class="ci-status-icon">⊗</span>
+              <div class="ci-info">
+                <div class="ci-title">ci watcher ripple animation and transition status</div>
+                <div class="ci-meta-row">
+                  <span class="badge repo">Snow-Devil</span>
+                  <span class="badge branch">feat/ci-activity</span>
+                  <span class="badge commit">3e40f9e</span>
+                  <span class="badge pr">PR #8</span>
+                </div>
+              </div>
+            </div>
+            <div class="ci-right">
+              <div class="ci-time">
+                <div class="ci-duration">5m 44s</div>
+                <div class="ci-ago">13h ago</div>
+              </div>
+              <div class="ci-actions">
+                <span>↗</span>
+                <span>▶</span>
+              </div>
+            </div>
+          </div>
+          <div class="ci-jobs-panel" style="display: none;">
+            <div class="job-pill failed">
+              <span class="status-indicator"></span>
+              <span class="job-name">Playwright E2E</span>
+              <span class="job-time">5m 44s</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Theme switching logic
+    function switchTheme(themeName) {
+      // Remove all active classes from sidebar buttons
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Add active class to clicked button
+      const activeBtn = Array.from(document.querySelectorAll('.theme-btn')).find(btn => {
+        return btn.getAttribute('onclick').includes(themeName);
+      });
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Update preview canvas theme class
+      const canvas = document.getElementById('canvas');
+      canvas.className = 'preview-canvas theme-' + themeName;
+    }
+
+    // Toggle expanded job lists
+    function toggleJobs(headerEl) {
+      const parent = headerEl.parentElement;
+      const jobsPanel = parent.querySelector('.ci-jobs-panel');
+      const arrowIcon = parent.querySelector('.ci-actions span:last-child');
+      
+      if (jobsPanel.style.display === 'none') {
+        jobsPanel.style.display = 'flex';
+        if (arrowIcon) arrowIcon.textContent = '▼';
+      } else {
+        jobsPanel.style.display = 'none';
+        if (arrowIcon) arrowIcon.textContent = '▶';
+      }
+    }
+  </script>
+</body>
+</html>

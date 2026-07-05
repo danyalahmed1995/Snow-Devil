@@ -20,7 +20,7 @@ test('CI Health keeps the previous snapshot visible while a refresh job runs', a
     } } });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'CI Health', exact: true }).click();
+  await page.getByRole('button', { name: 'CI Activity', exact: true }).click();
   const sync = page.getByRole('region', { name: 'Analytics synchronization and coverage' });
   await expect(sync.getByText('Displaying previous snapshot while refresh runs')).toBeVisible();
   await expect(sync.getByText(/3 accessible · 3 included · 3 eligible · 2 synchronized · 0 failed/)).toBeVisible();

@@ -27,7 +27,6 @@ import { summarizeHistoryStatus } from '../../simulator/history-status';
 import { loadingMotionClass } from '../../lib/data-state';
 import { entityMatchesHistorySearch, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
 import { formatEntityTitle } from '../../simulator/simulator-presentation';
-import { HistoryCIActivity } from './ui/HistoryCIActivity';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
 import type { CIWorkflowRun } from '../../ci/ci-watcher';
 import { useTabsStore } from '../../stores/tabs-store';
@@ -112,9 +111,6 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const revealGenerationRef = useRef(0);
   const historyRowsRef = useRef(new Map<string, HTMLButtonElement>());
   const ciRunsByRepository = useCIWatcherStore(state => state.runsByRepository);
-  const ciRepositoryState = useCIWatcherStore(state => state.repositoryState);
-  const subscribeCI = useCIWatcherStore(state => state.subscribe);
-  const unsubscribeCI = useCIWatcherStore(state => state.unsubscribe);
 
   const [repoOwner = '', repoName = ''] = selectedRepo?.nameWithOwner.split('/') ?? [];
   const accountHistory = useAccountSimulator(login, timeZone);
@@ -163,11 +159,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     if (mode === 'repository' && requestedRepository && requestedRepository.id !== selectedRepoState?.id) setSelectedRepo(requestedRepository);
   }, [mode, requestedRepository, selectedRepoState?.id, setSelectedRepo]);
 
-  useEffect(() => {
-    if (!isActiveTab || mode !== 'repository' || !selectedRepo) return;
-    subscribeCI(selectedRepo.nameWithOwner);
-    return () => unsubscribeCI(selectedRepo.nameWithOwner);
-  }, [isActiveTab, mode, selectedRepo, subscribeCI, unsubscribeCI]);
+
 
   useEffect(() => {
     if (!showCoverage) return;
@@ -463,7 +455,6 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
       {revealConflict && <div className="history-reveal-message" role="status"><span>This item is hidden by the current filters.</span><button type="button" data-tooltip="Reveal related item\nClear only the search or filters that hide this canonical entity, then reveal it in the correct list." onClick={revealHiddenEntity}>Reveal item</button></div>}
       <div className="history-entity-grid">
         <SimulatorEntityList title="Active on selected date" emptyLabel="No active work is supported on this date." entities={activeEntities} selectedId={selectedEntityId} query={activeSearch} onQueryChange={setActiveSearch} scrollRef={activeListRef} revealId={pendingReveal?.key} flashId={flashEntityId} registerRow={registerHistoryRow} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
-        <HistoryCIActivity entities={ciEntities} selectedId={selectedEntityId} scrollRef={ciListRef} revealId={pendingReveal?.key} flashId={flashEntityId} registerRow={registerHistoryRow} state={mode === 'repository' && selectedRepo ? ciRepositoryState[selectedRepo.nameWithOwner.toLowerCase()] ?? { status: appMode === 'demo' ? 'ready' : 'loading', message: appMode === 'demo' ? undefined : 'Loading repository workflow evidence' } : Object.values(ciRepositoryState).find(value => value.status !== 'ready') ?? { status: appMode === 'demo' ? 'ready' : 'loading', message: appMode === 'demo' ? undefined : 'Loading account workflow evidence' }} onRefresh={() => window.dispatchEvent(new Event('snow-devil:ci-refresh'))} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })} onOpen={entity => { if (entity.url) useTabsStore.getState().openBrowserTab(`github:${entity.id}`, 'githubPage', entity.title, entity.url, false, true); }}/>
         <SimulatorEntityList title="Completed by selected date" emptyLabel="No completed work is supported by this date." entities={completedEntities} selectedId={selectedEntityId} query={completedSearch} onQueryChange={setCompletedSearch} scrollRef={completedListRef} revealId={pendingReveal?.key} flashId={flashEntityId} registerRow={registerHistoryRow} onSelect={id => updateView({ selectedEntityId: id, selectedEventId: undefined })}/>
       </div>
       <SimulatorEventStream events={visibleEvents} cursor={snapshot.selectedDate} selectedEventId={selectedEventId} timeZone={timeZone} initialScrollTop={view.activityScrollTop} onScrollTop={value => updateView({ activityScrollTop: value })} onSelectEvent={selectHistoryEvent}/>

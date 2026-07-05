@@ -110,7 +110,9 @@ export function BrowserViewport() {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [activeTabId, activeTab]);
+  }, [activeTab]);
+
+  const activeUrl = isBrowser ? (activeTab as any).currentUrl : undefined;
 
   // Track tab selection or URL changes
   useEffect(() => {
@@ -121,7 +123,7 @@ export function BrowserViewport() {
     }
     const cleanup = performSync();
     return cleanup;
-  }, [activeTabId, isBrowser ? (activeTab as any).currentUrl : undefined, activeOverlayId, performSync]);
+  }, [activeTabId, activeUrl, activeOverlayId, performSync]);
 
   // Keep exactly one persistent ResizeObserver
   useEffect(() => {

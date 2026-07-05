@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from './identity';
 import type { AnalyticsSettings } from './types';
 
 export type AnalyticsCoverage = 'complete' | 'partial' | 'syncing' | 'stale' | 'unavailable' | 'failed';
@@ -77,8 +78,16 @@ function array(value: unknown): Record<string, unknown>[] {
   return [];
 }
 function record(account: string, repo: string, type: string, item: Record<string, unknown>): RecordInput {
-  const id = String(item.node_id ?? item.id ?? item.sha ?? item.ref ?? `${repo}:${type}:${item.created_at ?? item.updated_at}`);
-  return { account_login: account, repository_id: repo, source_type: type, source_id: id, updated_at: String(item.updated_at ?? item.created_at ?? new Date().toISOString()), payload_json: JSON.stringify(item) };
+  let id = String(item.node_id ?? item.id ?? item.sha ?? item.ref ?? `${repo}:${type}:${item.created_at ?? item.updated_at}`);
+  let updated_at = String(item.updated_at ?? item.created_at ?? new Date().toISOString());
+
+  if (type === 'workflow_run' && item.id) {
+    const repoNumericId = (item.repository as any)?.id;
+    id = getCanonicalWorkflowRunId(repoNumericId, repo, item.id as string | number);
+    updated_at = getWorkflowRunTimestamp(item);
+  }
+
+  return { account_login: account, repository_id: repo, source_type: type, source_id: id, updated_at, payload_json: JSON.stringify(item) };
 }
 
 async function saveState(value: AnalyticsSyncState) { await invoke('save_analytics_sync_state', { value }); notify(); }
@@ -97,9 +106,9 @@ async function paged(account: string, repo: string, type: string, endpoint: (pag
     const items = array(response.body);
     await saveRecords(items.map(item => record(account, repo, type, item)));
     count += items.length;
-    const oldestItem = items[items.length - 1];
-    const oldest = oldestItem?.updated_at ?? oldestItem?.created_at;
-    if (!response.next_page || boundedByHistory && typeof oldest === 'string' && oldest < boundary) break;
+    const validItems = items.filter(item => typeof (item.updated_at ?? item.created_at) === 'string');
+    const allOlder = validItems.length > 0 && validItems.every(item => String(item.updated_at ?? item.created_at) < boundary);
+    if (!response.next_page || (boundedByHistory && allOlder)) break;
     page = response.next_page;
   }
   return { count, unsupported, rate };
@@ -146,7 +155,7 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
         ['pull_requests_issues', 'issue_or_pull_request', p => `/repos/${owner}/${name}/issues?state=all&since=${encodeURIComponent(boundary)}&per_page=100&page=${p}`],
         ['pull_requests_issues', 'pull_request', p => `/repos/${owner}/${name}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${p}`],
         ['branches', 'branch', p => `/repos/${owner}/${name}/branches?per_page=100&page=${p}`],
-        ['checks', 'workflow_run', p => `/repos/${owner}/${name}/actions/runs?created=>=${boundary.slice(0, 10)}&per_page=100&page=${p}`],
+        ['checks', 'workflow_run', p => `/repos/${owner}/${name}/actions/runs?per_page=100&page=${p}`],
         ['checks', 'check_run', p => `/repos/${owner}/${name}/commits/${encodeURIComponent(repo.default_branch)}/check-runs?per_page=100&page=${p}`],
         ['releases_deployments', 'release', p => `/repos/${owner}/${name}/releases?per_page=100&page=${p}`],
         ['releases_deployments', 'deployment', p => `/repos/${owner}/${name}/deployments?per_page=100&page=${p}`],
@@ -176,6 +185,12 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       }
       state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: completed.size, failedRepositories: failed.length, totalRepositories: selected.length, normalizedRecords: Object.values(counts).reduce((sum, value) => sum + value, 0) }, unsupportedSources } satisfies AnalyticsSyncContinuation);
       await saveState(state);
+      try {
+        const { queryClient } = await import('../app/providers');
+        void queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] });
+      } catch {
+        // Ignore if queryClient is unavailable in this environment
+      }
     }
     if (active.cancelled) throw new Error('cancelled');
     state.status = failed.length ? 'partial' : 'complete'; state.current_stage = null; state.current_repository = null; state.completed_repositories_json = JSON.stringify([...completed]); state.failed_repositories_json = JSON.stringify(failed); state.counts_json = JSON.stringify(counts); state.continuation_json = JSON.stringify({ unsupportedSources } satisfies AnalyticsSyncContinuation); state.last_successful_at = new Date().toISOString(); state.coverage_start = boundary; state.coverage_end = new Date().toISOString();
@@ -195,4 +210,25 @@ export function coverageFor(state: AnalyticsSyncState | null, settings: Analytic
   if (!state.last_successful_at || Date.now() - new Date(state.last_successful_at).getTime() > settings.refreshIntervalMinutes * 60000) return 'stale';
   if (!state.coverage_start || new Date(state.coverage_start) > new Date(Date.now() - settings.cacheRetentionDays * 86400000 + 86400000)) return 'partial';
   return state.status === 'complete' ? 'complete' : 'partial';
+}
+
+const inFlightCIRefreshes = new Map<string, Promise<void>>();
+export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(repoName); }
+export function getCIFreshness(repoName: string) { return localStorage.getItem(`ci-freshness-${repoName}`); }
+
+export async function syncRepositoryCIRuns(account: string, repo: string) {
+  if (inFlightCIRefreshes.has(repo)) return inFlightCIRefreshes.get(repo);
+  const promise = (async () => {
+    try {
+      const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
+      const endpoint = (p: number) => `/repos/${repo}/actions/runs?per_page=100&page=${p}`;
+      await paged(account, repo, "workflow_run", endpoint, boundary, 5, false);
+      localStorage.setItem(`ci-freshness-${repo}`, new Date().toISOString());
+      import("../app/providers").then(m => m.queryClient.invalidateQueries({ queryKey: ["delivery-analytics"] })).catch(() => {});
+    } finally {
+      inFlightCIRefreshes.delete(repo);
+    }
+  })();
+  inFlightCIRefreshes.set(repo, promise);
+  return promise;
 }
