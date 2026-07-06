@@ -10,6 +10,8 @@ import { useAuthStore } from '../stores/auth-store';
 import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics/identity';
 import { normalizeSimulatorEventProvenance } from '../simulator/canonical-event';
 
+export const getAnalyticsQueryKey = (login: string | null) => ['delivery-analytics', 'cached-history', login];
+
 interface DbSimulatorEvent {
   id: string;
   repository_id: string;
@@ -142,7 +144,7 @@ export function useAnalyticsData() {
     return createDemoAnalyticsDataset();
   }, [demoRevision]);
   const liveQuery = useQuery({
-    queryKey: ['delivery-analytics', 'cached-history', login],
+    queryKey: getAnalyticsQueryKey(login),
     enabled: mode === 'live' && Boolean(login),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<AnalyticsDataset> => {

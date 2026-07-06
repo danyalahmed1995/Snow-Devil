@@ -1,5 +1,6 @@
 import { matchesStructuredSearch } from '../lib/structured-search';
 import { isMaintainedRepository } from '../lib/product-model';
+import { canonicalRepositoryIdentity } from '../lib/canonical-identity';
 import type { AnalyticsSettings, DeliveryRiskViewState, InventoryItem } from './types';
 
 export type DeliveryRiskHiddenReason =
@@ -61,7 +62,7 @@ export function deliveryRiskHiddenReason(item: InventoryItem, view: DeliveryRisk
   if (view.actor === 'human' && item.isBotCreated || view.actor === 'bot' && !item.isBotCreated) return 'bot_policy';
   if (!ageMatches(item.ageBusinessDays, view.age)) return 'age_policy';
   if (view.entityType === 'issues_prs' && !['issue', 'pull_request'].includes(item.entityType) || view.entityType !== 'all' && view.entityType !== 'issues_prs' && item.entityType !== view.entityType) return 'entity_type';
-  if (view.scope === 'maintained' && !isMaintainedRepository(item.repository) || view.scope === 'selected' && !settings.includedRepositories.includes(item.repository.id) || view.repositoryId !== 'all' && item.repository.id !== view.repositoryId) return 'repository_scope';
+  if (view.scope === 'maintained' && !isMaintainedRepository(item.repository) || view.scope === 'selected' && !settings.includedRepositories.map(canonicalRepositoryIdentity).includes(canonicalRepositoryIdentity(item.repository.id)) || view.repositoryId !== 'all' && canonicalRepositoryIdentity(item.repository.id) !== canonicalRepositoryIdentity(view.repositoryId)) return 'repository_scope';
   if (view.confidence === 'exact' && item.confidence !== 'exact' || view.confidence === 'partial' && item.confidence === 'exact' || view.confidence === 'unknown' && item.confidence !== 'unavailable') return 'confidence';
   if (!ownershipMatches(item, view.ownership)) return 'ownership';
   if (!matchesStructuredSearch({ title: item.entity.title, repository: item.repository.nameWithOwner, number: item.entity.number, author: item.entity.author, assignees: item.entity.assignees, reviewers: item.entity.requestedReviewers, type: item.entityType, reason: item.riskLabel, branch: item.entity.branchName, evidence: item.entity.evidence, ageDays: item.ageBusinessDays }, view.search)) return 'search';

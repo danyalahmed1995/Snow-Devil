@@ -245,7 +245,7 @@ export function CIActivityPage() {
       <label>Branch<Select ariaLabel="Branch filter" searchable value={branchFilter} onChange={setBranchFilter} options={[{ value: 'all', label: 'All branches' }, ...branches.map(b => ({ value: b, label: b }))]}/></label>
       <label>Event<Select ariaLabel="Event filter" value={eventFilter} onChange={setEventFilter} options={[{ value: 'all', label: 'All events' }, { value: 'push', label: 'Push' }, { value: 'pull_request', label: 'Pull Request' }, { value: 'workflow_dispatch', label: 'Manual (Dispatch)' }, { value: 'schedule', label: 'Scheduled' }]}/></label>
       <label>Range<Select ariaLabel="Time range" value={rangeChoice} onChange={setRangeChoice} options={[{ value: '1', label: '24 hours' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]}/></label>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
          {remoteBranchesData.isFetching && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Loading branches...</span>}
          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{freshnessText}</span>
          <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? isTargetingRefreshing : false)} onClick={handleRefresh} />

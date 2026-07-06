@@ -4,6 +4,7 @@ import type { AnalyticsDataset, AnalyticsRepository, DeliveryBranch, DeliveryEnt
 import { buildDeliveryLineage } from './lineage';
 import { classifyActor, confidenceFromEvidence } from '../lib/delivery-semantics';
 import { deriveViewerRelationship, normalizeRepositoryPermission } from '../lib/product-model';
+import { canonicalRepositoryIdentity } from '../lib/canonical-identity';
 
 function stringMetadata(event: SimulatorEvent, key: string): string | undefined {
   const value = event.metadata[key];
@@ -25,10 +26,10 @@ export function analyticsDatasetFromSimulatorEvents(
   viewerLogin?: string,
 ): AnalyticsDataset {
   const state = Array.from(reconstructState(simulatorEvents, referenceDate).values());
-  const repoIds = new Set([...repositoryRows.map(repository => repository.id), ...simulatorEvents.map(event => event.repositoryId)]);
+  const repoIds = new Set([...repositoryRows.map(repository => canonicalRepositoryIdentity(repository.id)), ...simulatorEvents.map(event => canonicalRepositoryIdentity(event.repositoryId))]);
   const repositories: AnalyticsRepository[] = Array.from(repoIds).map(id => {
-    const row = repositoryRows.find(repository => repository.id === id);
-    const repositoryEvents = simulatorEvents.filter(event => event.repositoryId === id);
+    const row = repositoryRows.find(repository => canonicalRepositoryIdentity(repository.id) === id);
+    const repositoryEvents = simulatorEvents.filter(event => canonicalRepositoryIdentity(event.repositoryId) === id);
     const releaseMatching = repositoryEvents.some(event => event.subjectType === 'release' || event.eventType === 'released');
     const deploymentMatching = repositoryEvents.some(event => event.subjectType === 'deployment' || event.eventType.startsWith('deployment_'));
     return { id, databaseId: row?.databaseId, nameWithOwner: row?.name ?? id, url: row?.url, defaultBranch: 'main', archived: row?.archived, fork: row?.fork, private: row?.private, template: row?.template, empty: row?.empty, ownerLogin: row?.ownerLogin ?? (row?.name ?? id).split('/')[0], viewerPermission: normalizeRepositoryPermission(row?.viewerPermission), releaseMatching, deploymentMatching, capabilityNote: !releaseMatching && !deploymentMatching ? 'No explicit release or deployment evidence was observed in cached history.' : undefined };
@@ -37,11 +38,11 @@ export function analyticsDatasetFromSimulatorEvents(
     const sourceEvents = simulatorEvents.filter(event => event.subjectId === entity.id && event.repositoryId === entity.repositoryId);
     const first = sourceEvents[0];
     const findDate = (types: SimulatorEvent['eventType'][]) => { const event = sourceEvents.find(value => !value.observationOnly && types.includes(value.eventType)); return event?.sourceOccurredAt ?? event?.occurredAt; };
-    const repository = repositories.find(value => value.id === entity.repositoryId);
+    const repository = repositories.find(value => canonicalRepositoryIdentity(value.id) === canonicalRepositoryIdentity(entity.repositoryId));
     const author = entity.author?.login;
     return {
-      id: `${entity.repositoryId}:${entity.id}`,
-      repositoryId: entity.repositoryId,
+      id: `${canonicalRepositoryIdentity(entity.repositoryId)}:${entity.id}`,
+      repositoryId: canonicalRepositoryIdentity(entity.repositoryId),
       type: entity.subjectType,
       number: entity.number,
       title: entity.title,
@@ -85,8 +86,8 @@ export function analyticsDatasetFromSimulatorEvents(
   });
   const events: DeliveryEvent[] = simulatorEvents.map(event => ({
     id: event.id,
-    entityId: `${event.repositoryId}:${event.subjectId}`,
-    repositoryId: event.repositoryId,
+    entityId: `${canonicalRepositoryIdentity(event.repositoryId)}:${event.subjectId}`,
+    repositoryId: canonicalRepositoryIdentity(event.repositoryId),
     type: event.eventType,
     occurredAt: event.sourceOccurredAt ?? event.occurredAt,
     sourceOccurredAt: event.sourceOccurredAt ?? event.occurredAt,

@@ -1,4 +1,5 @@
 import { ageBandForDays, businessDaysBetween, businessHoursBetween, calendarFromSettings, type BusinessCalendar } from './business-time';
+import { canonicalRepositoryIdentity } from '../lib/canonical-identity';
 import { median, percentile } from './math';
 import type {
   AgeBand,
@@ -212,7 +213,7 @@ function riskCandidates(entity: DeliveryEntity, repository: AnalyticsRepository,
   if (changesRequested) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'changes_requested', reason: 'A recorded review requested changes.', label: 'Changes requested', action: 'Review changes', startedAt: changesRequestedEvent?.sourceOccurredAt ?? changesRequestedEvent?.occurredAt, actor: changesRequestedEvent?.actor, evidenceId: changesRequestedEvent?.id, exact: Boolean(changesRequestedEvent?.actor) && changesRequestedEvent?.sourceCompleteness === 'complete' });
   else if (mergeConflict) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'merge_conflict', reason: 'Mergeability evidence reports a conflict.', label: 'Merge conflict', action: 'Open PR', startedAt: latest(['committed', 'force_pushed'])?.occurredAt ?? entity.updatedAt, exact: true });
   else if (requiredChecksFailing) candidates.push({ type: 'checks_failing', category: 'blocked', reasonCode: 'required_checks_failing', reason: 'Required checks are failing.', label: 'Required checks failing', action: 'Open CI', startedAt: latest(['check_failed'])?.occurredAt ?? entity.updatedAt, exact: true });
-  else if (approvalMissing) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'required_approval_missing', reason: (entity.requiredApprovalCount ?? 1) === 1 ? 'GitHub requires at least one approving review from a reviewer with write access before this pull request can merge.' : `GitHub requires at least ${entity.requiredApprovalCount} qualifying approving reviews before this pull request can merge.`, label: 'Required approval missing', action: 'Request review', startedAt: latest(['review_requested', 'review_dismissed'])?.occurredAt, exact: entity.approvalRequirementConfidence === 'exact' });
+  else if (approvalMissing) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'required_approval_missing', reason: (entity.requiredApprovalCount ?? 1) === 1 ? 'GitHub requires at least one approving review from a reviewer with write access before this pull request can merge.' : `GitHub requires at least ${entity.requiredApprovalCount} qualifying approving reviews before this pull request can merge.`, label: 'Required approval missing', action: 'Request review', startedAt: latest(['review_requested', 'review_dismissed'])?.occurredAt ?? entity.updatedAt, exact: entity.approvalRequirementConfidence === 'exact' });
   else if (policyBlocked) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'policy_blocker', reason: 'Exact repository policy evidence reports a blocker.', label: 'Policy blocker', action: 'Open PR', startedAt: entity.updatedAt, exact: true });
 
   const openPullRequest = entity.type === 'pull_request' && entity.state === 'open' && !entity.mergedAt;
@@ -251,16 +252,16 @@ export function compareDeliveryRiskPriority(a: InventoryItem, b: InventoryItem):
 }
 
 export function deliveryRiskInventoryAnalysis(dataset: AnalyticsDataset, settings: AnalyticsSettings): DeliveryRiskInventoryAnalysis {
-  const repositoryMap = new Map(includedRepositories(dataset, settings).map(repository => [repository.id, repository]));
+  const repositoryMap = new Map(includedRepositories(dataset, settings).map(repository => [canonicalRepositoryIdentity(repository.id), repository]));
   const calendar = calendarFromSettings(settings);
   const aggregate = new Map<string, { canonicalKey: string; entity: DeliveryEntity; checkObservedAt: string; evidenceEntityIds: Set<string> }>();
-  const pullRequestByBranch = new Map(dataset.entities.filter(entity => entity.type === 'pull_request' && entity.branchName).map(entity => [`${entity.repositoryId.toLowerCase()}:${entity.branchName!.toLowerCase()}`, entity]));
+  const pullRequestByBranch = new Map(dataset.entities.filter(entity => entity.type === 'pull_request' && entity.branchName).map(entity => [`${canonicalRepositoryIdentity(entity.repositoryId)}:${entity.branchName!.toLowerCase()}`, entity]));
   dataset.entities.forEach(entity => {
     const linked = entity.type === 'workflow_run' || entity.type === 'check_run'
-      ? pullRequestByBranch.get(`${entity.repositoryId.toLowerCase()}:${entity.branchName?.toLowerCase()}`)
+      ? pullRequestByBranch.get(`${canonicalRepositoryIdentity(entity.repositoryId)}:${entity.branchName?.toLowerCase()}`)
       : undefined;
     const target = linked ?? entity;
-    const repositoryIdentity = repositoryMap.get(target.repositoryId)?.databaseId ?? target.repositoryId.toLowerCase();
+    const repositoryIdentity = repositoryMap.get(canonicalRepositoryIdentity(target.repositoryId))?.databaseId ?? canonicalRepositoryIdentity(target.repositoryId);
     const stableWorkflowIdentity = entity.workflowId ?? entity.workflowPath ?? entity.title.toLowerCase();
     const identity = target.number != null && ['issue', 'pull_request'].includes(target.type) ? `${repositoryIdentity}:${target.type}:${target.number}`
       : linked ? `${repositoryIdentity}:${target.type}:${target.id}`
@@ -287,10 +288,10 @@ export function deliveryRiskInventoryAnalysis(dataset: AnalyticsDataset, setting
   let terminalEntityCount = 0;
   let activeWithoutRiskCount = 0;
   let policyExcludedCount = 0;
-  const canonicalGroups = [...aggregate.values()].filter(group => repositoryMap.has(group.entity.repositoryId));
+  const canonicalGroups = [...aggregate.values()].filter(group => repositoryMap.has(canonicalRepositoryIdentity(group.entity.repositoryId)));
   const items = canonicalGroups.flatMap(group => {
     const entity = group.entity;
-    const baseRepository = repositoryMap.get(entity.repositoryId);
+    const baseRepository = repositoryMap.get(canonicalRepositoryIdentity(entity.repositoryId));
     if (!baseRepository) return [];
     const effective = effectiveRepositorySettings(settings, baseRepository.id);
     const repository = { ...baseRepository, releaseMatching: effective.releaseMatching ?? baseRepository.releaseMatching, deploymentMatching: effective.deploymentMatching ?? baseRepository.deploymentMatching };

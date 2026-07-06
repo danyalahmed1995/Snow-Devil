@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from './identity';
 import type { AnalyticsSettings } from './types';
+import { getAnalyticsQueryKey } from '../hooks/useAnalyticsData';
 
 export type AnalyticsCoverage = 'complete' | 'partial' | 'syncing' | 'stale' | 'unavailable' | 'failed';
 export type AnalyticsSyncStage = 'repositories' | 'pull_requests_issues' | 'branches' | 'checks' | 'releases_deployments' | 'lineage';
@@ -187,7 +188,7 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       await saveState(state);
       try {
         const { queryClient } = await import('../app/providers');
-        void queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] });
+        await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(account) });
       } catch {
         // Ignore if queryClient is unavailable in this environment
       }
@@ -216,15 +217,28 @@ const inFlightCIRefreshes = new Map<string, Promise<void>>();
 export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(repoName); }
 export function getCIFreshness(repoName: string) { return localStorage.getItem(`ci-freshness-${repoName}`); }
 
-export async function syncRepositoryCIRuns(account: string, repo: string) {
+export async function syncTargetedRepository(account: string, repo: string) {
   if (inFlightCIRefreshes.has(repo)) return inFlightCIRefreshes.get(repo);
   const promise = (async () => {
     try {
       const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
-      const endpoint = (p: number) => `/repos/${repo}/actions/runs?per_page=100&page=${p}`;
-      await paged(account, repo, "workflow_run", endpoint, boundary, 5, false);
+      const [owner, name] = repo.split('/').map(encodeURIComponent);
+      const prEndpoint = (p: number) => `/repos/${owner}/${name}/pulls?state=open&sort=updated&direction=desc&per_page=100&page=${p}`;
+      const issueEndpoint = (p: number) => `/repos/${owner}/${name}/issues?state=open&sort=updated&direction=desc&per_page=100&page=${p}`;
+      const ciEndpoint = (p: number) => `/repos/${owner}/${name}/actions/runs?per_page=100&page=${p}`;
+      
+      await Promise.all([
+          paged(account, repo, "current_pull_request", prEndpoint, boundary, 2, false),
+          paged(account, repo, "current_issue", issueEndpoint, boundary, 2, false),
+          paged(account, repo, "workflow_run", ciEndpoint, boundary, 5, false)
+      ]);
+      
       localStorage.setItem(`ci-freshness-${repo}`, new Date().toISOString());
-      import("../app/providers").then(m => m.queryClient.invalidateQueries({ queryKey: ["delivery-analytics"] })).catch(() => {});
+      
+      try {
+        const { queryClient } = await import('../app/providers');
+        await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(account) });
+      } catch {}
     } finally {
       inFlightCIRefreshes.delete(repo);
     }

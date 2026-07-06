@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { cancelAnalyticsSync, coverageFor, getAnalyticsSyncState, isAnalyticsSyncActive, startAnalyticsSync, subscribeAnalyticsSync, syncRepositoryCIRuns, getCIFreshness, isCIRefreshInFlight, type AnalyticsSyncState } from '../analytics/sync';
+import { cancelAnalyticsSync, coverageFor, getAnalyticsSyncState, isAnalyticsSyncActive, startAnalyticsSync, subscribeAnalyticsSync, syncTargetedRepository, getCIFreshness, isCIRefreshInFlight, type AnalyticsSyncState } from '../analytics/sync';
 import { useAnalyticsSettingsStore } from '../stores/analytics-settings-store';
 import { useAuthStore } from '../stores/auth-store';
 import { useModeStore } from '../stores/mode-store';
@@ -24,10 +24,10 @@ export function useAnalyticsSync() {
     sync: async (options?: { priorityRepositories?: string[], singleRepository?: string }) => { 
         if (!account) return;
         if (options?.singleRepository) {
-            await syncRepositoryCIRuns(account, options.singleRepository);
+            await syncTargetedRepository(account, options.singleRepository);
         } else if (options?.priorityRepositories && options.priorityRepositories.length > 0) {
             await Promise.all(
-                options.priorityRepositories.map(repo => syncRepositoryCIRuns(account, repo).catch(() => {}))
+                options.priorityRepositories.map(repo => syncTargetedRepository(account, repo).catch(() => {}))
             );
         } else {
             await startAnalyticsSync(account, settings);
