@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_ANALYTICS_SETTINGS, useAnalyticsSettingsStore } from './analytics-settings-store';
 
 describe('analytics bot preference', () => {
-  beforeEach(() => useAnalyticsSettingsStore.getState().resetSettings());
+  beforeEach(() => {
+    localStorage.removeItem('snow-devil-analytics-settings');
+    useAnalyticsSettingsStore.getState().resetSettings();
+  });
 
   it('excludes bot-authored work for a fresh analytics preference and remembers explicit enablement', () => {
     expect(useAnalyticsSettingsStore.getState().settings.analyticsIncludeBots).toBe(false);
@@ -22,5 +25,12 @@ describe('analytics bot preference', () => {
     expect(persisted.state.settings.mutedDeliveryRiskItems).toContain('delivery-risk:42:pull_request:7');
     expect(persisted.state.settings.deliveryRiskSavedViews[0].sort).toBe('priority');
     expect(persisted.state.settings.defaultDeliveryRiskViewId).toBe('view:1');
+  });
+
+  it('preserves reduced motion while upgrading legacy persisted settings', async () => {
+    localStorage.setItem('snow-devil-analytics-settings', JSON.stringify({ state: { settings: { reducedMotion: true } }, version: 2 }));
+    await useAnalyticsSettingsStore.persist.rehydrate();
+    expect(useAnalyticsSettingsStore.getState().settings.reducedMotion).toBe(true);
+    expect(useAnalyticsSettingsStore.getState().settings.inventoryThresholds).toEqual({ agingDays: 8, staleDays: 30, reviewWaitDays: 3 });
   });
 });

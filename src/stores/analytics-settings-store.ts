@@ -58,6 +58,7 @@ export const useAnalyticsSettingsStore = create<AnalyticsSettingsStore>()(persis
 }), {
   name: 'snow-devil-analytics-settings',
   version: 4,
+  migrate: persisted => persisted as AnalyticsSettingsStore,
   merge: (persisted, current) => {
     const saved = persisted as Partial<AnalyticsSettingsStore>;
     const savedSettings = saved.settings && typeof saved.settings === 'object' ? saved.settings : DEFAULT_ANALYTICS_SETTINGS;
