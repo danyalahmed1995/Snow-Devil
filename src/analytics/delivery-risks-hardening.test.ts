@@ -5,6 +5,8 @@ import { DEFAULT_DELIVERY_RISK_VIEW } from './delivery-risk-views';
 import type { AnalyticsDataset, DeliveryEntity, DeliveryEvent } from './types';
 import { DEFAULT_ANALYTICS_SETTINGS } from '../stores/analytics-settings-store';
 import { deriveViewerRelationship } from '../lib/product-model';
+import { canonicalizeSimulatorEvents, normalizeSimulatorEventProvenance } from '../simulator/canonical-event';
+import type { SimulatorEvent } from '../simulator/simulator-types';
 
 const referenceDate = '2026-07-01T12:00:00Z';
 const settings = { ...DEFAULT_ANALYTICS_SETTINGS, businessTimezone: 'UTC', includeBots: true, includeDependabot: true, includeRenovate: true, includeOtherBots: true };
@@ -26,7 +28,7 @@ describe('Delivery Risks hardening', () => {
     const item = pr('pr-1', { updatedAt: '2026-04-01T00:00:00Z', checkState: 'failure', reviewState: 'changes_requested', mergeability: 'conflicting', evidence: ['Required checks failing'] });
     const result = inventoryItems(data([item], [event(item, 'check_failed', '2026-05-01T00:00:00Z', { requiredCheck: true }), event(item, 'changes_requested', '2026-05-02T00:00:00Z')]), settings);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ riskCategory: 'blocked', riskReasonCode: 'merge_conflict' });
+    expect(result[0]).toMatchObject({ riskCategory: 'blocked', riskReasonCode: 'changes_requested' });
     expect(result[0].secondaryRisks).toContain('stale');
   });
 
@@ -164,5 +166,79 @@ describe('Delivery Risks hardening', () => {
     expect(visible.map(item => item.entity.id)).toEqual(['pr-307']);
     expect(breakdown).toMatchObject({ entity_type: 1, bot_policy: 1, legacy: 1, delivery_informational: 1 });
     expect(visible.length + Object.values(breakdown).reduce((sum, count) => sum + (count ?? 0), 0)).toBe(analysis.classifiedRiskCount);
+  });
+
+  it('uses native review source time and actor while excluding sync observations from activity', () => {
+    const item = pr('pr-400', { reviewDecision: 'changes_requested', reviewState: 'changes_requested', updatedAt: '2026-05-28T23:37:29Z' });
+    const review = event(item, 'changes_requested', '2026-05-20T15:07:56Z', { id: 'review:987', actor: 'javache', sourceOccurredAt: '2026-05-20T15:07:56Z' });
+    const comment = event(item, 'commented', '2026-05-28T23:37:29Z', { actor: 'human-reviewer', sourceOccurredAt: '2026-05-28T23:37:29Z' });
+    const observation = event(item, 'changes_requested', '2026-07-01T12:00:00Z', { actor: 'ada', sourceOccurredAt: '2026-05-28T23:37:29Z', observedAt: '2026-07-01T12:00:00Z', observationOnly: true });
+    const value = data([item], [review, comment, observation]);
+    value.referenceDate = '2026-07-06T12:00:00Z';
+    const result = inventoryItems(value, settings)[0];
+    expect(result).toMatchObject({ riskReasonCode: 'changes_requested', riskSince: '2026-05-20T15:07:56.000Z', riskActor: 'javache', riskEvidenceId: 'review:987', lastActivityAt: '2026-05-28T23:37:29.000Z', lastActivityActor: 'human-reviewer' });
+    expect(result.ageBusinessDays).toBeGreaterThan(30);
+  });
+
+  it('keeps review event identity, source time, and actor stable across repeated observations', () => {
+    const base: SimulatorEvent = { id: 'review-node-1', source: 'github-graphql', occurredAt: '2026-05-20T15:07:56Z', sourceOccurredAt: '2026-05-20T15:07:56Z', observedAt: '2026-06-01T00:00:00Z', repositoryId: 'octo/app', repositoryName: 'app', repositoryOwner: 'octo', subjectId: 'pull-request:octo/app:7', subjectType: 'pull_request', subjectNumber: 7, subjectTitle: 'Seven', actor: { login: 'javache' }, eventType: 'changes_requested', metadata: { nativeOrDerived: 'native', sourceId: 'review-node-1' }, sourceCompleteness: 'complete' };
+    const repeated = { ...base, observedAt: '2026-07-01T00:00:00Z', metadata: { ...base.metadata, observedAt: '2026-07-01T00:00:00Z', editedBody: true } };
+    const values = canonicalizeSimulatorEvents([base, repeated]);
+    expect(values).toHaveLength(1);
+    expect(values[0]).toMatchObject({ occurredAt: '2026-05-20T15:07:56Z', sourceOccurredAt: '2026-05-20T15:07:56Z', actor: { login: 'javache' } });
+  });
+
+  it('marks missing review actors as partial instead of inventing the PR author', () => {
+    const item = pr('pr-399', { author: 'pr-author', reviewDecision: 'changes_requested', reviewState: 'changes_requested' });
+    const result = inventoryItems(data([item], [event(item, 'changes_requested', '2026-05-20T00:00:00Z', { id: 'review:unknown' })]), settings)[0];
+    expect(result).toMatchObject({ riskActor: undefined, riskSince: '2026-05-20T00:00:00.000Z', confidence: 'partial' });
+  });
+
+  it('repairs legacy current snapshots without attributing sync activity to the PR author', () => {
+    const repaired = normalizeSimulatorEventProvenance({ id: 'current', source: 'github-current-state', occurredAt: '2026-07-06T00:00:00Z', repositoryId: 'octo/app', repositoryName: 'app', repositoryOwner: 'octo', subjectId: 'pr-1', subjectType: 'pull_request', subjectNumber: 1, subjectTitle: 'One', actor: { login: 'ada' }, eventType: 'changes_requested', metadata: { nativeOrDerived: 'current_snapshot', actualUpdatedAt: '2026-05-28T23:37:29Z' }, sourceCompleteness: 'complete' });
+    expect(repaired).toMatchObject({ occurredAt: '2026-05-28T23:37:29.000Z', sourceOccurredAt: '2026-05-28T23:37:29.000Z', observedAt: '2026-07-06T00:00:00Z', observationOnly: true, actor: undefined });
+  });
+
+  it('handles changes-requested review transitions without resetting the original risk', () => {
+    const active = pr('pr-401', { reviewDecision: 'changes_requested', reviewState: 'changes_requested', updatedAt: '2026-06-25T00:00:00Z' });
+    const oldReview = event(active, 'changes_requested', '2026-05-20T00:00:00Z', { id: 'review:old', actor: 'reviewer' });
+    const commit = event(active, 'committed', '2026-06-25T00:00:00Z', { actor: 'author' });
+    expect(inventoryItems(data([active], [oldReview, commit]), settings)[0]).toMatchObject({ riskSince: '2026-05-20T00:00:00.000Z', lastActivityAt: '2026-06-25T00:00:00.000Z' });
+
+    const laterReview = event(active, 'changes_requested', '2026-06-26T00:00:00Z', { id: 'review:new', actor: 'second-reviewer' });
+    expect(inventoryItems(data([active], [oldReview, laterReview]), settings)[0]).toMatchObject({ riskSince: '2026-06-26T00:00:00.000Z', riskActor: 'second-reviewer', riskEvidenceId: 'review:new' });
+
+    const approved = { ...active, reviewDecision: 'approved' as const, reviewState: 'approved' as const, checkState: 'success' as const, mergeability: 'mergeable' as const };
+    expect(inventoryItems(data([approved], [oldReview, event(approved, 'approved', '2026-06-27T00:00:00Z', { actor: 'reviewer' })]), settings)[0]).toMatchObject({ riskCategory: 'ready_to_merge' });
+    const dismissed = { ...active, reviewDecision: 'none' as const, reviewState: 'none' as const };
+    expect(inventoryItems(data([dismissed], [oldReview, event(dismissed, 'review_dismissed', '2026-06-27T00:00:00Z', { actor: 'maintainer' })]), settings)).toEqual([]);
+  });
+
+  it('classifies authoritative review requirements independently from passing checks', () => {
+    const reviewRequired = pr('pr-402', { checkState: 'success', mergeability: 'mergeable', mergeStateStatus: 'BLOCKED', reviewDecision: 'review_required', requiredApprovalCount: 1, qualifyingApprovalCount: 0, approvalRequirementConfidence: 'partial' });
+    const blocked = inventoryItems(data([reviewRequired]), settings)[0];
+    expect(blocked).toMatchObject({ riskCategory: 'blocked', riskReasonCode: 'required_approval_missing', riskLabel: 'Required approval missing', suggestedAction: 'Request review', confidence: 'partial' });
+    expect(blocked.blockingReason).toContain('reviewer with write access');
+
+    const approved = { ...reviewRequired, reviewDecision: 'approved' as const, reviewState: 'approved' as const, qualifyingApprovalCount: 1, mergeStateStatus: 'CLEAN' };
+    expect(inventoryItems(data([approved]), settings)[0]).toMatchObject({ riskCategory: 'ready_to_merge' });
+
+    const ineligibleApproval = { ...reviewRequired, reviewState: 'approved' as const, qualifyingApprovalCount: 0 };
+    expect(inventoryItems(data([ineligibleApproval]), settings)[0]).toMatchObject({ riskReasonCode: 'required_approval_missing' });
+
+    const changes = { ...reviewRequired, reviewDecision: 'changes_requested' as const, reviewState: 'changes_requested' as const };
+    expect(inventoryItems(data([changes], [event(changes, 'changes_requested', '2026-06-25T00:00:00Z', { actor: 'reviewer' })]), settings)[0]).toMatchObject({ riskReasonCode: 'changes_requested' });
+
+    const dismissed = { ...reviewRequired, reviewDecision: 'review_required' as const, reviewState: 'none' as const };
+    expect(inventoryItems(data([dismissed], [event(dismissed, 'review_dismissed', '2026-06-26T00:00:00Z')]), settings)[0]).toMatchObject({ riskReasonCode: 'required_approval_missing' });
+
+    const requirementRemoved = { ...reviewRequired, reviewDecision: 'none' as const, reviewState: 'none' as const, requiredApprovalCount: 0, qualifyingApprovalCount: 0, mergeStateStatus: 'CLEAN' };
+    expect(inventoryItems(data([requirementRemoved]), settings)[0]).toMatchObject({ riskCategory: 'ready_to_merge' });
+
+    const draft = { ...approved, isDraft: true };
+    expect(inventoryItems(data([draft]), settings).some(item => item.riskCategory === 'ready_to_merge')).toBe(false);
+
+    const ownerCanBypass = data([reviewRequired], [], { viewerPermission: 'ADMIN' });
+    expect(inventoryItems(ownerCanBypass, settings)[0]).toMatchObject({ riskReasonCode: 'required_approval_missing' });
   });
 });

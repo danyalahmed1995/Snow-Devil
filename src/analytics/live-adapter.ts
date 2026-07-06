@@ -36,7 +36,7 @@ export function analyticsDatasetFromSimulatorEvents(
   const entities: DeliveryEntity[] = state.map(entity => {
     const sourceEvents = simulatorEvents.filter(event => event.subjectId === entity.id && event.repositoryId === entity.repositoryId);
     const first = sourceEvents[0];
-    const findDate = (types: SimulatorEvent['eventType'][]) => sourceEvents.find(event => types.includes(event.eventType))?.occurredAt;
+    const findDate = (types: SimulatorEvent['eventType'][]) => { const event = sourceEvents.find(value => !value.observationOnly && types.includes(value.eventType)); return event?.sourceOccurredAt ?? event?.occurredAt; };
     const repository = repositories.find(value => value.id === entity.repositoryId);
     const author = entity.author?.login;
     return {
@@ -65,8 +65,15 @@ export function analyticsDatasetFromSimulatorEvents(
       runId: anyStringMetadata(sourceEvents, 'runId') ?? anyStringMetadata(sourceEvents, 'checkRunId'),
       isDraft: entity.status === 'draft',
       reviewState: entity.reviewState,
+      reviewDecision: entity.reviewDecision,
       checkState: entity.checkState,
-      mergeability: (() => { const raw = latestMetadata(sourceEvents, 'mergeable'); const value = typeof raw === 'string' ? raw.toLowerCase() : raw; return value === true || ['mergeable', 'clean', 'unstable', 'has_hooks'].includes(String(value)) ? 'mergeable' : value === false || ['conflicting', 'dirty'].includes(String(value)) ? 'conflicting' : value === 'blocked' ? 'blocked' : value != null ? 'unknown' : undefined; })(),
+      mergeStateStatus: entity.mergeStateStatus,
+      requiredApprovalCount: entity.requiredApprovalCount,
+      qualifyingApprovalCount: entity.qualifyingApprovalCount,
+      approvalRequirementConfidence: entity.approvalRequirementConfidence,
+      headSha: entity.headSha,
+      latestSnapshotAt: entity.latestSnapshotAt,
+      mergeability: entity.mergeability ?? (() => { const raw = latestMetadata(sourceEvents, 'mergeability') ?? latestMetadata(sourceEvents, 'mergeable'); const value = typeof raw === 'string' ? raw.toLowerCase() : raw; return value === true || ['mergeable', 'clean', 'unstable', 'has_hooks'].includes(String(value)) ? 'mergeable' : value === false || ['conflicting', 'dirty'].includes(String(value)) ? 'conflicting' : value === 'blocked' ? 'blocked' : value != null ? 'unknown' : undefined; })(),
       requestedReviewers: entity.reviewers.map(reviewer => reviewer.login),
       assignees: entity.assignees.map(assignee => assignee.login),
       sourceCompleteness: entity.sourceCompleteness ?? 'unknown',
@@ -81,7 +88,11 @@ export function analyticsDatasetFromSimulatorEvents(
     entityId: `${event.repositoryId}:${event.subjectId}`,
     repositoryId: event.repositoryId,
     type: event.eventType,
-    occurredAt: event.occurredAt,
+    occurredAt: event.sourceOccurredAt ?? event.occurredAt,
+    sourceOccurredAt: event.sourceOccurredAt ?? event.occurredAt,
+    observedAt: event.observedAt,
+    persistedAt: event.persistedAt,
+    observationOnly: event.observationOnly,
     actor: event.actor?.login,
     directPush: event.subjectType === 'commit' && stringMetadata(event, 'baseRefName') === 'main',
     sourceCompleteness: event.sourceCompleteness,

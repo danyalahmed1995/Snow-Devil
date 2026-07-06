@@ -117,7 +117,7 @@ export function integrationStreak(dataset: AnalyticsDataset, repositoryId?: stri
   return streak;
 }
 
-type RiskCandidate = { type: InventoryType; category: DeliveryRiskCategory; reasonCode: string; reason: string; label: string; action: InventoryItem['suggestedAction']; startedAt?: string; exact: boolean };
+type RiskCandidate = { type: InventoryType; category: DeliveryRiskCategory; reasonCode: string; reason: string; label: string; action: InventoryItem['suggestedAction']; startedAt?: string; actor?: string; evidenceId?: string; exact: boolean };
 
 export interface CanonicalEntityState {
   state: string;
@@ -203,18 +203,21 @@ function riskCandidates(entity: DeliveryEntity, repository: AnalyticsRepository,
 
   const historicalBlockersStillCurrent = !latest(['reopened']);
   const mergeConflict = entity.mergeability === 'conflicting' || historicalBlockersStillCurrent && (!entity.mergeability || entity.mergeability === 'unknown') && evidenceMentions(entity, /merge conflict|mergeable.*conflict|conflicting/i);
-  const changesRequested = entity.reviewState === 'changes_requested' && entity.sourceCompleteness === 'complete';
+  const changesRequestedEvent = latest(['changes_requested']);
+  const changesRequested = (entity.reviewDecision === 'changes_requested' || entity.reviewState === 'changes_requested') && entity.sourceCompleteness === 'complete';
   const requiredChecksFailing = entity.checkState === 'failure' && (context.events.some(event => event.type === 'check_failed' && event.requiredCheck === true && event.sourceCompleteness === 'complete') || evidenceMentions(entity, /required check(?:s)? (?:failed|failing|timed out|cancelled)|required status.*(?:failed|error)/i));
-  const approvalMissing = historicalBlockersStillCurrent && entity.reviewState !== 'approved' && evidenceMentions(entity, /required approval (?:missing|not met)|approval requirement not met/i);
+  const approvalCountMissing = entity.requiredApprovalCount != null && entity.requiredApprovalCount > (entity.qualifyingApprovalCount ?? 0);
+  const approvalMissing = entity.reviewDecision === 'review_required' || approvalCountMissing || historicalBlockersStillCurrent && entity.reviewState !== 'approved' && evidenceMentions(entity, /required approval (?:missing|not met)|approval requirement not met/i);
   const policyBlocked = historicalBlockersStillCurrent && evidenceMentions(entity, /dependency blocker|branch protection.*not met|policy restriction|merge queue.*blocked/i);
-  if (mergeConflict) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'merge_conflict', reason: 'Mergeability evidence reports a conflict.', label: 'Merge conflict', action: 'Open PR', startedAt: latest(['committed', 'force_pushed'])?.occurredAt ?? entity.updatedAt, exact: true });
-  else if (changesRequested) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'changes_requested', reason: 'A recorded review requested changes.', label: 'Changes requested', action: 'Review changes', startedAt: latest(['changes_requested'])?.occurredAt ?? entity.updatedAt, exact: true });
+  if (changesRequested) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'changes_requested', reason: 'A recorded review requested changes.', label: 'Changes requested', action: 'Review changes', startedAt: changesRequestedEvent?.sourceOccurredAt ?? changesRequestedEvent?.occurredAt, actor: changesRequestedEvent?.actor, evidenceId: changesRequestedEvent?.id, exact: Boolean(changesRequestedEvent?.actor) && changesRequestedEvent?.sourceCompleteness === 'complete' });
+  else if (mergeConflict) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'merge_conflict', reason: 'Mergeability evidence reports a conflict.', label: 'Merge conflict', action: 'Open PR', startedAt: latest(['committed', 'force_pushed'])?.occurredAt ?? entity.updatedAt, exact: true });
   else if (requiredChecksFailing) candidates.push({ type: 'checks_failing', category: 'blocked', reasonCode: 'required_checks_failing', reason: 'Required checks are failing.', label: 'Required checks failing', action: 'Open CI', startedAt: latest(['check_failed'])?.occurredAt ?? entity.updatedAt, exact: true });
-  else if (approvalMissing) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'required_approval_missing', reason: 'A known required approval is missing.', label: 'Required approval missing', action: 'Open PR', startedAt: latest(['review_requested', 'review_dismissed'])?.occurredAt ?? entity.updatedAt, exact: true });
+  else if (approvalMissing) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'required_approval_missing', reason: (entity.requiredApprovalCount ?? 1) === 1 ? 'GitHub requires at least one approving review from a reviewer with write access before this pull request can merge.' : `GitHub requires at least ${entity.requiredApprovalCount} qualifying approving reviews before this pull request can merge.`, label: 'Required approval missing', action: 'Request review', startedAt: latest(['review_requested', 'review_dismissed'])?.occurredAt, exact: entity.approvalRequirementConfidence === 'exact' });
   else if (policyBlocked) candidates.push({ type: 'changes_requested', category: 'blocked', reasonCode: 'policy_blocker', reason: 'Exact repository policy evidence reports a blocker.', label: 'Policy blocker', action: 'Open PR', startedAt: entity.updatedAt, exact: true });
 
   const openPullRequest = entity.type === 'pull_request' && entity.state === 'open' && !entity.mergedAt;
-  const ready = openPullRequest && !entity.isDraft && entity.mergeability === 'mergeable' && entity.checkState === 'success' && entity.reviewState === 'approved' && entity.sourceCompleteness === 'complete' && !mergeConflict && !changesRequested && !policyBlocked;
+  const approvalsSatisfied = entity.requiredApprovalCount === 0 || entity.reviewDecision === 'approved' || entity.reviewState === 'approved' && !approvalCountMissing;
+  const ready = openPullRequest && !entity.isDraft && entity.mergeability === 'mergeable' && entity.checkState === 'success' && approvalsSatisfied && entity.sourceCompleteness === 'complete' && !mergeConflict && !changesRequested && !policyBlocked && !approvalMissing;
   if (ready) {
     const satisfiedAt = [latest(['check_succeeded'])?.occurredAt, latest(['approved'])?.occurredAt, entity.updatedAt].map(value => validTimestamp(value, context.referenceDate)).filter((value): value is string => Boolean(value)).sort().pop();
     candidates.push({ type: 'ready_not_merged', category: 'ready_to_merge', reasonCode: 'requirements_satisfied', reason: 'Known checks, approvals, and mergeability are satisfied.', label: 'Ready to merge', action: 'Open PR', startedAt: satisfiedAt, exact: true });
@@ -294,6 +297,7 @@ export function deliveryRiskInventoryAnalysis(dataset: AnalyticsDataset, setting
     const thresholds = effective.inventoryThresholds;
     const events = dataset.events
       .filter(event => group.evidenceEntityIds.has(event.entityId) || event.entityId === entity.id)
+      .filter(event => !event.observationOnly)
       .filter(event => MEANINGFUL_EVENTS.has(event.type))
       .flatMap(event => validTimestamp(event.occurredAt, dataset.referenceDate) ? [{ ...event, occurredAt: validTimestamp(event.occurredAt, dataset.referenceDate)! }] : [])
       .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
@@ -318,7 +322,7 @@ export function deliveryRiskInventoryAnalysis(dataset: AnalyticsDataset, setting
     const owner = candidate.category === 'awaiting_review' ? entity.requestedReviewers?.[0] : entity.assignees?.[0] ?? entity.author;
     const riskSince = validTimestamp(candidate.startedAt, dataset.referenceDate);
     const riskAgeBusinessDays = riskSince ? businessDaysBetween(riskSince, dataset.referenceDate, calendar) : undefined;
-    const confidence = candidate.exact && entity.sourceCompleteness === 'complete' ? 'exact' : candidate.exact || entity.sourceCompleteness === 'partial' ? 'partial' : 'unavailable';
+    const confidence = candidate.reasonCode === 'required_approval_missing' && entity.approvalRequirementConfidence === 'partial' || candidate.reasonCode === 'changes_requested' && !candidate.actor ? 'partial' : candidate.exact && entity.sourceCompleteness === 'complete' ? 'exact' : candidate.exact || entity.sourceCompleteness === 'partial' ? 'partial' : 'unavailable';
     const isBotCreated = ['dependabot', 'renovate', 'other_bot'].includes(actor);
     const elevatedBot = isBotCreated && candidate.exact && ['delivery_blocked', 'blocked'].includes(candidate.category);
     const backlog = candidate.category === 'delivery_status_unknown' ? 'informational' : isBotCreated && !elevatedBot ? 'bot' : repository.archived || (riskAgeBusinessDays ?? idleAge ?? 0) > 180 ? 'legacy' : 'active';
@@ -352,6 +356,8 @@ export function deliveryRiskInventoryAnalysis(dataset: AnalyticsDataset, setting
       owner,
       suggestedAction: candidate.action,
       riskSince,
+      riskActor: candidate.actor,
+      riskEvidenceId: candidate.evidenceId,
       lastActivityLabel: lastEvent ? lastEvent.type.replace(/_/g, ' ') : 'item updated',
       lastActivityActor: lastEvent?.actor,
       checksState: normalizedChecks(entity),
@@ -493,7 +499,7 @@ export function cumulativeFlow(dataset: AnalyticsDataset, rangeDays: number, rep
 }
 
 export function timelineForEntity(dataset: AnalyticsDataset, entityId: string): AnalyticsInspectable['timeline'] {
-  return dataset.events.filter(event => event.entityId === entityId).map(event => ({
+  return dataset.events.filter(event => event.entityId === entityId && !event.observationOnly).map(event => ({
     label: event.type.replace(/_/g, ' '),
     occurredAt: event.occurredAt,
     confidence: event.sourceCompleteness === 'complete' ? 'exact' : 'inferred',
@@ -508,7 +514,7 @@ export function inventoryInspectable(dataset: AnalyticsDataset, item: InventoryI
     repositoryId: item.repository.id,
     number: item.entity.number,
     url: item.entity.url,
-    state: item.riskLabel,
+    state: item.entity.state,
     occurredAt: item.lastActivityAt,
     reason: item.blockingReason,
     confidence: item.confidence,
@@ -520,6 +526,7 @@ export function inventoryInspectable(dataset: AnalyticsDataset, item: InventoryI
     coverage: dataset.partial ? 'partial' : 'complete',
     timeline: timelineForEntity(dataset, item.entity.id),
     riskCategory: item.riskCategory,
+    riskLabel: item.riskLabel,
     riskAgeDays: item.ageBusinessDays,
     secondaryRisks: item.secondaryRisks,
     checksState: item.checksState,
@@ -529,6 +536,13 @@ export function inventoryInspectable(dataset: AnalyticsDataset, item: InventoryI
     lastActivityLabel: item.lastActivityLabel,
     lastActivityActor: item.lastActivityActor,
     owner: item.owner,
+    riskActor: item.riskActor,
+    riskStartedAt: item.riskSince,
+    reviewDecision: item.entity.reviewDecision,
+    mergeStateStatus: item.entity.mergeStateStatus,
+    requiredApprovalCount: item.entity.requiredApprovalCount,
+    qualifyingApprovalCount: item.entity.qualifyingApprovalCount,
+    latestSnapshotAt: item.entity.latestSnapshotAt,
     suggestedAction: item.suggestedAction,
     entityType: item.entityType,
     runId: item.entity.runId,

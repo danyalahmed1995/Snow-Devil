@@ -116,6 +116,9 @@ export function reconstructState(
       case "changes_requested":
         ent.reviewState = "changes_requested";
         break;
+      case "review_dismissed":
+        ent.reviewState = "none";
+        break;
       case "commented":
         ent.commentCount++;
         break;
@@ -175,6 +178,24 @@ export function reconstructState(
 
     if (typeof event.metadata.actualCreatedAt === 'string') ent.createdAt = event.metadata.actualCreatedAt;
     if (typeof event.metadata.actualUpdatedAt === 'string') ent.updatedAt = event.metadata.actualUpdatedAt;
+    if (event.observationOnly || event.metadata.currentSnapshot === true || event.metadata.nativeOrDerived === 'current_snapshot') {
+      if (!ent.author && typeof event.metadata.sourceAuthor === 'string') ent.author = { login: event.metadata.sourceAuthor };
+      const decision = typeof event.metadata.reviewDecision === 'string' ? event.metadata.reviewDecision.toUpperCase() : undefined;
+      ent.reviewDecision = decision === 'APPROVED' ? 'approved' : decision === 'CHANGES_REQUESTED' ? 'changes_requested' : decision === 'REVIEW_REQUIRED' ? 'review_required' : decision ? 'none' : ent.reviewDecision;
+      if (decision === 'APPROVED') ent.reviewState = 'approved';
+      else if (decision === 'CHANGES_REQUESTED') ent.reviewState = 'changes_requested';
+      else if (decision === 'REVIEW_REQUIRED') ent.reviewState = 'none';
+      if (typeof event.metadata.mergeStateStatus === 'string') ent.mergeStateStatus = event.metadata.mergeStateStatus.toUpperCase();
+      if (typeof event.metadata.mergeability === 'string') {
+        const mergeability = event.metadata.mergeability.toUpperCase();
+        ent.mergeability = mergeability === 'MERGEABLE' ? 'mergeable' : mergeability === 'CONFLICTING' ? 'conflicting' : mergeability === 'BLOCKED' ? 'blocked' : 'unknown';
+      }
+      if (typeof event.metadata.requiredApprovalCount === 'number') ent.requiredApprovalCount = event.metadata.requiredApprovalCount;
+      if (typeof event.metadata.qualifyingApprovalCount === 'number') ent.qualifyingApprovalCount = event.metadata.qualifyingApprovalCount;
+      if (event.metadata.approvalRequirementConfidence === 'exact' || event.metadata.approvalRequirementConfidence === 'partial') ent.approvalRequirementConfidence = event.metadata.approvalRequirementConfidence;
+      if (typeof event.metadata.headSha === 'string') ent.headSha = event.metadata.headSha;
+      ent.latestSnapshotAt = event.observedAt ?? (typeof event.metadata.observedAt === 'string' ? event.metadata.observedAt : ent.latestSnapshotAt);
+    }
     if (event.metadata.baseline === true) {
       ent.baselineAtReplayStart = true;
       ent.baselineLabel = typeof event.metadata.baselineLabel === 'string' ? event.metadata.baselineLabel : 'Existing at replay start';

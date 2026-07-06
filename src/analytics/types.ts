@@ -29,6 +29,13 @@ export interface DeliveryEntity {
   isDraft?: boolean;
   isBot?: boolean;
   reviewState?: 'none' | 'requested' | 'approved' | 'changes_requested';
+  reviewDecision?: 'none' | 'approved' | 'changes_requested' | 'review_required' | 'unknown';
+  mergeStateStatus?: string;
+  requiredApprovalCount?: number;
+  qualifyingApprovalCount?: number;
+  approvalRequirementConfidence?: 'exact' | 'partial';
+  headSha?: string;
+  latestSnapshotAt?: string;
   checkState?: 'unknown' | 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
   mergeability?: 'mergeable' | 'conflicting' | 'blocked' | 'unknown';
   requestedReviewers?: string[];
@@ -53,6 +60,10 @@ export interface DeliveryEvent {
   repositoryId: string;
   type: SimulatorEventType;
   occurredAt: string;
+  sourceOccurredAt?: string;
+  observedAt?: string;
+  persistedAt?: string;
+  observationOnly?: boolean;
   stage?: SimulatorStage;
   actor?: string;
   directPush?: boolean;
@@ -276,8 +287,10 @@ export interface InventoryItem {
   riskReasonCode: string;
   secondaryRisks: DeliveryRiskCategory[];
   owner?: string;
-  suggestedAction: 'Open CI' | 'Review changes' | 'Open PR' | 'Open item' | 'Inspect evidence' | 'Confirm delivery' | 'Open repository';
+  suggestedAction: 'Open CI' | 'Review changes' | 'Request review' | 'Open PR' | 'Open item' | 'Inspect evidence' | 'Confirm delivery' | 'Open repository';
   riskSince?: string;
+  riskActor?: string;
+  riskEvidenceId?: string;
   lastActivityLabel: string;
   lastActivityActor?: string;
   checksState: 'passing' | 'failing' | 'pending' | 'unavailable' | 'unknown';
@@ -329,6 +342,7 @@ export interface AnalyticsInspectable {
   timeline?: Array<{ label: string; occurredAt: string; confidence: LineageConfidence }>;
   lineage?: MetricLineage;
   riskCategory?: DeliveryRiskCategory;
+  riskLabel?: string;
   riskAgeDays?: number;
   secondaryRisks?: DeliveryRiskCategory[];
   checksState?: InventoryItem['checksState'];
@@ -338,6 +352,13 @@ export interface AnalyticsInspectable {
   lastActivityLabel?: string;
   lastActivityActor?: string;
   owner?: string;
+  riskActor?: string;
+  riskStartedAt?: string;
+  reviewDecision?: DeliveryEntity['reviewDecision'];
+  mergeStateStatus?: string;
+  requiredApprovalCount?: number;
+  qualifyingApprovalCount?: number;
+  latestSnapshotAt?: string;
   suggestedAction?: string;
   entityType?: DeliveryEntityType;
   runId?: string;

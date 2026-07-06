@@ -8,6 +8,7 @@ import type { SimulatorEvent } from '../simulator/simulator-types';
 import { useModeStore } from '../stores/mode-store';
 import { useAuthStore } from '../stores/auth-store';
 import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics/identity';
+import { normalizeSimulatorEventProvenance } from '../simulator/canonical-event';
 
 interface DbSimulatorEvent {
   id: string;
@@ -44,7 +45,7 @@ export function normalizeEvent(row: DbSimulatorEvent): SimulatorEvent | null {
   const repositoryParts = row.repository_id.split('/');
   const validTypes = ['issue', 'pull_request', 'branch', 'commit', 'workflow_run', 'check_suite', 'release', 'deployment'];
   if (!row.subject_type || !validTypes.includes(row.subject_type)) return null;
-  return {
+  return normalizeSimulatorEventProvenance({
     id: row.id,
     repositoryId: row.repository_id,
     repositoryName: row.repository_name ?? repositoryParts[1] ?? row.repository_id,
@@ -60,7 +61,7 @@ export function normalizeEvent(row: DbSimulatorEvent): SimulatorEvent | null {
     source: row.source,
     sourceCompleteness: ['complete', 'partial', 'unknown'].includes(row.completeness) ? row.completeness as SimulatorEvent['sourceCompleteness'] : 'unknown',
     inclusionReason: row.inclusion_reason as SimulatorEvent['inclusionReason'],
-  };
+  });
 }
 
 export function analyticsRecordEvents(row: AnalyticsRecordRow): SimulatorEvent[] {
@@ -71,9 +72,9 @@ export function analyticsRecordEvents(row: AnalyticsRecordRow): SimulatorEvent[]
   const common = { id: `analytics:${row.source_type}:${row.source_id}`, repositoryId: row.repository_id, repositoryName: name ?? row.repository_id, repositoryOwner: owner ?? '', subjectId: row.source_id, subjectNumber: number, occurredAt: String(data.updated_at ?? data.created_at ?? row.updated_at), actor: author && typeof author === 'object' ? author as SimulatorEvent['actor'] : undefined, source: row.source_type.startsWith('current_') ? 'github-current-state' : 'analytics_sync', sourceCompleteness: 'complete' as const };
   if (row.source_type === 'current_issue') {
     if (data.pull_request) return [];
-    return [{ ...common, subjectType: 'issue', subjectTitle: String(data.title ?? ''), eventType: String(data.state).toLowerCase() === 'closed' ? 'closed' : 'reopened', metadata: { state: data.state, actualCreatedAt: data.created_at, actualUpdatedAt: data.updated_at, url: data.html_url, currentSnapshot: true } }];
+    return [{ ...common, actor: undefined, subjectType: 'issue', subjectTitle: String(data.title ?? ''), eventType: String(data.state).toLowerCase() === 'closed' ? 'closed' : 'reopened', sourceOccurredAt: String(data.updated_at ?? data.created_at ?? row.updated_at), observationOnly: true, metadata: { state: data.state, actualCreatedAt: data.created_at, actualUpdatedAt: data.updated_at, sourceAuthor: author && typeof author === 'object' ? (author as Record<string, unknown>).login : undefined, url: data.html_url, currentSnapshot: true, observationOnly: true } }];
   }
-  if (row.source_type === 'current_pull_request') { const head = data.head as Record<string, unknown> | undefined; const base = data.base as Record<string, unknown> | undefined; const headRepo = head?.repo as Record<string, unknown> | undefined; const baseRepo = base?.repo as Record<string, unknown> | undefined; const currentState = String(data.state).toLowerCase(); const eventType: SimulatorEvent['eventType'] = data.merged_at ? 'merged' : currentState === 'closed' ? 'closed' : data.draft ? 'converted_to_draft' : 'reopened'; return [{ ...common, subjectType: 'pull_request', subjectTitle: String(data.title ?? ''), eventType, metadata: { state: data.state, draft: data.draft, actualCreatedAt: data.created_at, actualUpdatedAt: data.updated_at, url: data.html_url, headBranch: head?.ref, baseBranch: base?.ref, headRepository: headRepo?.full_name, headIsFork: headRepo?.fork, baseRepository: baseRepo?.full_name, mergeable: data.mergeable_state ?? data.mergeable, mergedAt: data.merged_at, currentSnapshot: true } }]; }
+  if (row.source_type === 'current_pull_request') { const head = data.head as Record<string, unknown> | undefined; const base = data.base as Record<string, unknown> | undefined; const headRepo = head?.repo as Record<string, unknown> | undefined; const baseRepo = base?.repo as Record<string, unknown> | undefined; const currentState = String(data.state).toLowerCase(); const eventType: SimulatorEvent['eventType'] = data.merged_at ? 'merged' : currentState === 'closed' ? 'closed' : data.draft ? 'converted_to_draft' : 'reopened'; return [{ ...common, actor: undefined, subjectType: 'pull_request', subjectTitle: String(data.title ?? ''), eventType, sourceOccurredAt: String(data.updated_at ?? data.created_at ?? row.updated_at), observationOnly: true, metadata: { state: data.state, draft: data.draft, actualCreatedAt: data.created_at, actualUpdatedAt: data.updated_at, sourceAuthor: author && typeof author === 'object' ? (author as Record<string, unknown>).login : undefined, url: data.html_url, headBranch: head?.ref, baseBranch: base?.ref, headRepository: headRepo?.full_name, headIsFork: headRepo?.fork, baseRepository: baseRepo?.full_name, mergeability: data.mergeable_state ?? data.mergeable, mergedAt: data.merged_at, headSha: head?.sha, currentSnapshot: true, observationOnly: true } }]; }
   if (row.source_type === 'issue_or_pull_request') {
     if (data.pull_request) return [];
     return [{ ...common, subjectType: 'issue', subjectTitle: String(data.title ?? ''), eventType: String(data.state).toLowerCase() === 'closed' ? 'closed' : 'opened', metadata: { state: data.state } }];
@@ -150,7 +151,7 @@ export function useAnalyticsData() {
         invoke<RepositoryRow[]>('get_all_repositories'),
         invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! }),
       ]);
-      const syncedEvents = analyticsRows.flatMap(analyticsRecordEvents);
+      const syncedEvents = analyticsRows.flatMap(analyticsRecordEvents).map(event => normalizeSimulatorEventProvenance(event));
       const syncedRepositories = analyticsRows.filter(row => row.source_type === 'repository').map(row => { const value = parseJsonObject(row.payload_json); const permissions = value.permissions as Record<string, unknown> | undefined; const viewerPermission = permissions?.admin ? 'ADMIN' : permissions?.maintain ? 'MAINTAIN' : permissions?.push ? 'WRITE' : permissions?.triage ? 'TRIAGE' : permissions?.pull ? 'READ' : 'UNKNOWN'; const owner = value.owner as Record<string, unknown> | undefined; return { id: row.repository_id, databaseId: typeof value.id === 'number' || typeof value.id === 'string' ? value.id : undefined, name: typeof value.full_name === 'string' ? value.full_name : row.repository_id, url: typeof value.html_url === 'string' ? value.html_url : undefined, viewerPermission, ownerLogin: typeof owner?.login === 'string' ? owner.login : row.repository_id.split('/')[0], fork: value.fork === true, archived: value.archived === true, private: value.private === true, template: value.is_template === true, empty: value.size === 0 }; });
       const eventMap = new Map<string, SimulatorEvent>();
       const allEvents = [...rows.map(normalizeEvent).filter((event): event is SimulatorEvent => event !== null), ...syncedEvents];

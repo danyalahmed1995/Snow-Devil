@@ -10,6 +10,7 @@ import {
 } from "./simulator-types";
 import { SimulatorSafeError, retryableSimulatorCategory, safeSimulatorExplanation, sanitizedDiagnostic, toSimulatorFailure } from "./simulator-errors";
 import { canonicalEntityIdentity } from '../lib/canonical-identity';
+import { normalizeSimulatorEventProvenance } from './canonical-event';
 
 async function fetchGraphQL(query: string, variables: any): Promise<any> {
   try {
@@ -22,6 +23,27 @@ async function fetchGraphQL(query: string, variables: any): Promise<any> {
     if (cause instanceof SimulatorSafeError) throw cause;
     throw cause;
   }
+}
+
+function reviewPolicyMetadata(node: any): Record<string, unknown> {
+  const reviewDecision = typeof node.reviewDecision === 'string' ? node.reviewDecision : undefined;
+  const approvalRequired = reviewDecision === 'REVIEW_REQUIRED';
+  const approvalSatisfied = reviewDecision === 'APPROVED';
+  const noApprovalRequired = node.reviewDecision == null && ['CLEAN', 'HAS_HOOKS', 'UNSTABLE'].includes(String(node.mergeStateStatus).toUpperCase());
+  return {
+    reviewDecision,
+    mergeStateStatus: node.mergeStateStatus,
+    mergeability: node.mergeable,
+    headSha: node.headRefOid,
+    requiredApprovalCount: approvalRequired || approvalSatisfied ? 1 : noApprovalRequired ? 0 : undefined,
+    qualifyingApprovalCount: approvalRequired ? 0 : approvalSatisfied ? 1 : noApprovalRequired ? 0 : undefined,
+    approvalRequirementConfidence: approvalRequired || approvalSatisfied || noApprovalRequired ? 'partial' : undefined,
+  };
+}
+
+function currentAssertion(base: Omit<SimulatorEvent, 'id' | 'occurredAt' | 'eventType' | 'metadata'>, node: any, observedAt: string, id: string, eventType: SimulatorEventType, metadata: Record<string, unknown> = {}): SimulatorEvent {
+  const sourceOccurredAt = typeof node.updatedAt === 'string' ? node.updatedAt : typeof node.createdAt === 'string' ? node.createdAt : observedAt;
+  return { ...base, id, actor: undefined, occurredAt: sourceOccurredAt, sourceOccurredAt, observedAt, observationOnly: true, eventType, metadata: { nativeOrDerived: 'current_snapshot', currentSnapshot: true, observationOnly: true, sourceOccurredAt, observedAt, actualCreatedAt: node.createdAt, actualUpdatedAt: node.updatedAt, sourceAuthor: node.author?.login, ...reviewPolicyMetadata(node), ...metadata } };
 }
 
 export async function fetchRepositoryActivity(
@@ -64,17 +86,21 @@ export async function fetchRepositoryActivity(
                 isCrossRepository
                 mergeable
                 reviewDecision
+                mergeStateStatus
+                headRefOid
                 reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
+                reviews(last: 20) { nodes { __typename id databaseId createdAt submittedAt updatedAt state author { login } } }
+                comments(last: 20) { nodes { __typename id databaseId createdAt updatedAt author { login } } }
                 assignees(first: 20) { nodes { login } }
                 commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
                 timelineItems(first: 80, since: "${since}") {
                   nodes {
                     __typename
                     ... on ReviewRequestedEvent { createdAt, actor { login }, requestedReviewer { ... on User { login } } }
-                    ... on PullRequestReview { createdAt, state, author { login } }
+                    ... on PullRequestReview { id, databaseId, createdAt, submittedAt, updatedAt, state, author { login } }
                     ... on ReadyForReviewEvent { createdAt, actor { login } }
                     ... on ConvertToDraftEvent { createdAt, actor { login } }
-                    ... on IssueComment { createdAt, author { login } }
+                    ... on IssueComment { id, databaseId, createdAt, updatedAt, author { login } }
                     ... on ClosedEvent { createdAt, actor { login } }
                     ... on MergedEvent { createdAt, actor { login } }
                     ... on ReopenedEvent { createdAt, actor { login } }
@@ -94,7 +120,7 @@ export async function fetchRepositoryActivity(
 
         const subjectId = canonicalEntityIdentity('pull_request', repoId, pr.number);
         const snapshotAt = pr.createdAt >= since ? pr.createdAt : since;
-        const currentAt = until;
+          const currentAt = until;
         const baseEvent = {
           source: "github-graphql",
           repositoryId: repoId,
@@ -108,38 +134,35 @@ export async function fetchRepositoryActivity(
         };
 
         if (pr.state === 'OPEN' || pr.createdAt >= since && pr.createdAt <= until) {
-          events.push({
-            ...baseEvent,
-            id: `${subjectId}:current-open`,
-            source: 'github-current-state',
-            occurredAt: snapshotAt,
-            actor: pr.author,
-            eventType: "opened",
-            metadata: { nativeOrDerived: "current_snapshot", url: pr.url, draft: pr.isDraft, actualCreatedAt: pr.createdAt, actualUpdatedAt: pr.updatedAt, baseRefName: pr.baseRefName, headRefName: pr.headRefName, baseRepository: repoId, headRepository: pr.headRepository?.nameWithOwner, headIsFork: pr.headRepository?.isFork, isCrossRepository: pr.isCrossRepository, mergeable: pr.mergeable },
-          });
+          events.push(currentAssertion({ ...baseEvent, source: 'github-current-state' }, pr, currentAt, `${subjectId}:current-open`, 'opened', { url: pr.url, draft: pr.isDraft, baselineSourceAt: snapshotAt, baseRefName: pr.baseRefName, headRefName: pr.headRefName, baseRepository: repoId, headRepository: pr.headRepository?.nameWithOwner, headIsFork: pr.headRepository?.isFork, isCrossRepository: pr.isCrossRepository }));
         }
 
         if (pr.state === 'OPEN') {
-          events.push({ ...baseEvent, id: `${subjectId}:current-reopened`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'reopened', metadata: { nativeOrDerived: 'current_snapshot', actualCreatedAt: pr.createdAt, actualUpdatedAt: pr.updatedAt, url: pr.url, baseRefName: pr.baseRefName, headRefName: pr.headRefName } });
-          if (pr.isDraft) events.push({ ...baseEvent, id: `${subjectId}:current-draft`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'converted_to_draft', metadata: { nativeOrDerived: 'current_snapshot' } });
-          else if (pr.reviewDecision === 'CHANGES_REQUESTED') events.push({ ...baseEvent, id: `${subjectId}:current-changes`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'changes_requested', metadata: { nativeOrDerived: 'current_snapshot' } });
-          else if (pr.reviewDecision === 'APPROVED') events.push({ ...baseEvent, id: `${subjectId}:current-approved`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'approved', metadata: { nativeOrDerived: 'current_snapshot' } });
-          else if (pr.reviewRequests?.nodes?.length) events.push({ ...baseEvent, id: `${subjectId}:current-review-requested`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'review_requested', metadata: { nativeOrDerived: 'current_snapshot', requestedReviewers: pr.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) } });
+          const currentBase = { ...baseEvent, source: 'github-current-state' };
+          events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-reopened`, 'reopened', { url: pr.url, baseRefName: pr.baseRefName, headRefName: pr.headRefName }));
+          if (pr.isDraft) events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-draft`, 'converted_to_draft'));
+          else if (pr.reviewDecision === 'CHANGES_REQUESTED') events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-changes`, 'changes_requested'));
+          else if (pr.reviewDecision === 'APPROVED') events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-approved`, 'approved'));
+          else if (pr.reviewRequests?.nodes?.length) events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-review-requested`, 'review_requested', { requestedReviewers: pr.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) }));
           const checkState = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
           const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
-          if (checkEvent) events.push({ ...baseEvent, id: `${subjectId}:current-${checkEvent}`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: checkEvent, metadata: { nativeOrDerived: 'current_snapshot', checkState } });
-          for (const assignee of pr.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...baseEvent, id: `${subjectId}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: currentAt, actor: pr.author, eventType: 'assigned', metadata: { nativeOrDerived: 'current_snapshot', assignee: assignee.login } });
+          if (checkEvent) events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-${checkEvent}`, checkEvent, { checkState }));
+          for (const assignee of pr.assignees?.nodes ?? []) if (assignee?.login) events.push(currentAssertion(currentBase, pr, currentAt, `${subjectId}:current-assigned:${assignee.login}`, 'assigned', { assignee: assignee.login }));
         }
 
-        if (pr.timelineItems?.nodes) {
-          for (const item of pr.timelineItems.nodes) {
-            if (!item.createdAt || item.createdAt < since || item.createdAt > until) continue;
+        const prHistory = [...(pr.timelineItems?.nodes ?? []), ...(pr.reviews?.nodes ?? []), ...(pr.comments?.nodes ?? [])];
+        const uniquePrHistory = [...new Map(prHistory.map((item: any) => [item.id ?? `${item.__typename}:${item.submittedAt ?? item.createdAt}`, item])).values()] as any[];
+        if (uniquePrHistory.length) {
+          for (const item of uniquePrHistory) {
+            const sourceOccurredAt = item.submittedAt ?? item.createdAt;
+            if (!sourceOccurredAt || sourceOccurredAt > until) continue;
             let evtType: SimulatorEventType | null = null;
             const metadata: any = { nativeOrDerived: "native" };
             if (item.__typename === "ReviewRequestedEvent") { evtType = "review_requested"; metadata.requestedReviewer = item.requestedReviewer?.login; }
             else if (item.__typename === "PullRequestReview") {
                if (item.state === "APPROVED") evtType = "approved";
                else if (item.state === "CHANGES_REQUESTED") evtType = "changes_requested";
+               else if (item.state === "DISMISSED") evtType = "review_dismissed";
                else evtType = "review_submitted";
             }
             else if (item.__typename === "ReadyForReviewEvent") evtType = "ready_for_review";
@@ -158,11 +181,13 @@ export async function fetchRepositoryActivity(
             if (evtType) {
               events.push({
                 ...baseEvent,
-                id: `${subjectId}:${evtType}:${item.createdAt}`,
-                occurredAt: item.createdAt,
+                id: item.id ? `${subjectId}:${item.__typename === 'PullRequestReview' ? 'review' : 'timeline'}:${item.id}` : `${subjectId}:${evtType}:${sourceOccurredAt}`,
+                occurredAt: sourceOccurredAt,
+                sourceOccurredAt,
+                observedAt: currentAt,
                 actor: item.actor || item.author,
                 eventType: evtType,
-                metadata,
+                metadata: { ...metadata, sourceOccurredAt, observedAt: currentAt, sourceId: item.id, databaseId: item.databaseId, reviewUpdatedAt: item.updatedAt },
               });
             }
           }
@@ -352,9 +377,44 @@ export async function fetchRepositoryActivity(
     if (!uniqueEvents.has(ev.id)) uniqueEvents.set(ev.id, ev);
   }
 
-  return Array.from(uniqueEvents.values()).sort((a, b) => {
+  return Array.from(uniqueEvents.values()).map(event => normalizeSimulatorEventProvenance(event)).sort((a, b) => {
     return new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime();
   });
+}
+
+/** Refresh one PR's risk evidence after CI or review changes without a full account sync. */
+export async function fetchPullRequestRiskSnapshot(repositoryId: string, number: number, observedAt = new Date().toISOString()): Promise<SimulatorEvent[]> {
+  const [owner, name] = repositoryId.split('/');
+  if (!owner || !name) return [];
+  const result = await fetchGraphQL(`query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){id number title url createdAt updatedAt state isDraft mergedAt closedAt baseRefName headRefName headRefOid mergeable mergeStateStatus reviewDecision author{login avatarUrl} reviewRequests(first:20){nodes{requestedReviewer{... on User{login}}}} commits(last:1){nodes{commit{oid statusCheckRollup{state}}}} timelineItems(last:100){nodes{__typename ... on PullRequestReview{id databaseId createdAt submittedAt updatedAt state author{login}} ... on ReviewRequestedEvent{id createdAt actor{login} requestedReviewer{... on User{login}}} ... on ReviewDismissedEvent{id createdAt actor{login} pullRequestReview{databaseId}} ... on IssueComment{id databaseId createdAt updatedAt author{login}} ... on PullRequestCommit{commit{oid committedDate author{user{login}} committer{user{login}}}} ... on ClosedEvent{id createdAt actor{login}} ... on MergedEvent{id createdAt actor{login}} ... on ReopenedEvent{id createdAt actor{login}}}}}}}`, { owner, name, number });
+  const pr = result?.data?.repository?.pullRequest;
+  if (!pr) return [];
+  const subjectId = canonicalEntityIdentity('pull_request', repositoryId, number);
+  const base = { source: 'github-graphql', repositoryId, repositoryName: name, repositoryOwner: owner, subjectId, subjectNodeId: pr.id, subjectType: 'pull_request' as const, subjectNumber: number, subjectTitle: pr.title, sourceCompleteness: 'complete' as const };
+  const currentBase = { ...base, source: 'github-current-state' };
+  const events: SimulatorEvent[] = [currentAssertion(currentBase, pr, observedAt, `${subjectId}:current-open`, pr.state === 'OPEN' ? 'reopened' : pr.mergedAt ? 'merged' : 'closed', { url: pr.url, draft: pr.isDraft, baseRefName: pr.baseRefName, headRefName: pr.headRefName, requestedReviewers: pr.reviewRequests?.nodes?.map((value: any) => value.requestedReviewer?.login).filter(Boolean) ?? [] })];
+  const checkState = pr.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
+  const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
+  if (checkEvent) events.push(currentAssertion(currentBase, pr, observedAt, `${subjectId}:current-${checkEvent}`, checkEvent, { checkState }));
+  for (const item of pr.timelineItems?.nodes ?? []) {
+    const sourceOccurredAt = item.submittedAt ?? item.createdAt ?? item.commit?.committedDate;
+    if (!sourceOccurredAt) continue;
+    let eventType: SimulatorEventType | undefined;
+    let actor = item.actor ?? item.author;
+    const metadata: Record<string, unknown> = { nativeOrDerived: 'native', sourceId: item.id, databaseId: item.databaseId, sourceOccurredAt, observedAt };
+    if (item.__typename === 'PullRequestReview') eventType = item.state === 'APPROVED' ? 'approved' : item.state === 'CHANGES_REQUESTED' ? 'changes_requested' : item.state === 'DISMISSED' ? 'review_dismissed' : 'review_submitted';
+    else if (item.__typename === 'ReviewRequestedEvent') { eventType = 'review_requested'; metadata.requestedReviewer = item.requestedReviewer?.login; }
+    else if (item.__typename === 'ReviewDismissedEvent') { eventType = 'review_dismissed'; metadata.reviewDatabaseId = item.pullRequestReview?.databaseId; }
+    else if (item.__typename === 'IssueComment') eventType = 'commented';
+    else if (item.__typename === 'PullRequestCommit') { eventType = 'committed'; actor = item.commit?.author?.user ?? item.commit?.committer?.user; metadata.commitSha = item.commit?.oid; }
+    else if (item.__typename === 'ClosedEvent') eventType = 'closed';
+    else if (item.__typename === 'MergedEvent') eventType = 'merged';
+    else if (item.__typename === 'ReopenedEvent') eventType = 'reopened';
+    if (!eventType) continue;
+    const sourceId = item.id ?? item.commit?.oid ?? `${eventType}:${sourceOccurredAt}`;
+    events.push({ ...base, id: `${subjectId}:${item.__typename === 'PullRequestReview' ? 'review' : 'timeline'}:${sourceId}`, occurredAt: sourceOccurredAt, sourceOccurredAt, observedAt, actor, eventType, metadata });
+  }
+  return events.map(event => normalizeSimulatorEventProvenance(event));
 }
 
 export async function fetchAccountActivity(
@@ -415,9 +475,14 @@ const ACCOUNT_SEARCH_QUERY = `
           mergedAt
           closedAt
           reviewDecision
+          mergeStateStatus
+          mergeable
+          headRefOid
           author { login, avatarUrl }
           assignees(first: 20) { nodes { login } }
           reviewRequests(first: 20) { nodes { requestedReviewer { ... on User { login } } } }
+          reviews(last: 20) { nodes { __typename id databaseId createdAt submittedAt updatedAt state author { login } } }
+          comments(last: 20) { nodes { __typename id databaseId createdAt updatedAt author { login } } }
           commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
           repository { nameWithOwner, owner { login }, name }
           timelineItems(first: 80, since: $since) {
@@ -429,8 +494,8 @@ const ACCOUNT_SEARCH_QUERY = `
               ... on ReadyForReviewEvent { createdAt, actor { login } }
               ... on ConvertToDraftEvent { createdAt, actor { login } }
               ... on ReviewRequestedEvent { createdAt, actor { login }, requestedReviewer { ... on User { login } } }
-              ... on PullRequestReview { createdAt, state, author { login } }
-              ... on IssueComment { createdAt, author { login } }
+              ... on PullRequestReview { id, databaseId, createdAt, submittedAt, updatedAt, state, author { login } }
+              ... on IssueComment { id, databaseId, createdAt, updatedAt, author { login } }
             }
           }
         }
@@ -453,7 +518,7 @@ const ACCOUNT_SEARCH_QUERY = `
               ... on ReopenedEvent { createdAt, actor { login } }
               ... on AssignedEvent { createdAt, actor { login }, assignee { ... on User { login } } }
               ... on UnassignedEvent { createdAt, actor { login }, assignee { ... on User { login } } }
-              ... on IssueComment { createdAt, author { login } }
+              ... on IssueComment { id, databaseId, createdAt, updatedAt, author { login } }
             }
           }
         }
@@ -536,19 +601,26 @@ function accountEventsForNode(
 
   const existedAtReplayStart = node.createdAt < since && (!node.closedAt || node.closedAt >= since) && (!node.mergedAt || node.mergedAt >= since);
   if (existedAtReplayStart) {
+    const sourceOccurredAt = node.updatedAt ?? node.createdAt;
     events.push({
       ...base,
       id: `${base.subjectId}:baseline`,
-      occurredAt: since,
-      actor: node.author,
+      occurredAt: sourceOccurredAt,
+      sourceOccurredAt,
+      observedAt: until,
+      observationOnly: true,
+      actor: undefined,
       eventType: 'opened',
-      metadata: { ...base.baseMetadata, baseline: true, baselineLabel: 'Existing at replay start', actualCreatedAt: node.createdAt, actualUpdatedAt: since },
+      metadata: { ...base.baseMetadata, nativeOrDerived: 'current_snapshot', currentSnapshot: true, observationOnly: true, baseline: true, baselineLabel: 'Existing at replay start', actualCreatedAt: node.createdAt, actualUpdatedAt: node.updatedAt, sourceOccurredAt, observedAt: until, sourceAuthor: node.author?.login },
       inclusionReason: base.inclusionReason,
     });
   }
 
-  for (const item of node.timelineItems?.nodes ?? []) {
-    if (!item.createdAt || item.createdAt < since || item.createdAt > until) continue;
+  const nodeHistory = [...(node.timelineItems?.nodes ?? []), ...(node.reviews?.nodes ?? []), ...(node.comments?.nodes ?? [])];
+  const uniqueNodeHistory = [...new Map(nodeHistory.map((item: any) => [item.id ?? `${item.__typename}:${item.submittedAt ?? item.createdAt}`, item])).values()] as any[];
+  for (const item of uniqueNodeHistory) {
+    const sourceOccurredAt = item.submittedAt ?? item.createdAt;
+    if (!sourceOccurredAt || sourceOccurredAt > until) continue;
     let evtType: SimulatorEventType | null = null;
     let reason = base.inclusionReason;
     const metadata: Record<string, unknown> = { ...base.baseMetadata, nativeOrDerived: "native" };
@@ -582,6 +654,7 @@ function accountEventsForNode(
     } else if (item.__typename === "PullRequestReview") {
       if (item.state === "APPROVED") evtType = "approved";
       else if (item.state === "CHANGES_REQUESTED") evtType = "changes_requested";
+      else if (item.state === "DISMISSED") evtType = "review_dismissed";
       else evtType = "review_submitted";
       if (item.author?.login === login) reason = "reviewed_by_you";
     }
@@ -589,11 +662,13 @@ function accountEventsForNode(
     if (evtType) {
       events.push({
         ...base,
-        id: `${base.subjectId}:${evtType}:${item.createdAt}`,
-        occurredAt: item.createdAt,
+        id: item.id ? `${base.subjectId}:${item.__typename === 'PullRequestReview' ? 'review' : 'timeline'}:${item.id}` : `${base.subjectId}:${evtType}:${sourceOccurredAt}`,
+        occurredAt: sourceOccurredAt,
+        sourceOccurredAt,
+        observedAt: until,
         actor: item.actor || item.author,
         eventType: evtType,
-        metadata,
+        metadata: { ...metadata, sourceOccurredAt, observedAt: until, sourceId: item.id, databaseId: item.databaseId, reviewUpdatedAt: item.updatedAt },
         inclusionReason: reason,
       });
     }
@@ -601,16 +676,16 @@ function accountEventsForNode(
 
 
   if (source.currentState && String(node.state).toUpperCase() === 'OPEN') {
-    const currentMetadata = { ...base.baseMetadata, currentSnapshot: true, actualCreatedAt: node.createdAt, actualUpdatedAt: node.updatedAt };
-    events.push({ ...base, id: `${base.subjectId}:current-open`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'reopened', metadata: currentMetadata, inclusionReason: base.inclusionReason });
-    if (base.subjectType === 'pull_request' && node.isDraft) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-draft`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'converted_to_draft', metadata: currentMetadata, inclusionReason: base.inclusionReason });
-    if (base.subjectType === 'pull_request' && node.reviewDecision === 'CHANGES_REQUESTED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-changes`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'changes_requested', metadata: currentMetadata, inclusionReason: base.inclusionReason });
-    else if (base.subjectType === 'pull_request' && node.reviewDecision === 'APPROVED') events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-approved`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'approved', metadata: currentMetadata, inclusionReason: base.inclusionReason });
-    else if (base.subjectType === 'pull_request' && node.reviewRequests?.nodes?.length) events.push({ ...base, id: `${base.repositoryId}:pull_request-${base.subjectNumber}:current-review-requested`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'review_requested', metadata: { ...currentMetadata, requestedReviewers: node.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) }, inclusionReason: base.inclusionReason });
+    const currentBase = { ...base, source: 'github-current-state', inclusionReason: base.inclusionReason };
+    events.push(currentAssertion(currentBase, node, until, `${base.subjectId}:current-open`, 'reopened', base.baseMetadata));
+    if (base.subjectType === 'pull_request' && node.isDraft) events.push(currentAssertion(currentBase, node, until, `${base.repositoryId}:pull_request-${base.subjectNumber}:current-draft`, 'converted_to_draft', base.baseMetadata));
+    if (base.subjectType === 'pull_request' && node.reviewDecision === 'CHANGES_REQUESTED') events.push(currentAssertion(currentBase, node, until, `${base.repositoryId}:pull_request-${base.subjectNumber}:current-changes`, 'changes_requested', base.baseMetadata));
+    else if (base.subjectType === 'pull_request' && node.reviewDecision === 'APPROVED') events.push(currentAssertion(currentBase, node, until, `${base.repositoryId}:pull_request-${base.subjectNumber}:current-approved`, 'approved', base.baseMetadata));
+    else if (base.subjectType === 'pull_request' && node.reviewRequests?.nodes?.length) events.push(currentAssertion(currentBase, node, until, `${base.repositoryId}:pull_request-${base.subjectNumber}:current-review-requested`, 'review_requested', { ...base.baseMetadata, requestedReviewers: node.reviewRequests.nodes.map((request: any) => request.requestedReviewer?.login).filter(Boolean) }));
     const checkState = node.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state;
     const checkEvent: SimulatorEventType | undefined = checkState === 'FAILURE' || checkState === 'ERROR' ? 'check_failed' : checkState === 'PENDING' || checkState === 'EXPECTED' ? 'check_started' : checkState === 'SUCCESS' ? 'check_succeeded' : undefined;
-    if (checkEvent) events.push({ ...base, id: `${base.subjectId}:current-${checkEvent}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: checkEvent, metadata: { ...currentMetadata, checkState }, inclusionReason: base.inclusionReason });
-    for (const assignee of node.assignees?.nodes ?? []) if (assignee?.login) events.push({ ...base, id: `${base.subjectId}:current-assigned:${assignee.login}`, source: 'github-current-state', occurredAt: until, actor: node.author, eventType: 'assigned', metadata: { ...currentMetadata, assignee: assignee.login }, inclusionReason: assignee.login === login ? 'assigned_to_you' : base.inclusionReason });
+    if (checkEvent) events.push(currentAssertion(currentBase, node, until, `${base.subjectId}:current-${checkEvent}`, checkEvent, { ...base.baseMetadata, checkState }));
+    for (const assignee of node.assignees?.nodes ?? []) if (assignee?.login) events.push(currentAssertion({ ...currentBase, inclusionReason: assignee.login === login ? 'assigned_to_you' : base.inclusionReason }, node, until, `${base.subjectId}:current-assigned:${assignee.login}`, 'assigned', { ...base.baseMetadata, assignee: assignee.login }));
   }
 
   return events;
@@ -640,7 +715,7 @@ async function fetchAccountQuery(login: string, source: AccountActivitySource, s
     cursor = searchData.pageInfo.endCursor ?? null;
   }
 
-  return { events: capped ? events.map(event => ({ ...event, sourceCompleteness: "partial" })) : events, partial: capped };
+  return { events: (capped ? events.map(event => ({ ...event, sourceCompleteness: "partial" as const })) : events).map(event => normalizeSimulatorEventProvenance(event)), partial: capped };
 }
 
 async function fetchAccountSource(login: string, source: AccountActivitySource, since: string, until: string): Promise<{ events: SimulatorEvent[]; partial: boolean; message?: string }> {
@@ -711,7 +786,7 @@ export async function fetchAccountActivityWithCoverage(
   }
 
   return {
-    events: Array.from(uniqueEvents.values()).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
+    events: Array.from(uniqueEvents.values()).map(event => normalizeSimulatorEventProvenance(event)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     sourceFailures,
     loadedSources,
     totalSources: sources.length,

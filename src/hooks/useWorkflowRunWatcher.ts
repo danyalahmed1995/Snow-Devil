@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import type { WorkflowJob } from './useWorkflowJobs';
 import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics/identity';
 import { useAuthStore } from '../stores/auth-store';
+import { fetchPullRequestRiskSnapshot } from '../simulator/simulator-github-api';
+import { saveSimulatorEventsToDb } from '../simulator/simulator-cache';
 
 interface ApiResponse {
   status: number;
@@ -88,6 +90,12 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
           payload_json: JSON.stringify(runData)
         };
         await invoke('save_analytics_records', { records: [record] }).catch(() => {});
+        if (isRunTerminal(runData.status, runData.conclusion) && runData.pull_requests?.length) {
+          await Promise.all(runData.pull_requests.map(async pullRequest => {
+            const events = await fetchPullRequestRiskSnapshot(repositoryId, pullRequest.number);
+            if (events.length) await saveSimulatorEventsToDb(events);
+          })).catch(() => {});
+        }
         import('../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] })).catch(() => {});
       }
 
