@@ -362,6 +362,7 @@ export interface AnalyticsInspectable {
   suggestedAction?: string;
   entityType?: DeliveryEntityType;
   runId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MetricLineage {

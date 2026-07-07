@@ -238,7 +238,9 @@ export async function syncTargetedRepository(account: string, repo: string) {
       try {
         const { queryClient } = await import('../app/providers');
         await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(account) });
-      } catch {}
+      } catch {
+        // Query invalidation is best-effort after a targeted CI refresh.
+      }
     } finally {
       inFlightCIRefreshes.delete(repo);
     }

@@ -50,10 +50,12 @@ export function isRunTerminal(status: string, conclusion: string | null): boolea
   return false;
 }
 
-export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean) {
+export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean, canFetch = true) {
+  const [owner, repo] = repositoryId.split('/');
+  const hasCanonicalIdentity = Boolean(owner && repo && runId);
   return useQuery({
     queryKey: ['ciRunWatcher', repositoryId, runId, attemptNumber],
-    enabled: Boolean(repositoryId) && Boolean(runId),
+    enabled: canFetch && hasCanonicalIdentity,
     refetchInterval: (query) => {
       if (isTabActive === false) return false;
       const data = query.state.data;
@@ -64,10 +66,9 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
     },
     refetchOnWindowFocus: true,
     staleTime: 2000,
+    gcTime: 10 * 60 * 1000,
     retry: 2,
     queryFn: async (): Promise<RunWatcherState> => {
-      const [owner, repo] = repositoryId.split('/');
-      
       const runEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId);
       const runRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: runEndpoint });
       

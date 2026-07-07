@@ -80,14 +80,17 @@ function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
 }
 
 function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable; tab: InspectorTab }) {
-  const metadata = selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null;
+  const [loadJobs, setLoadJobs] = useState(false);
+  const metadata = selected.metadata ?? (selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null);
+  const runId = String(selected.runId ?? metadata?.runId ?? '');
   
   const { data: watcherState, isLoading, error } = useWorkflowRunWatcher(
     selected.repositoryId || '',
-    metadata?.runId as string,
+    runId,
     metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
     true,
-    true
+    true,
+    loadJobs
   );
 
   if (!metadata) return <p className="inspector-empty">No workflow data available.</p>;
@@ -138,9 +141,10 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
 
     <section className="inspector-section">
       <h5 className="section-title">Jobs</h5>
+      {!loadJobs && <button className="inspector-open-flow" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
       {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
       {error && <div className="ci-jobs-error">Failed to load jobs</div>}
-      {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
+      {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
       {jobs && jobs.length > 0 && (
         <ul className="ci-jobs-list">
           {jobs.map(job => (

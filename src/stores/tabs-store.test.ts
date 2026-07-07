@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { normalizeRestoredActiveTabId, normalizeRestoredTabs, useTabsStore } from './tabs-store';
+import { isNativeTab, normalizeRestoredActiveTabId, normalizeRestoredTabs, useTabsStore } from './tabs-store';
 
 describe('tabs-store migration', () => {
   beforeEach(() => {
@@ -76,5 +76,59 @@ describe('tabs-store migration', () => {
     const state = useTabsStore.getState();
     expect(state.activeTabId).toBe('native:saved-view:one');
     expect(state.tabs.filter(tab => tab.kind === 'flow')).toHaveLength(2);
+  });
+
+  it('restores canonical CI run tabs with complete serializable context', () => {
+    const rawTabs = [
+      { id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 },
+      {
+        id: 'some-old-ci-id',
+        family: 'native',
+        kind: 'ciRun',
+        title: 'CI · Run #26',
+        closable: true,
+        pinned: false,
+        createdAt: 2,
+        lastActivatedAt: 3,
+        context: { type: 'ciRun', repository: 'octo/widgets', runId: 123, runNumber: 26, jobId: 456 },
+      },
+    ];
+    const tabs = normalizeRestoredTabs(rawTabs);
+    const ciTab = tabs.find(tab => tab.kind === 'ciRun');
+    expect(ciTab).toMatchObject({
+      id: 'ciRun:octo/widgets:123',
+      title: 'CI · Run #26',
+      context: { type: 'ciRun', repository: 'octo/widgets', runId: '123', runNumber: 26, selectedJobId: '456', schemaVersion: 1 },
+    });
+    expect(normalizeRestoredActiveTabId(rawTabs, 'some-old-ci-id', tabs)).toBe('ciRun:octo/widgets:123');
+  });
+
+  it('deduplicates CI tabs by canonical repository and run id instead of title', () => {
+    const rawTabs = [
+      { id: 'ciRun:octo/widgets:123', family: 'native', kind: 'ciRun', title: 'CI #?', closable: true, pinned: false, createdAt: 5, lastActivatedAt: 5, context: { type: 'ciRun', repository: 'octo/widgets', runId: '123' } },
+      { id: 'legacy-duplicate', family: 'native', kind: 'ciRun', title: 'Different title', closable: true, pinned: false, createdAt: 6, lastActivatedAt: 9, context: { type: 'ciRun', repository: 'octo/widgets', runId: 123, selectedJobId: 999 } },
+    ];
+    const tabs = normalizeRestoredTabs(rawTabs);
+    expect(tabs.filter(tab => tab.kind === 'ciRun')).toHaveLength(1);
+    expect(tabs.find(tab => tab.kind === 'ciRun')).toMatchObject({ id: 'ciRun:octo/widgets:123', title: 'Different title', context: { selectedJobId: '999' } });
+  });
+
+  it('keeps incomplete legacy CI tabs recoverable instead of dropping workspace restoration', () => {
+    const rawTabs = [
+      { id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 },
+      { id: 'ciRun:missing-context', family: 'native', kind: 'ciRun', title: 'CI · Run #26', closable: true, pinned: false, createdAt: 2, lastActivatedAt: 2, context: { type: 'ciRun', runId: 26 } },
+    ];
+    const tabs = normalizeRestoredTabs(rawTabs);
+    const ciTab = tabs.find(tab => tab.kind === 'ciRun');
+    expect(ciTab).toMatchObject({ id: 'ciRun:missing-context', kind: 'ciRun', title: 'CI · Run #26' });
+    expect(ciTab && isNativeTab(ciTab) ? ciTab.context : undefined).toBeUndefined();
+  });
+
+  it('persists selected CI job changes back to canonical tab context', () => {
+    useTabsStore.setState({ tabs: [{ id: 'native:home', family: 'native', kind: 'home', title: 'Home', closable: false, pinned: true, createdAt: 1, lastActivatedAt: 1 }], activeTabId: 'native:home' });
+    useTabsStore.getState().openNativeTab('temporary', 'ciRun', 'CI', false, true, { type: 'ciRun', repository: 'octo/widgets', runId: '123' });
+    useTabsStore.getState().updateNativeTabContext('ciRun:octo/widgets:123', { type: 'ciRun', repository: 'octo/widgets', runId: '123', runNumber: 26, selectedJobId: 'job-9', selectedJobName: 'Playwright' });
+    const ciTab = useTabsStore.getState().tabs.find(tab => tab.kind === 'ciRun');
+    expect(ciTab).toMatchObject({ id: 'ciRun:octo/widgets:123', title: 'CI · Run #26', context: { selectedJobId: 'job-9', selectedJobName: 'Playwright' } });
   });
 });

@@ -80,6 +80,31 @@
   overflow: hidden;
 }
 
+.ci-run-state {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  text-align: center;
+}
+
+.ci-run-state h2,
+.ci-run-state p {
+  margin: 0;
+}
+
+.ci-run-state p,
+.ci-run-state small {
+  color: var(--text-muted);
+}
+
+.ci-run-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
 .ci-run-sidebar {
   width: 250px;
   border-right: 1px solid var(--border-color);
