@@ -203,11 +203,12 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
                   );
                 });
               }}
+              onDoubleClick={(e) => e.stopPropagation()}
             >
               <ExternalLink size={14} />
             </button>
           )}
-          <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
+          <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} onDoubleClick={(e) => e.stopPropagation()} aria-expanded={expanded}>
             <ChevronRight size={14} className={expanded ? 'is-expanded' : ''} />
           </button>
         </div>
