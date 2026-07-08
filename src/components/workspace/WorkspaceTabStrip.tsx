@@ -1,7 +1,7 @@
 import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
 import type { WorkspaceTab } from '../../stores/tabs-store';
 import { useOverlayStore } from '../../stores/overlay-store';
@@ -19,11 +19,16 @@ export function WorkspaceTabStrip() {
   const moveTab = useTabsStore(s => s.moveTab);
   const [menu, setMenu] = useState<{ tabId?: string; x: number; y: number }>();
   const [menuMessage, setMenuMessage] = useState('');
+  const [draggingTabId, setDraggingTabId] = useState<string>();
   const tabRefs = useRef(new Map<string, HTMLDivElement>());
   const menuRef = useRef<HTMLDivElement>(null);
   const menuStateRef = useRef<typeof menu>(undefined);
   const previousActiveTabId = useRef(activeTabId);
   const overflowRef = useRef<HTMLButtonElement>(null);
+  const tabDragRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; lastX: number; didMove: boolean } | undefined>(undefined);
+  const pendingLayoutAnimationRef = useRef<Map<string, DOMRect> | undefined>(undefined);
+  const tabAnimationsRef = useRef(new Map<string, Animation>());
+  const suppressNextClickRef = useRef(false);
   const openOverlay = useOverlayStore(state => state.openOverlay);
   const closeOverlay = useOverlayStore(state => state.closeOverlay);
   const activeOverlayId = useOverlayStore(state => state.activeOverlayId);
@@ -38,6 +43,36 @@ export function WorkspaceTabStrip() {
     if (restoreFocus) window.setTimeout(() => origin?.focus(), 0);
   }, [closeOverlay]);
   const showMenu = (next: { tabId?: string; x: number; y: number }) => { setMenu(next); setMenuMessage(''); openOverlay('tab-menu'); };
+  const captureTabRects = () => {
+    pendingLayoutAnimationRef.current = new Map([...tabRefs.current].map(([id, element]) => [id, element.getBoundingClientRect()]));
+  };
+  useLayoutEffect(() => {
+    const previousRects = pendingLayoutAnimationRef.current;
+    if (!previousRects) return;
+    pendingLayoutAnimationRef.current = undefined;
+    const reduceMotion = document.documentElement.dataset.reducedMotion === 'true' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+    tabRefs.current.forEach((element, id) => {
+      const previous = previousRects.get(id);
+      if (!previous || typeof element.animate !== 'function') return;
+      const current = element.getBoundingClientRect();
+      const deltaX = previous.left - current.left;
+      const deltaY = previous.top - current.top;
+      if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) return;
+      if (id === draggingTabId) return;
+      tabAnimationsRef.current.get(id)?.cancel();
+      const animation = element.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: 'translate(0, 0)' },
+        ],
+        { duration: 150, easing: 'cubic-bezier(.2, .8, .2, 1)' },
+      );
+      tabAnimationsRef.current.set(id, animation);
+      animation.addEventListener('finish', () => tabAnimationsRef.current.delete(id), { once: true });
+      animation.addEventListener('cancel', () => tabAnimationsRef.current.delete(id), { once: true });
+    });
+  }, [draggingTabId, tabs]);
   useEffect(() => {
     const tab = tabRefs.current.get(activeTabId);
     if (!tab) return;
@@ -92,6 +127,10 @@ export function WorkspaceTabStrip() {
     window.setTimeout(() => menuRef.current?.querySelector<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)')?.focus(), 0);
   }, [menu]);
   useEffect(() => () => closeOverlay('tab-menu'), [closeOverlay]);
+  useEffect(() => () => {
+    tabAnimationsRef.current.forEach(animation => animation.cancel());
+    tabAnimationsRef.current.clear();
+  }, []);
 
   const menuTab = menu?.tabId ? tabs.find(tab => tab.id === menu.tabId) : undefined;
   const refreshCapability = tabRefreshCapability(menuTab);
@@ -102,6 +141,50 @@ export function WorkspaceTabStrip() {
     void refreshWorkspaceTab(menuTab)
       .then(() => closeMenu())
       .catch(() => setMenuMessage('Refresh failed. Try again from this tab.'));
+  };
+  const finishTabDrag = (event?: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = tabDragRef.current;
+    if (!drag) return;
+    if (event?.currentTarget.hasPointerCapture?.(drag.pointerId)) event.currentTarget.releasePointerCapture(drag.pointerId);
+    tabDragRef.current = undefined;
+    setDraggingTabId(undefined);
+    if (drag.didMove) {
+      suppressNextClickRef.current = true;
+      window.setTimeout(() => { suppressNextClickRef.current = false; }, 0);
+    }
+  };
+  const startTabDrag = (event: ReactPointerEvent<HTMLDivElement>, tab: WorkspaceTab) => {
+    if (event.button !== 0 || tab.id === 'native:home' || (event.target as Element).closest('button')) return;
+    tabDragRef.current = { id: tab.id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, lastX: event.clientX, didMove: false };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const updateTabDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = tabDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const direction = Math.sign(event.clientX - drag.lastX);
+    drag.lastX = event.clientX;
+    const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    if (!drag.didMove && distance < 4) return;
+    if (!drag.didMove) {
+      drag.didMove = true;
+      setDraggingTabId(drag.id);
+      if (menuStateRef.current) closeMenu();
+    }
+    event.preventDefault();
+    if (direction === 0) return;
+    const currentIndex = tabs.findIndex(tab => tab.id === drag.id);
+    if (currentIndex < 0) return;
+    const neighbor = tabs[currentIndex + direction];
+    if (!neighbor) return;
+    if (neighbor.id === 'native:home') return;
+    const neighborRect = tabRefs.current.get(neighbor.id)?.getBoundingClientRect();
+    if (!neighborRect) return;
+    const neighborMidpoint = neighborRect.left + neighborRect.width / 2;
+    const crossedNeighbor = direction > 0 ? event.clientX > neighborMidpoint : event.clientX < neighborMidpoint;
+    if (crossedNeighbor) {
+      captureTabRects();
+      moveTab(drag.id, neighbor.id);
+    }
   };
   const menuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:not(:disabled)') ?? []);
@@ -133,17 +216,21 @@ export function WorkspaceTabStrip() {
             <div
               key={tab.id}
               ref={element => { if (element) tabRefs.current.set(tab.id, element); else tabRefs.current.delete(tab.id); }}
-              className={`workspace-tab workspace-tab--${tab.family} ${isActive ? 'workspace-tab--active' : ''}`}
+              className={`workspace-tab workspace-tab--${tab.family} ${isActive ? 'workspace-tab--active' : ''} ${draggingTabId === tab.id ? 'workspace-tab--dragging' : ''}`}
               role="tab"
-              draggable={tab.id !== 'native:home'}
+              data-tab-id={tab.id}
               aria-selected={isActive}
               aria-label={`${isBrowser ? 'Browser' : 'Native'} tab: ${tab.title}`}
               data-tooltip={tooltip}
               tabIndex={isActive ? 0 : -1}
-              onDragStart={event => event.dataTransfer.setData('text/snow-devil-tab', tab.id)}
-              onDragOver={event => event.preventDefault()}
-              onDrop={event => { event.preventDefault(); const from = event.dataTransfer.getData('text/snow-devil-tab'); if (from) moveTab(from, tab.id); }}
-              onClick={() => setActiveTab(tab.id)}
+              onPointerDown={event => startTabDrag(event, tab)}
+              onPointerMove={updateTabDrag}
+              onPointerUp={finishTabDrag}
+              onPointerCancel={finishTabDrag}
+              onClick={() => {
+                if (suppressNextClickRef.current) return;
+                setActiveTab(tab.id);
+              }}
               onContextMenu={event => { event.preventDefault(); showMenu({ tabId: tab.id, x: event.clientX, y: event.clientY }); }}
               onKeyDown={event => {
                 if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {

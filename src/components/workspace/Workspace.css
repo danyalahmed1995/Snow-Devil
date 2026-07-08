@@ -71,6 +71,12 @@
   color: var(--text-primary);
 }
 
+.workspace-tab--dragging {
+  opacity: .74;
+  cursor: grabbing;
+  transition: none;
+}
+
 .workspace-tab__title {
   display: block;
   min-width: 0;
