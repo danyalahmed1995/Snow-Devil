@@ -293,13 +293,11 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
 
   if (isLoading && !watcherState) {
     return (
-      <div className="ci-run-watcher home-loading-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-        <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>Loading workflow run…</h2>
-        <p style={{ margin: 0, color: 'var(--text-muted)' }}>{repositoryId} · run {runId}</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '300px' }}>
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px' }} />
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px', width: '80%' }} />
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px', width: '60%' }} />
+      <div className="ci-run-watcher home-loading-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}>
+        <div className="global-spinner" />
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workflow run…</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>{repositoryId} · run {runId}</p>
         </div>
       </div>
     );

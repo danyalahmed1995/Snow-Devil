@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Load Jobs - 10 Premium Button Designs</title>
+  <style>
+    /* Styling variables to match Snow-Devil UI context */
+    :root {
+      --bg-dark: #040912;
+      --surface-inspector: #081525;
+      --surface-panel: #0d1e33;
+      --text-primary: #f0f6fc;
+      --text-muted: #8b949e;
+      --accent: #245dd8;
+      --accent-glow: rgba(36, 93, 216, 0.4);
+      --success: #3fb950;
+      --border-subtle: rgba(155, 190, 232, 0.15);
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 14% -12%, rgba(0, 229, 255, 0.12), transparent 36%), 
+        radial-gradient(circle at 82% 0%, rgba(42, 130, 230, 0.08), transparent 32%);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    header {
+      margin-bottom: 40px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff 30%, #58a6ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .design-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .design-card {
+      background: rgba(8, 21, 37, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .design-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(36, 93, 216, 0.3);
+    }
+
+    .design-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .design-num {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #58a6ff;
+      letter-spacing: 0.1em;
+    }
+
+    .design-title {
+      font-size: 16px;
+      font-weight: 650;
+      margin: 0;
+    }
+
+    .design-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    .preview-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      align-items: center;
+      justify-content: center;
+      min-height: 100px;
+    }
+
+    /* Common Button Reset for styles */
+    .btn-preview {
+      width: 100%;
+      max-width: 220px;
+      min-height: 36px;
+      font-family: var(--font-ui);
+      font-weight: 600;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-sizing: border-box;
+      outline: none;
+      user-select: none;
+    }
+
+    /* =======================================================
+       1. GLASSMORPHIC GLOW
+       ======================================================= */
+    .btn-design-1 {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: var(--text-primary);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    }
+    .btn-design-1:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(56, 139, 253, 0.4);
+      box-shadow: 0 0 15px rgba(56, 139, 253, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    }
+    .btn-design-1:active {
+      transform: scale(0.97);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* =======================================================
+       2. CYBERPUNK NEON
+       ======================================================= */
+    .btn-design-2 {
+      background: transparent;
+      border: 1px solid #00f0ff;
+      border-radius: 0;
+      color: #00f0ff;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      font-size: 11px;
+      position: relative;
+      clip-path: polygon(90% 0, 100% 30%, 100% 100%, 0 100%, 0 0);
+      transition: all 0.2s ease;
+    }
+    .btn-design-2:hover {
+      background: rgba(0, 240, 255, 0.1);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+      text-shadow: 0 0 5px rgba(0, 240, 255, 0.6);
+    }
+    .btn-design-2:active {
+      background: #00f0ff;
+      color: #000;
+    }
+
+    /* =======================================================
+       3. GHOST ACCENT SWEEP
+       ======================================================= */
+    .btn-design-3 {
+      background: transparent;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      color: var(--text-muted);
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+      transition: color 0.3s ease, border-color 0.3s ease;
+    }
+    .btn-design-3::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--accent);
+      z-index: -1;
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-design-3:hover {
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn-design-3:hover::before {
+      transform: scaleX(1);
+      transform-origin: left;
+    }
+    .btn-design-3:active {
+      transform: scale(0.98);
+    }
+
+    /* =======================================================
+       4. RETRO MONOCHROME TERMINAL
+       ======================================================= */
+    .btn-design-4 {
+      background: #000;
+      border: 1px solid #39d353;
+      border-radius: 4px;
+      color: #39d353;
+      font-family: monospace;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    .btn-design-4:hover {
+      background: #39d353;
+      color: #000;
+      box-shadow: 0 0 8px #39d353;
+      font-weight: bold;
+    }
+    .btn-design-4:active {
+      transform: translateY(1px);
+    }
+
+    /* =======================================================
+       5. PILL GRADIENT BORDER
+       ======================================================= */
+    .btn-design-5 {
+      background: var(--surface-inspector);
+      border: 1px solid transparent;
+      border-radius: 20px;
+      color: #fff;
+      position: relative;
+      background-clip: padding-box;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .btn-design-5::before {
+      content: '';
+      position: absolute;
+      top: -1px; bottom: -1px; left: -1px; right: -1px;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1, #4f46e5);
+      border-radius: 20px;
+      z-index: -1;
+      transition: opacity 0.3s ease;
+    }
+    .btn-design-5:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
+    }
+    .btn-design-5:hover::before {
+      background: linear-gradient(135deg, #c7d2fe, #818cf8, #4f46e5);
+    }
+    .btn-design-5:active {
+      transform: translateY(1px);
+    }
+
+    /* =======================================================
+       6. MINIMALIST PULSE
+       ======================================================= */
+    .btn-design-6 {
+      background: rgba(36, 93, 216, 0.1);
+      border: 1px dashed rgba(36, 93, 216, 0.5);
+      border-radius: 6px;
+      color: #58a6ff;
+      transition: all 0.2s ease;
+      animation: pulseBorder 2.5s infinite;
+    }
+    @keyframes pulseBorder {
+      0% { border-color: rgba(36, 93, 216, 0.3); box-shadow: 0 0 0 0 rgba(36, 93, 216, 0.1); }
+      50% { border-color: rgba(88, 166, 255, 0.8); box-shadow: 0 0 0 6px rgba(36, 93, 216, 0.0); }
+      100% { border-color: rgba(36, 93, 216, 0.3); box-shadow: 0 0 0 0 rgba(36, 93, 216, 0); }
+    }
+    .btn-design-6:hover {
+      background: rgba(36, 93, 216, 0.25);
+      border-style: solid;
+      color: #fff;
+    }
+    .btn-design-6:active {
+      transform: scale(0.98);
+    }
+
+    /* =======================================================
+       7. 3D MAGNETIC PRESS
+       ======================================================= */
+    .btn-design-7 {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-bottom: 3px solid #111827;
+      border-radius: 8px;
+      color: var(--text-primary);
+      transition: all 0.1s ease;
+    }
+    .btn-design-7:hover {
+      background: #2563eb;
+      border-color: #3b82f6;
+      border-bottom: 3px solid #1d4ed8;
+      color: #fff;
+    }
+    .btn-design-7:active {
+      border-bottom-width: 1px;
+      transform: translateY(2px);
+    }
+
+    /* =======================================================
+       8. METALLIC SHIMMER
+       ======================================================= */
+    .btn-design-8 {
+      background: linear-gradient(180deg, #2b394f, #141c27);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+      transition: all 0.2s ease;
+    }
+    .btn-design-8::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -60%;
+      width: 30%;
+      height: 200%;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      transform: rotate(25deg);
+      transition: none;
+    }
+    .btn-design-8:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-design-8:hover::after {
+      animation: metallicShine 1.2s infinite;
+    }
+    @keyframes metallicShine {
+      0% { left: -60%; }
+      100% { left: 140%; }
+    }
+    .btn-design-8:active {
+      transform: translateY(1px);
+      background: linear-gradient(180deg, #1d2838, #0e141c);
+    }
+
+    /* =======================================================
+       9. CYBER BRACKETS
+       ======================================================= */
+    .btn-design-9 {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      position: relative;
+      padding: 0 16px;
+      transition: all 0.25s ease;
+    }
+    .btn-design-9::before, .btn-design-9::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      border: 1px solid rgba(155, 190, 232, 0.3);
+      transition: all 0.25s ease;
+    }
+    .btn-design-9::before {
+      left: 0;
+      border-right: none;
+    }
+    .btn-design-9::after {
+      right: 0;
+      border-left: none;
+    }
+    .btn-design-9:hover {
+      color: #fff;
+    }
+    .btn-design-9:hover::before, .btn-design-9:hover::after {
+      border-color: #58a6ff;
+      width: 12px;
+      box-shadow: 0 0 6px rgba(88, 166, 255, 0.3);
+    }
+    .btn-design-9:active {
+      transform: scale(0.95);
+    }
+
+    /* =======================================================
+       10. SLEEK DARK MATTE (STATUS DOT)
+       ======================================================= */
+    .btn-design-10 {
+      background: rgba(13, 30, 51, 0.8);
+      border: 1px solid rgba(155, 190, 232, 0.1);
+      border-radius: 6px;
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .btn-design-10::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #8b949e;
+      margin-right: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-design-10:hover {
+      background: rgba(13, 30, 51, 1);
+      border-color: rgba(36, 93, 216, 0.4);
+      color: #fff;
+    }
+    .btn-design-10:hover::before {
+      background: #58a6ff;
+      box-shadow: 0 0 8px #58a6ff;
+    }
+    .btn-design-10:active {
+      transform: scale(0.98);
+    }
+
+    /* Code section */
+    .code-box {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #a5d6ff;
+      overflow-x: auto;
+      max-height: 120px;
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>"Load jobs" Button CSS Concepts</h1>
+      <p>10 premium interactive concepts tailored for the Snow-Devil Inspector panel</p>
+    </header>
+
+    <div class="design-grid">
+      <!-- CONCEPT 1 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 01</div>
+          <h3 class="design-title">Glassmorphic Glow</h3>
+          <p class="design-desc">Super clean transparent layout with radial glowing borders and reflections on hover.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-1">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-1 {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+}</pre>
+      </div>
+
+      <!-- CONCEPT 2 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 02</div>
+          <h3 class="design-title">Cyberpunk Neon</h3>
+          <p class="design-desc">Sharp angular cuts, vibrant neon cyan colorization, glowing text-shadow on mouseover.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-2">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-2 {
+  border: 1px solid #00f0ff;
+  color: #00f0ff;
+  clip-path: polygon(90% 0, 100% 30%, 100% 100%, 0 100%, 0 0);
+}</pre>
+      </div>
+
+      <!-- CONCEPT 3 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 03</div>
+          <h3 class="design-title">Ghost Sweep</h3>
+          <p class="design-desc">A subtle outline button that smoothly sweeps with solid accent color from right-to-left.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-3">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-3::before {
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}</pre>
+      </div>
+
+      <!-- CONCEPT 4 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 04</div>
+          <h3 class="design-title">Retro Console</h3>
+          <p class="design-desc">Classic green monochrome CRT look with terminal typeface and subtle scanline box-shadow.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-4">LOAD_JOBS_</button>
+        </div>
+        <pre class="code-box">.btn-design-4 {
+  background: #000;
+  border: 1px solid #39d353;
+  color: #39d353;
+  font-family: monospace;
+}</pre>
+      </div>
+
+      <!-- CONCEPT 5 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 05</div>
+          <h3 class="design-title">Pill Gradient</h3>
+          <p class="design-desc">Rounded capsule layout with indigo-indigo-violet glowing border gradient wrapping the button.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-5">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-5::before {
+  background: linear-gradient(135deg, #a5b4fc, #6366f1, #4f46e5);
+  z-index: -1;
+}</pre>
+      </div>
+
+      <!-- CONCEPT 6 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 06</div>
+          <h3 class="design-title">Minimalist Pulse</h3>
+          <p class="design-desc">Dashed border style that pulses gently with light rings to indicate call-to-action.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-6">Load jobs</button>
+        </div>
+        <pre class="code-box">@keyframes pulseBorder {
+  0% { box-shadow: 0 0 0 0 rgba(36,93,216,0.1); }
+  50% { box-shadow: 0 0 0 6px rgba(36,93,216,0); }
+}</pre>
+      </div>
+
+      <!-- CONCEPT 7 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 07</div>
+          <h3 class="design-title">3D Magnetic Press</h3>
+          <p class="design-desc">Clean tactile button with depth that physically compresses down slightly when clicked.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-7">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-7 {
+  border-bottom: 3px solid #111827;
+}
+.btn-design-7:active {
+  transform: translateY(2px);
+}</pre>
+      </div>
+
+      <!-- CONCEPT 8 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 08</div>
+          <h3 class="design-title">Metallic Shimmer</h3>
+          <p class="design-desc">Dark brushed metallic gradient with a reflective light sweep that runs across on hover.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-8">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-8::after {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  animation: metallicShine 1.2s infinite;
+}</pre>
+      </div>
+
+      <!-- CONCEPT 9 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 09</div>
+          <h3 class="design-title">Cyber Brackets</h3>
+          <p class="design-desc">Minimalist transparent concept where bracket lines hug the text closer and glow on hover.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-9">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-9::before, .btn-design-9::after {
+  content: '';
+  border: 1px solid rgba(155,190,232,0.3);
+}</pre>
+      </div>
+
+      <!-- CONCEPT 10 -->
+      <div class="design-card">
+        <div class="design-meta">
+          <div class="design-num">Concept 10</div>
+          <h3 class="design-title">Sleek Matte Dot</h3>
+          <p class="design-desc">Super elegant dark button with a status indicator light that glows blue on focus/hover.</p>
+        </div>
+        <div class="preview-area">
+          <button class="btn-preview btn-design-10">Load jobs</button>
+        </div>
+        <pre class="code-box">.btn-design-10::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: #8b949e;
+}</pre>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

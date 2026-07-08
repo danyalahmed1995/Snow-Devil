@@ -141,7 +141,7 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
 
     <section className="inspector-section">
       <h5 className="section-title">Jobs</h5>
-      {!loadJobs && <button className="inspector-open-flow" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
+      {!loadJobs && <button className="inspector-load-jobs-btn" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
       {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
       {error && <div className="ci-jobs-error">Failed to load jobs</div>}
       {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}

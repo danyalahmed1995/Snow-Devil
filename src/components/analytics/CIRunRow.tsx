@@ -141,7 +141,27 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
         </div>
 
         <div className="ci-activity-row__tags">
-          <span className="ci-tag ci-tag--repo" title="Repository">{run.repositoryName}</span>
+          <span 
+            role="button"
+            tabIndex={0}
+            className="ci-tag ci-tag--repo" 
+            title="Open Repository"
+            onClick={(e) => {
+              e.stopPropagation();
+              import('../../stores/tabs-store').then(({ useTabsStore }) => {
+                useTabsStore.getState().openNativeTab(
+                  `native:repo:${run.repositoryId}`, 
+                  'repositoryExplorer', 
+                  run.repositoryName, 
+                  false, 
+                  true, 
+                  { type: 'repository', repository: run.repositoryId, ref: branchName || undefined }
+                );
+              });
+            }}
+          >
+            {run.repositoryName}
+          </span>
           <div className="ci-activity-row__git-tags">
             {branchName && (
               <span className={`ci-tag ci-tag--branch branch-state--${branchState}`} title="Branch">

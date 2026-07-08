@@ -136,7 +136,7 @@ export function Dashboard() {
     return (
       <main className="dashboard-view home-load-failure" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} role="status">
         <div className="home-preparation" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-          <div className="prep-spinner" style={{ width: '48px', height: '48px', borderRadius: '50%', border: '3px solid color-mix(in srgb, var(--primary) 20%, transparent)', borderTopColor: 'var(--primary)', animation: 'spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite' }} />
+          <div className="global-spinner" />
           <div style={{ textAlign: 'center' }}>
             <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Preparing your Snow Devil workspace…</h1>
             <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>Loading repositories, issues, and pull requests.</p>
