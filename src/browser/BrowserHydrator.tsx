@@ -53,6 +53,8 @@ export function BrowserHydrator() {
         }
       }
 
+      if (tab.id !== activeTabId) return;
+
       // Route-specific React Query prefetch
       try {
         if (tab.kind === 'home') {

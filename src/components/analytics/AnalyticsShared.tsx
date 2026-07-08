@@ -7,6 +7,7 @@ import './Analytics.css';
 import { buildSyncCoverageSummary } from '../../analytics/sync-summary';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { loadingMotionClass } from '../../lib/data-state';
+import { useTabsStore } from '../../stores/tabs-store';
 
 export function useAnalyticsTabRefresh(refetch: () => Promise<unknown> | unknown) {
   const activeTabId = useCurrentTabId();
@@ -15,18 +16,24 @@ export function useAnalyticsTabRefresh(refetch: () => Promise<unknown> | unknown
 
 function SyncStatusIcon({ state }: { state: 'running' | 'idle' | 'success' | 'failure' }) {
   const size = 11;
+  const icon = state === 'running'
+    ? <div className="spinner-ring" style={{ width: size, height: size }} />
+    : state === 'success'
+      ? <CheckCircle2 size={size} className="status-icon-svg success-svg" />
+      : state === 'failure'
+        ? <XCircle size={size} className="status-icon-svg failure-svg" />
+        : <RefreshCw size={size} className="status-icon-svg idle-svg" />;
   return (
     <div className={`status-icon-wrapper state-${state}`} style={{ width: size, height: size, marginRight: 10 }}>
-      <RefreshCw size={size} className="status-icon-svg idle-svg" />
-      <div className="spinner-ring" style={{ width: size, height: size }} />
-      <CheckCircle2 size={size} className="status-icon-svg success-svg" />
-      <XCircle size={size} className="status-icon-svg failure-svg" />
+      {icon}
     </div>
   );
 }
 
 export function AnalyticsPage({ title, description, demo, controls, children, compactSync = false }: { title: string; description: string; demo: boolean; controls?: ReactNode; children: ReactNode; compactSync?: boolean }) {
-  const sync = useAnalyticsSync();
+  const activeTabId = useCurrentTabId();
+  const isActiveTab = useTabsStore(state => state.activeTabId === activeTabId);
+  const sync = useAnalyticsSync({ enabled: isActiveTab });
   const failedRepositories = sync.state ? safeArray(sync.state.failed_repositories_json) : [];
   const failed = failedRepositories.length;
   const counts = sync.state ? safeRecord(sync.state.counts_json) : {};

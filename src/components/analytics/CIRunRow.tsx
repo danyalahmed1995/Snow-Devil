@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, Loader2, MinusCircle, ChevronRight } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
@@ -29,28 +29,30 @@ function timeAgo(dateString?: string) {
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
   let stateClass: string;
+  let icon: ReactNode;
   if (status === 'queued' || status === 'waiting' || status === 'pending') {
     stateClass = 'state-queued';
+    icon = <Clock size={size} className="status-icon-svg queued-svg" />;
   } else if (status === 'in_progress') {
     stateClass = 'state-running';
+    icon = <div className="spinner-ring" style={{ width: size, height: size }} />;
   } else if (conclusion === 'success') {
     stateClass = 'state-success';
+    icon = <CheckCircle2 size={size} className="status-icon-svg success-svg" />;
   } else if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') {
     stateClass = 'state-failure';
+    icon = <XCircle size={size} className="status-icon-svg failure-svg" />;
   } else if (conclusion === 'cancelled' || conclusion === 'skipped') {
     stateClass = 'state-skipped';
+    icon = <MinusCircle size={size} className="status-icon-svg skipped-svg" />;
   } else {
     stateClass = 'state-neutral';
+    icon = <AlertCircle size={size} className="status-icon-svg neutral-svg" />;
   }
 
   return (
     <div className={`status-icon-wrapper ${stateClass}`} style={{ width: size, height: size }}>
-      <Clock size={size} className="status-icon-svg queued-svg" />
-      <div className="spinner-ring" style={{ width: size, height: size }} />
-      <CheckCircle2 size={size} className="status-icon-svg success-svg" />
-      <XCircle size={size} className="status-icon-svg failure-svg" />
-      <MinusCircle size={size} className="status-icon-svg skipped-svg" />
-      <AlertCircle size={size} className="status-icon-svg neutral-svg" />
+      {icon}
     </div>
   );
 }
@@ -291,7 +293,5 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
 }
 
 export const CIRunRow = memo(CIRunRowComponent);
-
-
 
 

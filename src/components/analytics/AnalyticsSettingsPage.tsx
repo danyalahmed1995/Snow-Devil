@@ -12,6 +12,8 @@ import { AuthModal } from '../auth/AuthModal';
 import { Select } from '../ui/Select';
 import { buildSyncCoverageSummary, normalizeSyncFailure } from '../../analytics/sync-summary';
 import { useNotificationStore } from '../../stores/notification-store';
+import { useTabsStore } from '../../stores/tabs-store';
+import { useCurrentTabId } from '../workspace/TabInstanceContext';
 
 function SettingRow({ label, description, children }: { label: string; description: string; children: React.ReactNode }) {
   return <div className="analytics-setting-row"><span>{label}<small>{description}</small></span><div className="analytics-setting-control" data-tooltip={`${label}\n${description}`}>{children}</div></div>;
@@ -29,8 +31,10 @@ function parseJsonArray(value?: string): unknown[] {
 }
 
 export function AnalyticsSettingsPage() {
-  const analytics = useAnalyticsData();
-  const sync = useAnalyticsSync();
+  const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
+  const sync = useAnalyticsSync({ enabled: isActive });
   useAnalyticsTabRefresh(async () => { await Promise.all([analytics.refetch(), sync.refresh()]); });
   const settings = useAnalyticsSettingsStore(state => state.settings);
   const updateSettings = useAnalyticsSettingsStore(state => state.updateSettings);

@@ -17,7 +17,6 @@ import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actio
 import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
-import { Loader2 } from 'lucide-react';
 import './Inspector.css';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }

@@ -42,12 +42,13 @@ function sortRisks(items: InventoryItem[], sort: DeliveryRiskSort): InventoryIte
 function repositoryMuteKey(item: InventoryItem): string { return String(item.repository.databaseId ?? item.repository.id).toLowerCase(); }
 
 export function InventoryPage() {
-  const analytics = useAnalyticsData();
-  const sync = useAnalyticsSync();
+  const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
+  const sync = useAnalyticsSync({ enabled: isActive });
   useAnalyticsTabRefresh(analytics.refetch);
   const settings = useAnalyticsSettingsStore(state => state.settings);
   const updateSettings = useAnalyticsSettingsStore(state => state.updateSettings);
-  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
   const initialSaved = deliveryRiskViewById(settings.defaultDeliveryRiskViewId ?? 'builtin:active', settings.deliveryRiskSavedViews);

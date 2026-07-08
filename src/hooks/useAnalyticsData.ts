@@ -134,18 +134,19 @@ export function analyticsRecordEvents(row: AnalyticsRecordRow): SimulatorEvent[]
   return [];
 }
 
-export function useAnalyticsData() {
+export function useAnalyticsData(options: { enabled?: boolean } = {}) {
+  const enabled = options.enabled ?? true;
   const mode = useModeStore(state => state.mode);
   const session = useAuthStore(state => state.session);
   const login = session.status === 'connected' ? session.account.login : null;
   const demoRevision = useModeStore(state => state.demoRevision);
   const demoDataset = useMemo(() => {
     void demoRevision;
-    return createDemoAnalyticsDataset();
-  }, [demoRevision]);
+    return enabled ? createDemoAnalyticsDataset() : undefined;
+  }, [demoRevision, enabled]);
   const liveQuery = useQuery({
     queryKey: getAnalyticsQueryKey(login),
-    enabled: mode === 'live' && Boolean(login),
+    enabled: enabled && mode === 'live' && Boolean(login),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<AnalyticsDataset> => {
       const [rows, repositories, analyticsRows] = await Promise.all([
@@ -187,6 +188,9 @@ export function useAnalyticsData() {
   });
   if (mode === 'demo') {
     return { data: demoDataset, isLoading: false, isFetching: false, error: null, refetch: async () => ({ data: demoDataset }), mode };
+  }
+  if (!enabled) {
+    return { ...liveQuery, data: undefined, isLoading: false, isFetching: false, mode };
   }
   return { ...liveQuery, mode };
 }

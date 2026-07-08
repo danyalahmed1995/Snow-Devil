@@ -2,7 +2,6 @@ import { useRef, useEffect, useCallback } from 'react';
 import { browserCreate, browserResize, browserActivate, browserHideAll, type BrowserBounds } from './browser-commands';
 import { useTabsStore, isBrowserTab } from '../stores/tabs-store';
 import { useOverlayStore } from '../stores/overlay-store';
-import { Globe2, MoreHorizontal } from 'lucide-react';
 
 function measureSafeBounds(el: HTMLElement | null): BrowserBounds | null {
   if (!el) return null;
