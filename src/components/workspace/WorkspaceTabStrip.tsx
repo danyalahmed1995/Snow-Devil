@@ -243,7 +243,7 @@ export function WorkspaceTabStrip() {
             <div
               key={tab.id}
               ref={element => { if (element) tabRefs.current.set(tab.id, element); else tabRefs.current.delete(tab.id); }}
-              className={`workspace-tab workspace-tab--${tab.family} ${isActive ? 'workspace-tab--active' : ''} ${draggingTabId === tab.id ? 'workspace-tab--dragging' : ''}`}
+              className={`workspace-tab workspace-tab--${tab.family} ${isActive ? 'workspace-tab--active' : ''} ${draggingTabId === tab.id ? 'workspace-tab--dragging' : ''} ${ciStatusClass ? `workspace-tab--${ciStatusClass}` : ''}`}
               role="tab"
               data-tab-id={tab.id}
               aria-selected={isActive}
