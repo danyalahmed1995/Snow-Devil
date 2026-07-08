@@ -1,4 +1,4 @@
-import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X } from 'lucide-react';
+import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -6,11 +6,13 @@ import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
 import type { WorkspaceTab } from '../../stores/tabs-store';
 import { useOverlayStore } from '../../stores/overlay-store';
 import { refreshWorkspaceTab, tabRefreshCapability } from '../../lib/tab-refresh';
+import { useCIWatcherStore } from '../../stores/ci-watcher-store';
 
 export function WorkspaceTabStrip() {
   const tabs = useTabsStore(s => s.tabs);
   const closedTabs = useTabsStore(s => s.closedTabs);
   const activeTabId = useTabsStore(s => s.activeTabId);
+  const runsByRepository = useCIWatcherStore(s => s.runsByRepository);
   const setActiveTab = useTabsStore(s => s.setActiveTab);
   const closeTab = useTabsStore(s => s.closeTab);
   const closeOthers = useTabsStore(s => s.closeOthers);
@@ -212,6 +214,31 @@ export function WorkspaceTabStrip() {
           const isActive = tab.id === activeTabId;
           const isBrowser = isBrowserTab(tab);
           const tooltip = isBrowser ? `${tab.title}\n${tab.currentUrl}` : tab.title;
+
+          let ciStatusClass = '';
+          let ciStatusIcon = null;
+          if (tab.family === 'native' && tab.kind === 'ciRun' && tab.context?.type === 'ciRun') {
+            const { repository, runId } = tab.context;
+            const runs = runsByRepository[repository?.toLowerCase()] || [];
+            const run = runs.find(r => r.runId.toString() === runId?.toString());
+            if (run) {
+              if (['queued', 'in_progress', 'waiting', 'requested', 'pending'].includes(run.status)) {
+                ciStatusClass = 'state-running';
+              } else if (run.status === 'completed') {
+                if (run.conclusion === 'success') {
+                  ciStatusClass = 'state-success';
+                  ciStatusIcon = <CheckCircle2 className="status-icon-svg success-svg" size={14} />;
+                } else if (['failure', 'timed_out', 'action_required', 'startup_failure'].includes(run.conclusion || '')) {
+                  ciStatusClass = 'state-failure';
+                  ciStatusIcon = <XCircle className="status-icon-svg failure-svg" size={14} />;
+                } else {
+                  ciStatusClass = 'state-skipped';
+                  ciStatusIcon = <MinusCircle className="status-icon-svg skipped-svg" size={14} />;
+                }
+              }
+            }
+          }
+
           return (
             <div
               key={tab.id}
@@ -244,7 +271,12 @@ export function WorkspaceTabStrip() {
               }}
               onAuxClick={event => { if (event.button === 1 && tab.closable) { event.preventDefault(); closeTab(tab.id); } }}
             >
-              {isBrowser ? <Globe2 className="workspace-tab__family" size={11} /> : <AppWindow className="workspace-tab__family" size={11} />}
+              {isBrowser ? <Globe2 className="workspace-tab__family" size={11} /> : ciStatusClass ? (
+                <div className={`workspace-tab__family status-icon-wrapper ${ciStatusClass}`} style={{ width: 14, height: 14 }}>
+                  <div className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 1.5 }}></div>
+                  {ciStatusIcon}
+                </div>
+              ) : <AppWindow className="workspace-tab__family" size={11} />}
               <span className="workspace-tab__title">{tab.title}</span>
               {tab.closable && <button className="workspace-tab__close" aria-label={`Close ${tab.title}`} onClick={event => { event.stopPropagation(); closeTab(tab.id); }}><X size={15} strokeWidth={2} /></button>}
             </div>
