@@ -156,6 +156,17 @@ export function BrowserViewport() {
       }}
     >
       {/* The actual webview is positioned here by Tauri – no iframe */}
+      {isBrowser && activeOverlayId && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 24, background: 'radial-gradient(circle at center, var(--bg-surface) 0%, var(--bg-main) 100%)', color: 'var(--text-muted)' }}>
+          <div className="paused-particles">
+            <div className="paused-particle" />
+            <div className="paused-particle" />
+            <div className="paused-particle" />
+          </div>
+          <div className="browser-paused-loader" style={{ zIndex: 1 }} />
+          <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.7, zIndex: 1, textShadow: '0 0 10px rgba(59, 130, 246, 0.3)' }}>Browser paused for menu overlay</span>
+        </div>
+      )}
     </div>
   );
 }

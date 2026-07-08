@@ -6,6 +6,7 @@ import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { useFlowStore } from '../../stores/flow-store';
+import { useTabsStore } from '../../stores/tabs-store';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard, useAnalyticsTabRefresh } from './AnalyticsShared';
 import { Select, type SelectOption } from '../ui/Select';
 import { pairCheckTimings } from '../../analytics/check-timing';
@@ -109,11 +110,12 @@ function LeadTimeHistogram({ values, onSelect }: { values: number[]; onSelect: (
 }
 
 export function FlowAnalyticsPage() {
-  const analytics = useAnalyticsData();
+  const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
   useAnalyticsTabRefresh(analytics.refetch);
   const settings = useAnalyticsSettingsStore(state => state.settings);
   const updateSettings = useAnalyticsSettingsStore(state => state.updateSettings);
-  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const [tab, setTab] = useState<AnalyticsTab>('cumulative');
   const [repositoryId, setRepositoryId] = useState('all');

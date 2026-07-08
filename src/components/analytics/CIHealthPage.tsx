@@ -9,6 +9,7 @@ import { useFlowStore } from '../../stores/flow-store';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard, StatusPill, useAnalyticsTabRefresh } from './AnalyticsShared';
 import { Select } from '../ui/Select';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
+import { useTabsStore } from '../../stores/tabs-store';
 
 type HealthSortKey = 'repository' | 'status' | 'openBranches' | 'branchesOverThreshold' | 'oldestActiveHours' | 'integrationsPerWeek' | 'directPushes' | 'p50BranchHours' | 'p90BranchHours';
 
@@ -21,10 +22,11 @@ function healthValue(row: RepositoryHealth, key: HealthSortKey): string | number
 }
 
 export function CIHealthPage() {
-  const analytics = useAnalyticsData();
+  const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
   useAnalyticsTabRefresh(analytics.refetch);
   const settings = useAnalyticsSettingsStore(state => state.settings);
-  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
   const [repositoryId, setRepositoryId] = useState('all');

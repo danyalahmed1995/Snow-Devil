@@ -55,7 +55,7 @@ export function Dashboard() {
   const isActiveTab = useTabsStore(state => state.activeTabId === activeTabId);
   const setTabState = useFlowStore(state => state.setTabState);
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
-  const { data: rawSummaryData, isLoading: liveLoading, isFetching: liveFetching, error: liveError, refetch: refetchHomeSummary } = useHomeSummary({ enabled: mode === 'live' });
+  const { data: rawSummaryData, isLoading: liveLoading, isFetching: liveFetching, error: liveError, refetch: refetchHomeSummary } = useHomeSummary({ enabled: mode === 'live' && isActiveTab });
   const liveSummary = useMemo(() => mode === 'demo' ? null : parseHomeSummaryResponse(rawSummaryData, currentUser), [rawSummaryData, mode, currentUser]);
   const rawItems = useMemo(() => mode === 'demo'
     ? (demoPipeline?.items ?? []).map(demoPipelineItemToFlowItem)
@@ -67,7 +67,7 @@ export function Dashboard() {
   const referenceTime = mode === 'demo' && demoPipeline?.referenceDate ? new Date(demoPipeline.referenceDate).getTime() : liveReference;
   const metrics = mode === 'demo' && demoHome ? demoHome.metrics : liveSummary?.metrics ?? { needsAttention: 0, waitingReview: 0, failingChecks: 0, recentlyMerged: 0 };
   const previousMetrics = mode === 'demo' ? demoHome?.previousMetrics : undefined;
-  const sync = useAnalyticsSync();
+  const sync = useAnalyticsSync({ enabled: isActiveTab });
   const derivedMetrics = {
     needsAttention: canonicalAttentionItems(items).length,
     reviewsRequested: items.filter(item => item.reviewSummary?.requestedReviewers.includes(currentUser) || /review requested from you/i.test(item.inclusionReason ?? '')).length,
@@ -86,7 +86,7 @@ export function Dashboard() {
       setReposLoading(false);
     }
   }, [mode]);
-  useEffect(() => { void loadRepositories().catch(console.error); }, [loadRepositories]);
+  useEffect(() => { if (isActiveTab) void loadRepositories().catch(console.error); }, [isActiveTab, loadRepositories]);
   useTabRefresh(activeTabId, useMemo(() => ({ label: 'Refresh tab', refresh: async () => {
     await Promise.all([refetchHomeSummary(), loadRepositories(), sync.refresh()]);
   } }), [loadRepositories, refetchHomeSummary, sync.refresh]));

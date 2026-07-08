@@ -18,10 +18,10 @@ export interface RepositoryBranch {
   protected: boolean;
 }
 
-export function useRepositoryBranches(repositoryId: string | null) {
+export function useRepositoryBranches(repositoryId: string | null, enabled = true) {
   return useQuery({
     queryKey: ['repository_branches', repositoryId],
-    enabled: Boolean(repositoryId) && repositoryId !== 'all',
+    enabled: enabled && Boolean(repositoryId) && repositoryId !== 'all',
     staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => {
       if (String(error).includes('403') || String(error).includes('404')) return false;

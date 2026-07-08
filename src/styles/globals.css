@@ -318,3 +318,51 @@ button, input, select, textarea, [tabindex] {
   animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
   box-shadow: 0 0 15px color-mix(in srgb, var(--primary) 50%, transparent), inset 0 0 10px color-mix(in srgb, var(--primary) 30%, transparent);
 }
+
+/* Browser Paused Placeholder Loader */
+.browser-paused-loader {
+  width: 14px;
+  height: 14px;
+  background-color: var(--accent);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 0 10px var(--accent);
+}
+.browser-paused-loader::after {
+  content: '';
+  position: absolute;
+  top: -5px; left: -5px; right: -5px; bottom: -5px;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  animation: halo-pulse 1.4s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+
+@keyframes halo-pulse {
+  0% { transform: scale(0.7); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Floating Particles for Browser Paused */
+.paused-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.paused-particle {
+  position: absolute;
+  width: 4px; height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: paused-float-up 3s ease-in infinite;
+  box-shadow: 0 0 8px var(--accent);
+}
+.paused-particle:nth-child(1) { left: 20%; animation-delay: 0s; }
+.paused-particle:nth-child(2) { left: 50%; animation-delay: 1s; }
+.paused-particle:nth-child(3) { left: 80%; animation-delay: 2s; }
+@keyframes paused-float-up {
+  0% { transform: translateY(50px); opacity: 0; }
+  50% { opacity: 0.6; }
+  100% { transform: translateY(-50px); opacity: 0; }
+}

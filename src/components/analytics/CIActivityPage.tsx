@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
 import { matchesRepository } from '../../analytics/identity';
@@ -11,9 +11,12 @@ import { CIRunRow, formatDurationCompact } from './CIRunRow';
 import { useTabsStore } from '../../stores/tabs-store';
 
 export function CIActivityPage() {
-  const analytics = useAnalyticsData();
-  const sync = useAnalyticsSync();
   const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
+  const sync = useAnalyticsSync({ enabled: isActive });
+  const syncActionRef = useRef(sync.sync);
+  const refetchAnalyticsRef = useRef(analytics.refetch);
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
 
@@ -55,7 +58,7 @@ export function CIActivityPage() {
     return Array.from(new Set(runs.map(r => r.subjectTitle))).sort();
   }, [allRuns, repositoryId, getFilterRepo]);
 
-  const remoteBranchesData = useRepositoryBranches(repositoryId);
+  const remoteBranchesData = useRepositoryBranches(repositoryId, isActive);
 
   const branches = useMemo(() => {
     const filterRepo = getFilterRepo();
@@ -139,7 +142,8 @@ export function CIActivityPage() {
     };
   }, [runsForStats]);
 
-  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  useEffect(() => { syncActionRef.current = sync.sync; }, [sync.sync]);
+  useEffect(() => { refetchAnalyticsRef.current = analytics.refetch; }, [analytics.refetch]);
 
   // Auto-reset dependent filters when repository changes or branches are updated
   useEffect(() => {
@@ -158,17 +162,17 @@ export function CIActivityPage() {
     
     const triggerRefresh = () => {
       if (repositoryId !== 'all') {
-        void sync.sync({ singleRepository: repositoryId });
+        void syncActionRef.current({ singleRepository: repositoryId });
       } else {
         const recentRepos = Array.from(new Set(allRuns.slice(0, 3).map(r => r.repositoryId)));
-        void sync.sync({ priorityRepositories: recentRepos });
+        void syncActionRef.current({ priorityRepositories: recentRepos });
       }
-      void analytics.refetch();
+      void refetchAnalyticsRef.current();
     };
     
     const interval = setInterval(triggerRefresh, 10000);
     return () => clearInterval(interval);
-  }, [isActive, repositoryId, allRuns, analytics, sync]);
+  }, [isActive, repositoryId, allRuns]);
 
   const selectRow = useCallback((id: string) => {
     const run = allRuns.find(r => r.id === id);

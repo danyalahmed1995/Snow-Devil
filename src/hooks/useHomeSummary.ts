@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 
 export function useHomeSummary({ enabled = true } = {}) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['homeSummary'],
     queryFn: async () => {
       const data = await invoke('get_account_home_summary');
@@ -12,4 +12,5 @@ export function useHomeSummary({ enabled = true } = {}) {
     refetchOnWindowFocus: false,
     enabled,
   });
+  return enabled ? query : { ...query, data: undefined, isLoading: false, isFetching: false };
 }

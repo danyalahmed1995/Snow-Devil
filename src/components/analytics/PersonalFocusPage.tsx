@@ -14,6 +14,7 @@ import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, Refr
 import { Select } from '../ui/Select';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { distinctReason, partitionCanonicalResponsibilities } from '../../analytics/personal-focus';
+import { useTabsStore } from '../../stores/tabs-store';
 
 type Involvement = 'direct' | 'authored' | 'assigned' | 'review_requested' | 'mentioned' | 'participating';
 type ActorFilter = 'humans' | 'include_bots' | 'bots';
@@ -29,13 +30,14 @@ const reasonLabel: Record<string, string> = {
 };
 
 export function PersonalFocusPage() {
-  const analytics = useAnalyticsData();
+  const activeTabId = useCurrentTabId();
+  const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const analytics = useAnalyticsData({ enabled: isActive });
   useAnalyticsTabRefresh(analytics.refetch);
   const settings = useAnalyticsSettingsStore(state => state.settings);
   const updateSettings = useAnalyticsSettingsStore(state => state.updateSettings);
   const session = useAuthStore(state => state.session);
   const mode = useModeStore(state => state.mode);
-  const activeTabId = useCurrentTabId();
   const setTabState = useFlowStore(state => state.setTabState);
   const preferences = useFocusPreferencesStore();
   const dataset = analytics.data;

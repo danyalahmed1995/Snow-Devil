@@ -17,7 +17,6 @@ import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actio
 import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
-import { Loader2 } from 'lucide-react';
 import './Inspector.css';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
@@ -141,8 +140,8 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
 
     <section className="inspector-section">
       <h5 className="section-title">Jobs</h5>
-      {!loadJobs && <button className="inspector-load-jobs-btn" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
-      {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
+      {!loadJobs && (!jobs || jobs.length === 0) && <button className="inspector-load-jobs-btn" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
+      {isLoading && <div className="ci-jobs-loading"><div className="status-icon-wrapper state-running" style={{ width: 14, height: 14 }}><div className="spinner-ring" style={{ width: 14, height: 14 }} /></div> Loading jobs...</div>}
       {error && <div className="ci-jobs-error">Failed to load jobs</div>}
       {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
       {jobs && jobs.length > 0 && (

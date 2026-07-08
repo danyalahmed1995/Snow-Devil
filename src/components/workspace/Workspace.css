@@ -71,6 +71,12 @@
   color: var(--text-primary);
 }
 
+.workspace-tab--dragging {
+  opacity: .74;
+  cursor: move;
+  transition: none;
+}
+
 .workspace-tab__title {
   display: block;
   min-width: 0;
@@ -247,3 +253,31 @@
 .workspace-tab-add:hover,.workspace-tab-overflow:hover{background:var(--surface-hover);color:var(--text-primary)}
 .workspace-tab-menu{border-radius:var(--radius-popover);background:var(--surface-popover);box-shadow:var(--popover-shadow)}
 .workspace-loading{height:100%;display:grid;place-items:center;color:var(--text-muted);font-size:var(--type-body)}
+
+/* CI Status Glows for Tabs */
+.workspace-tab--state-running {
+  border-color: rgba(234, 179, 8, 0.4) !important;
+  background-color: rgba(234, 179, 8, 0.08) !important;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.25) !important;
+}
+
+.workspace-tab--state-success {
+  border-color: rgba(16, 185, 129, 0.4) !important;
+  background-color: rgba(16, 185, 129, 0.08) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25) !important;
+  animation: branch-pulse-green 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.workspace-tab--state-failure {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25) !important;
+  animation: branch-pulse-red 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.workspace-tab--state-skipped {
+  border-color: rgba(107, 114, 128, 0.4) !important;
+  background-color: rgba(107, 114, 128, 0.08) !important;
+  box-shadow: 0 0 8px rgba(107, 114, 128, 0.15) !important;
+  animation: branch-pulse-grey 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
