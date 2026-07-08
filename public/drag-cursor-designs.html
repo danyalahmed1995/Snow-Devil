@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drag Cursor Designs</title>
+<style>
+  :root {
+    --bg-main: #06101c;
+    --bg-surface: #0b1727;
+    --text-main: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+  }
+
+  body {
+    background-color: #030810;
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 40px;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 40px;
+    font-size: 28px;
+    font-weight: 600;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .design-card {
+    background: var(--bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .design-title {
+    padding: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--text-muted);
+  }
+
+  .viewport {
+    height: 150px;
+    position: relative;
+    background-color: var(--bg-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tab {
+    background: linear-gradient(145deg, rgba(50, 89, 145, 0.48), rgba(18, 39, 67, 0.9));
+    border: 1px solid rgba(116, 157, 218, 0.2);
+    color: var(--text-main);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    user-select: none;
+    -webkit-user-drag: element;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .tab:active {
+    transform: scale(0.95);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Design 1: Modern Grip (Custom SVG) */
+  .design-1 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='9' cy='6' r='1.5'/%3E%3Ccircle cx='9' cy='12' r='1.5'/%3E%3Ccircle cx='9' cy='18' r='1.5'/%3E%3Ccircle cx='15' cy='6' r='1.5'/%3E%3Ccircle cx='15' cy='12' r='1.5'/%3E%3Ccircle cx='15' cy='18' r='1.5'/%3E%3C/svg%3E") 12 12, move;
+  }
+
+  /* Design 2: Horizontal Arrows (Custom SVG) */
+  .design-2 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 16h16M12 12l-4 4 4 4M20 12l4 4-4 4'/%3E%3C/svg%3E") 16 16, ew-resize;
+  }
+
+  /* Design 3: Target Reticle (Custom SVG) */
+  .design-3 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%233b82f6'/%3E%3C/svg%3E") 12 12, crosshair;
+  }
+
+  /* Design 4: Minimalist Chevron (Custom SVG) */
+  .design-4 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 16l-4-4 4-4M14 16l4-4-4-4'/%3E%3C/svg%3E") 12 12, ew-resize;
+  }
+
+  /* Design 5: Tiny Ghost Tab (Custom SVG) */
+  .design-5 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='30' height='20' viewBox='0 0 30 20' fill='rgba(59,130,246,0.3)' stroke='white' stroke-width='1' xmlns='http://www.w3.org/2000/svg'%3E%3Crect x='1' y='1' width='28' height='18' rx='4'/%3E%3C/svg%3E") 15 10, move;
+  }
+
+  /* Design 6: Native EW-Resize */
+  .design-6 .tab {
+    cursor: ew-resize;
+  }
+
+  /* Design 7: Native Move */
+  .design-7 .tab {
+    cursor: move;
+  }
+
+  /* Design 8: Standard Pointer with visual scale */
+  .design-8 .tab {
+    cursor: pointer;
+  }
+  .design-8 .tab:hover {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  /* Design 9: Default Arrow with Grip Indicator */
+  .design-9 .tab {
+    cursor: default;
+    background-image: radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px);
+    background-size: 4px 4px;
+    background-position: 4px center;
+    background-repeat: no-repeat;
+    padding-left: 20px;
+  }
+
+  /* Design 10: Neon Drag Glow (Custom SVG pointer) */
+  .design-10 .tab {
+    cursor: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='12' cy='12' r='6' fill='%233b82f6' filter='drop-shadow(0 0 4px %233b82f6)'/%3E%3C/svg%3E") 12 12, pointer;
+  }
+
+</style>
+</head>
+<body>
+
+  <h1>Drag Cursor Designs</h1>
+  <p style="text-align: center; color: var(--text-muted); margin-top: -30px; margin-bottom: 40px;">Hover and drag the tabs below to test the different cursor concepts.</p>
+  
+  <div class="grid">
+
+    <!-- Design 1 -->
+    <div class="design-card">
+      <div class="design-title">1. Modern Grip (Custom SVG)</div>
+      <div class="viewport design-1">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 2 -->
+    <div class="design-card">
+      <div class="design-title">2. Horizontal Arrows (Custom SVG)</div>
+      <div class="viewport design-2">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 3 -->
+    <div class="design-card">
+      <div class="design-title">3. Target Reticle (Custom SVG)</div>
+      <div class="viewport design-3">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 4 -->
+    <div class="design-card">
+      <div class="design-title">4. Minimalist Chevrons (Custom SVG)</div>
+      <div class="viewport design-4">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 5 -->
+    <div class="design-card">
+      <div class="design-title">5. Tiny Ghost Tab (Custom SVG)</div>
+      <div class="viewport design-5">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 6 -->
+    <div class="design-card">
+      <div class="design-title">6. Native Horizontal Resize</div>
+      <div class="viewport design-6">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 7 -->
+    <div class="design-card">
+      <div class="design-title">7. Native Move (Four-way)</div>
+      <div class="viewport design-7">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 8 -->
+    <div class="design-card">
+      <div class="design-title">8. Standard Pointer (No hand)</div>
+      <div class="viewport design-8">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 9 -->
+    <div class="design-card">
+      <div class="design-title">9. Default Arrow + Grip Pattern</div>
+      <div class="viewport design-9">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+    <!-- Design 10 -->
+    <div class="design-card">
+      <div class="design-title">10. Neon Drag Glow (Custom SVG)</div>
+      <div class="viewport design-10">
+        <div class="tab" draggable="true">Drag Me</div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

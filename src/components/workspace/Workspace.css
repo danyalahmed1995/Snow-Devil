@@ -73,7 +73,7 @@
 
 .workspace-tab--dragging {
   opacity: .74;
-  cursor: grabbing;
+  cursor: move;
   transition: none;
 }
 
