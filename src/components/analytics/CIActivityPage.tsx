@@ -30,7 +30,7 @@ export function CIActivityPage() {
   // Filter out workflow runs and sort them correctly
   const allRuns = useMemo(() => {
     if (!dataset) return [];
-    return dataset.rawWorkflowRuns.sort((a, b) => {
+    return dataset.rawWorkflowRuns.slice().sort((a, b) => {
       const timeA = new Date(a.occurredAt).getTime();
       const timeB = new Date(b.occurredAt).getTime();
       if (timeA !== timeB) return timeB - timeA;
@@ -170,9 +170,10 @@ export function CIActivityPage() {
     return () => clearInterval(interval);
   }, [isActive, repositoryId, allRuns, analytics, sync]);
 
-  const selectRow = (id: string) => {
+  const selectRow = useCallback((id: string) => {
     const run = allRuns.find(r => r.id === id);
     if (!run) return;
+    const metadata = (run.metadata ?? {}) as Record<string, unknown>;
     setTabState(activeTabId, {
       selectedAnalyticsEntity: {
         id: run.id,
@@ -182,10 +183,22 @@ export function CIActivityPage() {
         url: (run.metadata as any)?.htmlUrl,
         state: (run.metadata as any)?.conclusion ?? (run.metadata as any)?.status,
         occurredAt: run.occurredAt,
-        evidence: [JSON.stringify(run.metadata)]
+        evidence: [JSON.stringify(run.metadata)],
+        runId: String(metadata.runId ?? ''),
+        metadata,
       }
     });
-  };
+  }, [activeTabId, allRuns, setTabState]);
+
+  const openRunTab = useCallback((run: (typeof allRuns)[number]) => {
+    const runIdStr = (run.metadata as any)?.runId ?? run.id;
+    useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr) });
+  }, []);
+
+  const openJobTab = useCallback((run: (typeof allRuns)[number], jobId: string) => {
+    const runIdStr = (run.metadata as any)?.runId ?? run.id;
+    useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr), jobId });
+  }, []);
 
 
   
@@ -245,7 +258,7 @@ export function CIActivityPage() {
       <label>Branch<Select ariaLabel="Branch filter" searchable value={branchFilter} onChange={setBranchFilter} options={[{ value: 'all', label: 'All branches' }, ...branches.map(b => ({ value: b, label: b }))]}/></label>
       <label>Event<Select ariaLabel="Event filter" value={eventFilter} onChange={setEventFilter} options={[{ value: 'all', label: 'All events' }, { value: 'push', label: 'Push' }, { value: 'pull_request', label: 'Pull Request' }, { value: 'workflow_dispatch', label: 'Manual (Dispatch)' }, { value: 'schedule', label: 'Scheduled' }]}/></label>
       <label>Range<Select ariaLabel="Time range" value={rangeChoice} onChange={setRangeChoice} options={[{ value: '1', label: '24 hours' }, { value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]}/></label>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
          {remoteBranchesData.isFetching && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Loading branches...</span>}
          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{freshnessText}</span>
          <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? isTargetingRefreshing : false)} onClick={handleRefresh} />
@@ -303,37 +316,16 @@ export function CIActivityPage() {
                  )}
                </EmptyState>
              )}
-             {visibleRuns.slice(0, limit).map(run => {
-               const meta = run.metadata as any;
-               const workflowId = meta?.workflowId;
-               let sparklineRuns: number[] = [];
-               
-               if (workflowId) {
-                 sparklineRuns = allRuns
-                   .filter(r => r.repositoryId === run.repositoryId && (r.metadata as any)?.workflowId === workflowId && (r.metadata as any)?.durationMs > 0 && r.occurredAt <= run.occurredAt)
-                   .slice(0, 10)
-                   .map(r => (r.metadata as any).durationMs as number)
-                   .reverse(); // Reverse so it displays oldest to newest
-               }
-
-               return (
+             {visibleRuns.slice(0, limit).map(run => (
                  <CIRunRow 
                     key={run.id} 
                     run={run} 
                     isSelected={selectedId === run.id} 
-                    sparklineRuns={sparklineRuns} 
-                    onSelect={selectRow} 
-                    onOpenRun={() => {
-                       const runIdStr = (run.metadata as any)?.runId ?? run.id;
-                       useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr) });
-                    }}
-                    onOpenJob={(jobId) => {
-                       const runIdStr = (run.metadata as any)?.runId ?? run.id;
-                       useTabsStore.getState().openNativeTab(`ciRun:${run.repositoryId}:${runIdStr}`, 'ciRun', `CI #${(run.metadata as any)?.runNumber ?? '?'}`, false, true, { type: 'ciRun', repository: run.repositoryId, runId: String(runIdStr), jobId });
-                    }}
+                    onSelect={selectRow}
+                    onOpenRun={openRunTab}
+                    onOpenJob={openJobTab}
                  />
-               );
-             })}
+             ))}
              {visibleRuns.length > limit && (
                <div className="ci-load-more">
                  <button className="analytics-button" onClick={() => setLimit(l => l + 50)}>Load more runs ({visibleRuns.length - limit} remaining)</button>

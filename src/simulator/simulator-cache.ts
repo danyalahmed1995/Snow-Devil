@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { SimulatorEvent } from "./simulator-types";
-import { canonicalizeSimulatorEvents } from './canonical-event';
+import { canonicalizeSimulatorEvents, normalizeSimulatorEventProvenance } from './canonical-event';
 
 interface DbSimulatorEvent {
   id: string;
@@ -38,7 +38,8 @@ export function parseSimulatorCacheObject(value: string | null): Record<string, 
 }
 
 export async function saveSimulatorEventsToDb(events: SimulatorEvent[]): Promise<void> {
-  const dbEvents: DbSimulatorEvent[] = canonicalizeSimulatorEvents(events).map(e => ({
+  const persistedAt = new Date().toISOString();
+  const dbEvents: DbSimulatorEvent[] = canonicalizeSimulatorEvents(events).map(event => normalizeSimulatorEventProvenance(event, persistedAt)).map(e => ({
     id: e.id,
     repository_id: e.repositoryId,
     repository_name: e.repositoryName,
@@ -70,7 +71,7 @@ export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<S
     const subjectNumber = e.subject_number ?? (inferredNumber ? Number(inferredNumber) : undefined);
     const actor = parseSimulatorCacheObject(e.actor_json);
     const metadata = parseSimulatorCacheObject(e.metadata_json);
-    return ({
+    return normalizeSimulatorEventProvenance({
     id: e.id,
     repositoryId: e.repository_id,
     repositoryName: e.repository_name || repositoryName,
@@ -86,6 +87,10 @@ export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<S
     source: e.source,
     sourceCompleteness: e.completeness as any,
     inclusionReason: e.inclusion_reason as SimulatorEvent["inclusionReason"],
+    sourceOccurredAt: typeof metadata?.sourceOccurredAt === 'string' ? metadata.sourceOccurredAt : undefined,
+    observedAt: typeof metadata?.observedAt === 'string' ? metadata.observedAt : undefined,
+    persistedAt: typeof metadata?.persistedAt === 'string' ? metadata.persistedAt : undefined,
+    observationOnly: metadata?.observationOnly === true,
   });
   });
   const canonical = canonicalizeSimulatorEvents(normalized);
@@ -111,7 +116,7 @@ export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<S
   });
   const deduplicated = new Map<string, SimulatorEvent>();
   for (const event of enriched) {
-    const key = `${event.repositoryId}:${event.subjectId}:${event.eventType}:${event.occurredAt}`;
+    const key = event.id;
     const previous = deduplicated.get(key);
     if (!previous || eventQuality(event) > eventQuality(previous)) deduplicated.set(key, event);
   }

@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import type { WorkflowJob } from './useWorkflowJobs';
 import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics/identity';
 import { useAuthStore } from '../stores/auth-store';
+import { fetchPullRequestRiskSnapshot } from '../simulator/simulator-github-api';
+import { saveSimulatorEventsToDb } from '../simulator/simulator-cache';
 
 interface ApiResponse {
   status: number;
@@ -48,10 +50,12 @@ export function isRunTerminal(status: string, conclusion: string | null): boolea
   return false;
 }
 
-export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean) {
+export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean, canFetch = true) {
+  const [owner, repo] = repositoryId.split('/');
+  const hasCanonicalIdentity = Boolean(owner && repo && runId);
   return useQuery({
     queryKey: ['ciRunWatcher', repositoryId, runId, attemptNumber],
-    enabled: Boolean(repositoryId) && Boolean(runId),
+    enabled: canFetch && hasCanonicalIdentity,
     refetchInterval: (query) => {
       if (isTabActive === false) return false;
       const data = query.state.data;
@@ -62,10 +66,9 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
     },
     refetchOnWindowFocus: true,
     staleTime: 2000,
+    gcTime: 10 * 60 * 1000,
     retry: 2,
     queryFn: async (): Promise<RunWatcherState> => {
-      const [owner, repo] = repositoryId.split('/');
-      
       const runEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId);
       const runRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: runEndpoint });
       
@@ -88,6 +91,12 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
           payload_json: JSON.stringify(runData)
         };
         await invoke('save_analytics_records', { records: [record] }).catch(() => {});
+        if (isRunTerminal(runData.status, runData.conclusion) && runData.pull_requests?.length) {
+          await Promise.all(runData.pull_requests.map(async pullRequest => {
+            const events = await fetchPullRequestRiskSnapshot(repositoryId, pullRequest.number);
+            if (events.length) await saveSimulatorEventsToDb(events);
+          })).catch(() => {});
+        }
         import('../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['delivery-analytics'] })).catch(() => {});
       }
 

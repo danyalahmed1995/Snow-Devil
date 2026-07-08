@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAccountSimulatorSnapshot } from './account-simulator-loader';
-import { fetchAccountActivityWithCoverage, fetchRepositoryActivity, type AccountActivitySource } from './simulator-github-api';
+import { fetchAccountActivityWithCoverage, fetchPullRequestRiskSnapshot, fetchRepositoryActivity, type AccountActivitySource } from './simulator-github-api';
 import { SimulatorSafeError } from './simulator-errors';
 import type { SimulatorEvent } from './simulator-types';
 
@@ -128,7 +128,7 @@ describe('account simulator source collection', () => {
     const currentSource = { ...source('current-assigned', 'assigned_to_you'), currentState: true };
     const result = await fetchAccountActivityWithCoverage('octo', '2026-06-01T00:00:00Z', '2026-06-30T00:00:00Z', [currentSource]);
     expect(result.events).toEqual(expect.arrayContaining([
-      expect.objectContaining({ eventType: 'opened', occurredAt: '2026-06-01T00:00:00Z', metadata: expect.objectContaining({ baselineLabel: 'Existing at replay start' }) }),
+      expect.objectContaining({ eventType: 'opened', occurredAt: '2026-06-30T00:00:00Z', observedAt: '2026-06-30T00:00:00Z', observationOnly: true, actor: undefined, metadata: expect.objectContaining({ baselineLabel: 'Existing at replay start' }) }),
       expect.objectContaining({ eventType: 'reopened', occurredAt: '2026-06-30T00:00:00Z', source: 'github-current-state' }),
     ]));
     expect(result.events.filter(event => event.occurredAt < '2026-06-30T00:00:00Z').some(event => event.metadata.currentSnapshot)).toBe(false);
@@ -245,5 +245,20 @@ describe('repository simulator compatibility', () => {
       expect.objectContaining({ subjectId: 'pull-request:octo/repo:2', eventType: 'opened', source: 'github-current-state' }),
       expect.objectContaining({ subjectId: 'pull-request:octo/repo:2', eventType: 'reopened', source: 'github-current-state' }),
     ]));
+  });
+
+  it('refreshes one PR with stable review source evidence and observation-only policy state', async () => {
+    mockedInvoke.mockResolvedValue({ data: { repository: { pullRequest: { id: 'PR_node', number: 56881, title: 'Fix spans', url: 'https://github.com/react/react-native/pull/56881', createdAt: '2026-05-01T00:00:00Z', updatedAt: '2026-05-28T23:37:29Z', state: 'OPEN', isDraft: false, headRefOid: 'abc', mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED', reviewDecision: 'CHANGES_REQUESTED', author: { login: 'pr-author' }, reviewRequests: { nodes: [] }, commits: { nodes: [{ commit: { oid: 'abc', statusCheckRollup: { state: 'SUCCESS' } } }] }, timelineItems: { nodes: [{ __typename: 'PullRequestReview', id: 'PRR_node', databaseId: 77, createdAt: '2026-05-20T15:07:56Z', submittedAt: '2026-05-20T15:07:56Z', updatedAt: '2026-05-20T15:07:56Z', state: 'CHANGES_REQUESTED', author: { login: 'javache' } }] } } } } });
+    const events = await fetchPullRequestRiskSnapshot('react/react-native', 56881, '2026-07-06T00:00:00Z');
+    expect(events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'pull-request:react/react-native:56881:review:PRR_node', occurredAt: '2026-05-20T15:07:56Z', sourceOccurredAt: '2026-05-20T15:07:56Z', actor: { login: 'javache' }, observationOnly: false }),
+      expect.objectContaining({ id: 'pull-request:react/react-native:56881:current-open', occurredAt: '2026-05-28T23:37:29Z', observedAt: '2026-07-06T00:00:00Z', actor: undefined, observationOnly: true }),
+    ]));
+  });
+
+  it('records review-required merge policy independently from successful checks', async () => {
+    mockedInvoke.mockResolvedValue({ data: { repository: { pullRequest: { id: 'PR_9', number: 9, title: 'Nine', createdAt: '2026-07-01T00:00:00Z', updatedAt: '2026-07-06T00:17:44Z', state: 'OPEN', isDraft: false, headRefOid: 'head', mergeable: 'MERGEABLE', mergeStateStatus: 'BLOCKED', reviewDecision: 'REVIEW_REQUIRED', reviewRequests: { nodes: [] }, commits: { nodes: [{ commit: { oid: 'head', statusCheckRollup: { state: 'SUCCESS' } } }] }, timelineItems: { nodes: [] } } } } });
+    const events = await fetchPullRequestRiskSnapshot('danyalahmed1995/Snow-Devil', 9, '2026-07-06T01:00:00Z');
+    expect(events.find(value => value.id.endsWith(':current-open'))?.metadata).toMatchObject({ reviewDecision: 'REVIEW_REQUIRED', mergeStateStatus: 'BLOCKED', mergeability: 'MERGEABLE', requiredApprovalCount: 1, qualifyingApprovalCount: 0, approvalRequirementConfidence: 'partial' });
   });
 });

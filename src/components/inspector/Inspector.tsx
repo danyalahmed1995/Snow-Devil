@@ -16,6 +16,7 @@ import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-pre
 import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
 import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
+import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { Loader2 } from 'lucide-react';
 import './Inspector.css';
 
@@ -65,26 +66,31 @@ type InspectorTab = 'details' | 'timeline';
 function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
   const activeTabId = useTabsStore(state => state.activeTabId);
   const selected = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity);
-  if (!selected) return <p className="inspector-empty">Select a row or work item to view its evidence</p>;
+  if (!selected) return <p className="inspector-empty">Select a delivery risk to understand why it appears.</p>;
+  const isRisk = selected.kind === 'inventory';
   return <div className={`inspector-details inspector-details--${tab}`}>
-    <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={selected.kind === 'inventory' ? 'warning' : selected.kind === 'ci_health' ? 'info' : 'good'}>{selected.kind.replace(/_/g, ' ')}</Badge>{selected.state && <span className="inspector-stage-badge">{selected.state}</span>}</div><h4 className="inspector-title">{selected.title}</h4>{selected.repositoryId && <p className="inspector-repository">{selected.repositoryId}{selected.number ? ` #${selected.number}` : ''}</p>}</section>
-    <section className="inspector-section"><h5 className="section-title">Why it appears</h5><p className="meta-val">{selected.reason ?? 'Selected from delivery analytics.'}</p><div className="metadata">{selected.confidence && <Meta label="Confidence">{selected.confidence}</Meta>}{selected.coverage && <Meta label="Coverage">{selected.coverage}</Meta>}{selected.sampleCount != null && <Meta label="Qualifying samples">{selected.sampleCount}</Meta>}{selected.excludedCount != null && <Meta label="Excluded / incomplete">{selected.excludedCount}</Meta>}{selected.occurredAt && <Meta label="Last activity">{new Date(selected.occurredAt).toLocaleString()}</Meta>}{selected.relatedEntityIds && <Meta label="Related entities">{selected.relatedEntityIds.length}</Meta>}</div>{selected.definition && <p className="inspector-partial">{selected.definition}</p>}</section>
+    <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={isRisk ? 'warning' : selected.kind === 'ci_health' ? 'info' : 'good'}>{isRisk ? 'Delivery Risk' : selected.kind.replace(/_/g, ' ')}</Badge>{selected.state && <span className="inspector-stage-badge">{selected.state}</span>}</div><h4 className="inspector-title">{selected.title}</h4>{selected.repositoryId && <p className="inspector-repository">{selected.repositoryId}{selected.number ? ` #${selected.number}` : ''}</p>}</section>
+    <section className="inspector-section"><h5 className="section-title">{isRisk ? 'Summary' : 'Why it appears'}</h5>{isRisk && <div className="metadata"><Meta label="Work item">{selected.title}</Meta><Meta label="Repository">{selected.repositoryId ?? 'Unknown'}</Meta><Meta label="Entity type">{selected.entityType?.replace(/_/g, ' ') ?? 'Unknown'}</Meta><Meta label="Current state">{selected.state ?? 'Unknown'}</Meta><Meta label="Primary risk">{selected.riskLabel ?? selected.riskCategory?.replace(/_/g, ' ') ?? 'Unknown'}</Meta><Meta label="Requested by">{selected.riskActor ?? 'Unknown actor'}</Meta><Meta label="Since">{selected.riskStartedAt ? new Date(selected.riskStartedAt).toLocaleString() : 'Source timestamp unavailable'}</Meta><Meta label="Secondary risks">{selected.secondaryRisks?.map(value => value.replace(/_/g, ' ')).join(', ') || 'None'}</Meta><Meta label="Age in risk state">{selected.riskAgeDays == null ? 'Unknown' : `${Math.ceil(selected.riskAgeDays)} business days`}</Meta>{selected.occurredAt && <Meta label="Last meaningful activity">{new Date(selected.occurredAt).toLocaleString()} · {selected.lastActivityLabel ?? 'activity'} · {selected.lastActivityActor ?? 'Unknown actor'}</Meta>}<Meta label="Review decision">{selected.reviewDecision?.replace(/_/g, ' ') ?? 'unknown'}</Meta><Meta label="Merge state">{selected.mergeStateStatus?.replace(/_/g, ' ') ?? 'unknown'}</Meta><Meta label="Required approvals">{selected.requiredApprovalCount ?? 'Unknown'}</Meta><Meta label="Qualifying approvals">{selected.qualifyingApprovalCount ?? 'Unknown'}</Meta><Meta label="Relevant owner">{selected.owner ?? 'Unassigned'}</Meta><Meta label="Confidence">{selected.confidence ?? 'unknown'}</Meta>{selected.latestSnapshotAt && <Meta label="Data freshness">GitHub data synchronized {new Date(selected.latestSnapshotAt).toLocaleString()}</Meta>}</div>}<h5 className="section-title inspector-subtitle">Why it is here</h5><p className="meta-val">{selected.reason ?? 'Selected from delivery analytics.'}</p>{!isRisk && <div className="metadata">{selected.confidence && <Meta label="Confidence">{selected.confidence}</Meta>}{selected.coverage && <Meta label="Coverage">{selected.coverage}</Meta>}{selected.sampleCount != null && <Meta label="Qualifying samples">{selected.sampleCount}</Meta>}{selected.excludedCount != null && <Meta label="Excluded / incomplete">{selected.excludedCount}</Meta>}{selected.occurredAt && <Meta label="Last activity">{new Date(selected.occurredAt).toLocaleString()}</Meta>}{selected.relatedEntityIds && <Meta label="Related entities">{selected.relatedEntityIds.length}</Meta>}</div>}{selected.definition && !isRisk && <p className="inspector-partial">{selected.definition}</p>}</section>
     {selected.lineage && <section className="inspector-section inspector-lineage"><h5 className="section-title">Metric lineage</h5><div className="metadata"><Meta label="Formula">{selected.lineage.formula}</Meta><Meta label="Numerator">{selected.lineage.numerator}</Meta><Meta label="Denominator">{selected.lineage.denominator}</Meta><Meta label="Time basis">{selected.lineage.timeBasis}</Meta><Meta label="Coverage">{selected.lineage.coverageStart ? new Date(selected.lineage.coverageStart).toLocaleDateString() : 'Unavailable'} – {selected.lineage.coverageEnd ? new Date(selected.lineage.coverageEnd).toLocaleDateString() : 'current'}</Meta><Meta label="Sample quality">{selected.lineage.sampleCount} included · {selected.lineage.excludedOrIncompleteCount} excluded/incomplete</Meta></div><div><strong className="meta-key">Included repositories</strong><p className="meta-val">{selected.lineage.repositoriesIncluded.join(', ') || 'None'}</p></div><div><strong className="meta-key">Included entity types</strong><p className="meta-val">{selected.lineage.includedEntityTypes.join(', ')}</p></div><div><strong className="meta-key">Evidence sources</strong><p className="meta-val">{selected.lineage.evidenceSources.join(' · ')}</p></div>{selected.lineage.failedOrSkipped.length>0&&<p className="inspector-partial">Failed, skipped, or partial: {selected.lineage.failedOrSkipped.join(' · ')}</p>}</section>}
-    {selected.evidence && selected.evidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Evidence</h5>{selected.evidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</section>}
-    {selected.missingEvidence && selected.missingEvidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Missing evidence</h5>{selected.missingEvidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</section>}
+    {selected.evidence && selected.evidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Evidence</h5><p className="inspector-evidence-label">{selected.confidence === 'exact' ? 'Exact evidence' : 'Partial evidence'}</p><div className="metadata"><Meta label="Checks">{selected.checksState ?? 'unknown'}</Meta><Meta label="Review">{selected.reviewSummaryState ?? 'unknown'}</Meta><Meta label="Mergeability">{selected.mergeability ?? 'unknown'}</Meta><Meta label="Delivery">{selected.deliveryState ?? 'unknown'}</Meta></div><details className="inspector-technical"><summary>Technical details</summary>{selected.evidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</details></section>}
+    {selected.missingEvidence && selected.missingEvidence.length > 0 && <section className="inspector-section"><h5 className="section-title">Unknown evidence</h5>{selected.missingEvidence.map(item => <p className="meta-val" key={item}>{item}</p>)}</section>}
+    {isRisk && <section className="inspector-section"><h5 className="section-title">Suggested next action</h5><p className="meta-val">{selected.suggestedAction ?? 'Inspect evidence'}</p></section>}
     {selected.timeline && selected.timeline.length > 0 && <section className="inspector-section inspector-timeline-section"><h5 className="section-title">Delivery timeline</h5><div className="inspector-timeline">{selected.timeline.map(item => <div key={`${item.label}-${item.occurredAt}`}><i /><span><strong>{item.label}</strong><small>{new Date(item.occurredAt).toLocaleString()} | {item.confidence}</small></span></div>)}</div></section>}
   </div>;
 }
 
 function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable; tab: InspectorTab }) {
-  const metadata = selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null;
+  const [loadJobs, setLoadJobs] = useState(false);
+  const metadata = selected.metadata ?? (selected.evidence && selected.evidence.length > 0 ? JSON.parse(selected.evidence[0]) : null);
+  const runId = String(selected.runId ?? metadata?.runId ?? '');
   
   const { data: watcherState, isLoading, error } = useWorkflowRunWatcher(
     selected.repositoryId || '',
-    metadata?.runId as string,
+    runId,
     metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
     true,
-    true
+    true,
+    loadJobs
   );
 
   if (!metadata) return <p className="inspector-empty">No workflow data available.</p>;
@@ -135,9 +141,10 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
 
     <section className="inspector-section">
       <h5 className="section-title">Jobs</h5>
+      {!loadJobs && <button className="inspector-load-jobs-btn" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
       {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
       {error && <div className="ci-jobs-error">Failed to load jobs</div>}
-      {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
+      {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
       {jobs && jobs.length > 0 && (
         <ul className="ci-jobs-list">
           {jobs.map(job => (
@@ -199,6 +206,8 @@ export function Inspector() {
   const [copyStatus, setCopyStatus] = useState('');
   const [inspectorTabState, setInspectorTabState] = useState<{ entityKey:string; tab:InspectorTab }>({ entityKey:'', tab:'details' });
   const appMode = useModeStore(state => state.mode);
+  const analyticsSettings = useAnalyticsSettingsStore(state => state.settings);
+  const updateAnalyticsSettings = useAnalyticsSettingsStore(state => state.updateSettings);
   const setInspectorOpen = useLayoutStore(state => state.setInspectorOpen);
   const { tabs, activeTabId, openBrowserTab, openNativeTab } = useTabsStore();
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
@@ -246,7 +255,13 @@ export function Inspector() {
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
       {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context">
-        <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button>
+        {flowState.selectedAnalyticsEntity.kind === 'inventory' ? <>
+          {flowState.selectedAnalyticsEntity.suggestedAction === 'Open CI' && <button className="inspector-open-flow" type="button" onClick={() => { const selected = flowState.selectedAnalyticsEntity!; if (selected.runId) openNativeTab(`ciRun:${selected.repositoryId}:${selected.runId}`, 'ciRun', 'CI Run', false, true, { type: 'ciRun', repository: selected.repositoryId!, runId: selected.runId }); else openNativeTab('native:ci-health', 'ciHealth', 'CI Activity', false, true); }}><ArrowRightCircle size={12} /> {flowState.selectedAnalyticsEntity.runId ? 'Open CI Run' : 'Open CI Activity'}</button>}
+          {flowState.selectedAnalyticsEntity.entityType === 'pull_request' && flowState.selectedAnalyticsEntity.number && <button className="inspector-open-flow" type="button" onClick={() => { const selected = flowState.selectedAnalyticsEntity!; openNativeTab(`native:pr:${selected.repositoryId}:${selected.number}`, 'pullRequestDiff', `PR #${selected.number}`, false, true, { type: 'pullRequest', repository: selected.repositoryId!, number: selected.number! }); }}><ArrowRightCircle size={12} /> Open Pull Request</button>}
+          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; openNativeTab(`native:repo:${repository}`, 'repositoryExplorer', repository.split('/').pop() ?? repository, false, true, { type: 'repository', repository }); }}><History size={12} /> Open Repository</button>
+          <button className="inspector-open-flow" type="button" onClick={() => { const selected = flowState.selectedAnalyticsEntity!; const muted = analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === selected.id.toLowerCase()); const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[selected.id]; else deliveryRiskMuteMetadata[selected.id] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskItems: muted ? analyticsSettings.mutedDeliveryRiskItems.filter(id => id.toLowerCase() !== selected.id.toLowerCase()) : [...analyticsSettings.mutedDeliveryRiskItems, selected.id], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.id.toLowerCase()) ? 'Restore Item' : 'Mute Item'}</button>
+          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; const repositoryKey = repository.toLowerCase(); const muted = analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === repositoryKey); const metadataKey = `repository:${repositoryKey}`; const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[metadataKey]; else deliveryRiskMuteMetadata[metadataKey] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskRepositories: muted ? analyticsSettings.mutedDeliveryRiskRepositories.filter(id => id.toLowerCase() !== repositoryKey) : [...analyticsSettings.mutedDeliveryRiskRepositories, repositoryKey], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.repositoryId!.toLowerCase()) ? 'Restore Repository' : 'Mute Repository'}</button>
+        </> : <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button>}
         {flowState.selectedAnalyticsEntity.kind === 'ci_health' && (
           <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
         )}
@@ -275,7 +290,7 @@ export function Inspector() {
           </button>
         )}
         <button type="button" aria-label="Open in Default Browser" data-tooltip="Open in Default Browser\nOpen the validated canonical GitHub URL outside Snow Devil." onClick={() => void openInDefaultBrowser(target.url).then(() => setCopyStatus('Opened in default browser')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Open unavailable'))}><Globe size={12} /> Open in Browser</button><button type="button" data-tooltip="Copy Link\nCopy the validated canonical GitHub URL for this entity." onClick={() => void copyCanonicalLink(target.url).then(() => setCopyStatus('Link copied')).catch(error => setCopyStatus(error instanceof Error ? error.message : 'Copy unavailable'))}><Copy size={12} /> Copy Link</button>
-        {isAnalytics && flowState.selectedAnalyticsEntity?.kind === 'workflow_run' ? (
+        {isAnalytics && flowState.selectedAnalyticsEntity?.kind === 'inventory' ? null : isAnalytics && flowState.selectedAnalyticsEntity?.kind === 'workflow_run' ? (
            <button className="open-link inspector-open-tab" type="button" data-tooltip="Open in Tab\nOpen native CI Run Watcher inside Snow Devil." onClick={() => {
               const e = flowState.selectedAnalyticsEntity!;
               const m = (e as any).metadata;

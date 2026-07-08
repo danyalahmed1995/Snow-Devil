@@ -41,13 +41,15 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(screen.getByLabelText('Lead time distribution')).toBeInTheDocument();
   });
 
-  it('filters inventory and selects an evidence-backed item', () => {
+  it('filters Delivery Risks and selects an evidence-backed item', () => {
     renderPage(<InventoryPage />);
-    expect(screen.getByRole('heading', { name: 'Delivery Inventory' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Delivery Risks' })).toBeInTheDocument();
     expect(screen.queryByText(/experiment\/old-renderer/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Inventory repository scope'));
+    fireEvent.click(screen.getByLabelText('Saved Delivery Risks views'));
+    fireEvent.click(screen.getByRole('option', { name: 'Human Stale Work' }));
+    fireEvent.click(screen.getByLabelText('Delivery Risks repository scope'));
     fireEvent.click(screen.getByRole('option', { name: 'All accessible repositories' }));
-    fireEvent.change(screen.getByLabelText('Search inventory'), { target: { value: 'old-renderer' } });
+    fireEvent.change(screen.getByLabelText('Search delivery risks'), { target: { value: 'old-renderer' } });
     const row = screen.getByText(/experiment\/old-renderer/).closest('tr');
     expect(row).not.toBeNull();
     fireEvent.click(row!);

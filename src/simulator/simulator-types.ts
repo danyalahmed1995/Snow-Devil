@@ -64,6 +64,10 @@ export interface SimulatorEvent {
   id: string;
   source: string;
   occurredAt: string;
+  sourceOccurredAt?: string;
+  observedAt?: string;
+  persistedAt?: string;
+  observationOnly?: boolean;
 
   repositoryId: string;
   repositoryName: string;
@@ -149,6 +153,14 @@ export interface SimulatorEntityState {
     | "requested"
     | "approved"
     | "changes_requested";
+  reviewDecision?: "none" | "approved" | "changes_requested" | "review_required" | "unknown";
+  mergeStateStatus?: string;
+  mergeability?: "mergeable" | "conflicting" | "blocked" | "unknown";
+  requiredApprovalCount?: number;
+  qualifyingApprovalCount?: number;
+  approvalRequirementConfidence?: "exact" | "partial";
+  headSha?: string;
+  latestSnapshotAt?: string;
 
   checkState:
     | "unknown"

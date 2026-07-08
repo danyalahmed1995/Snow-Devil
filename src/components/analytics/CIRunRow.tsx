@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, Loader2, MinusCircle, ChevronRight } from 'lucide-react';
 import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
@@ -55,7 +55,18 @@ export function StatusIcon({ status, conclusion, size = 14 }: { status?: string;
   );
 }
 
-export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { run: SimulatorEvent; isSelected: boolean; sparklineRuns?: number[]; onSelect: (id: string) => void; onOpenRun?: () => void; onOpenJob?: (jobId: string) => void; }) {
+export interface CIRunRowProps {
+  run: SimulatorEvent;
+  isSelected: boolean;
+  onSelect: (id: string) => void;
+  onOpenRun?: (run: SimulatorEvent) => void;
+  onOpenJob?: (run: SimulatorEvent, jobId: string) => void;
+}
+
+function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: CIRunRowProps) {
+  if (import.meta.env.DEV) {
+    (window as any).__SNOW_DEVIL_CI_ROW_RENDER_PROBE__?.(run.id);
+  }
   const [expanded, setExpanded] = useState(false);
   const m = run.metadata as Record<string, any> | undefined;
   const status = m?.status as string | undefined;
@@ -111,10 +122,10 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
   return (
     <div 
       className={`ci-activity-row ${isSelected ? 'is-selected' : ''} ${expanded ? 'is-expanded' : ''} ${rowStateClass}`}
-      onDoubleClick={onOpenRun}
+      onDoubleClick={() => onOpenRun?.(run)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && onOpenRun) {
-           onOpenRun();
+           onOpenRun(run);
         }
       }}
       tabIndex={0}
@@ -130,7 +141,27 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
         </div>
 
         <div className="ci-activity-row__tags">
-          <span className="ci-tag ci-tag--repo" title="Repository">{run.repositoryName}</span>
+          <span 
+            role="button"
+            tabIndex={0}
+            className="ci-tag ci-tag--repo" 
+            title="Open Repository"
+            onClick={(e) => {
+              e.stopPropagation();
+              import('../../stores/tabs-store').then(({ useTabsStore }) => {
+                useTabsStore.getState().openNativeTab(
+                  `native:repo:${run.repositoryId}`, 
+                  'repositoryExplorer', 
+                  run.repositoryName, 
+                  false, 
+                  true, 
+                  { type: 'repository', repository: run.repositoryId, ref: branchName || undefined }
+                );
+              });
+            }}
+          >
+            {run.repositoryName}
+          </span>
           <div className="ci-activity-row__git-tags">
             {branchName && (
               <span className={`ci-tag ci-tag--branch branch-state--${branchState}`} title="Branch">
@@ -203,11 +234,12 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
                   );
                 });
               }}
+              onDoubleClick={(e) => e.stopPropagation()}
             >
               <ExternalLink size={14} />
             </button>
           )}
-          <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} aria-expanded={expanded}>
+          <button type="button" className="ci-activity-row__expand" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }} onDoubleClick={(e) => e.stopPropagation()} aria-expanded={expanded}>
             <ChevronRight size={14} className={expanded ? 'is-expanded' : ''} />
           </button>
         </div>
@@ -235,7 +267,7 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
                   jobState = 'state-skipped';
                 }
                 return (
-                  <li key={job.id} className={`ci-job-item ${jobState}`} onClick={(e) => { e.stopPropagation(); onOpenJob?.(String(job.id)); }}>
+                  <li key={job.id} className={`ci-job-item ${jobState}`} onClick={(e) => { e.stopPropagation(); onOpenJob?.(run, String(job.id)); }}>
                     <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
                     <span className="ci-job-name">{job.name}</span>
                     {job.status === 'in_progress' && job.steps?.length > 0 && (
@@ -257,6 +289,8 @@ export function CIRunRow({ run, isSelected, onSelect, onOpenRun, onOpenJob }: { 
     </div>
   );
 }
+
+export const CIRunRow = memo(CIRunRowComponent);
 
 
 

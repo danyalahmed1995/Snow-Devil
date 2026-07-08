@@ -31,6 +31,22 @@ const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(m
 
 function SurfaceLoading() { return <div className="workspace-loading" role="status">Loading workspace surface…</div>; }
 
+function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
+  const closeTab = useTabsStore(state => state.closeTab);
+  const openNativeTab = useTabsStore(state => state.openNativeTab);
+  return (
+    <div className="workspace-loading" role="alert">
+      <h2>CI run tab could not be restored</h2>
+      <p>This saved tab is missing its repository or workflow run identity.</p>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="analytics-button" onClick={() => useTabsStore.getState().setActiveTab(tab.id)}>Retry</button>
+        <button className="analytics-button" onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Activity', false, true)}>Open CI Activity</button>
+        <button className="analytics-button" onClick={() => closeTab(tab.id)}>Close Tab</button>
+      </div>
+    </div>
+  );
+}
+
 function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: number }) {
   return <TabInstanceProvider tabId={tab.id}>
     <Suspense fallback={<SurfaceLoading />}>
@@ -46,7 +62,8 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
       {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}
-      {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.jobId} />}
+      {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.selectedJobId ?? tab.context.jobId} />}
+      {tab.kind === 'ciRun' && tab.context?.type !== 'ciRun' && <InvalidCIRunTab tab={tab} />}
       {tab.kind === 'notifications' && <NotificationsPage />}
       {tab.kind === 'organizations' && <ListView type="organizations" />}
       {tab.kind === 'evidenceGraph' && <EvidenceGraphPage rootId={tab.context?.type === 'evidenceGraph' ? tab.context.rootId : undefined} />}

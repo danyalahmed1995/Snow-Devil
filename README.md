@@ -28,7 +28,7 @@ The product is intentionally evidence-aware: incomplete GitHub data is labeled p
 ### Desktop workspace
 
 - Persistent native and embedded-GitHub tabs with restored-state migration and sanitization.
-- Home, Flow, CI Health, Inventory, Flow Analytics, Personal Focus, Account History, Repository History, Settings, Notifications, Evidence Graph, Repository Explorer, and Pull Request Diff surfaces.
+- Home, Flow, CI Activity, Delivery Risks, Flow Analytics, Personal Focus, Account History, Repository History, Settings, Notifications, Evidence Graph, Repository Explorer, and Pull Request Diff surfaces.
 - Tab context menus, refresh behavior, keyboard navigation, middle-click close, pinned tabs, and safe fallback to Home.
 - Shell-level render recovery so malformed restored state produces a recovery screen instead of a blank window.
 - One canonical Snow Devil dark visual system with responsive desktop layouts, reduced-motion support, visible focus states, and semantic status colors.
@@ -82,7 +82,7 @@ The former simulators are now date-first cumulative history explorers:
 ### Analytics and evidence
 
 - CI Health with branch age, integration activity, health grades, percentiles, and inspectable lineage.
-- Delivery Inventory with unique work-item aggregation, age bands, blocked/failing/review views, and search/sort controls.
+- Delivery Risks with evidence-backed blocked, review, stale, ready-to-merge, and delivery-status triage across repositories.
 - Flow Analytics with cumulative flow, throughput, lead-time distributions, review wait, check timing, percentiles, outlier handling, and source coverage.
 - Personal Focus with reviews requested, authored work, failed checks, WIP, aging/dormant work, and local dismiss/snooze/exclusion preferences.
 - Metric lineage in the Inspector, including formula, sample count, time basis, included repositories, exclusions, and confidence.

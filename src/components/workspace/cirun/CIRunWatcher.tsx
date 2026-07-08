@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabsStore } from '../../../stores/tabs-store';
+import { useAuthStore } from '../../../stores/auth-store';
 import { useCurrentTabId } from '../TabInstanceContext';
 import { useWorkflowRunWatcher } from '../../../hooks/useWorkflowRunWatcher';
 import { useWorkflowJobLog } from '../../../hooks/useWorkflowJobLog';
@@ -17,6 +18,10 @@ function getStatusIcon(status: string, conclusion: string | null) {
 export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId }: { repositoryId: string, runId: string, initialAttempt?: number, initialJobId?: string }) {
   const activeTabId = useCurrentTabId();
   const isActive = useTabsStore(state => state.activeTabId === activeTabId);
+  const updateNativeTabContext = useTabsStore(state => state.updateNativeTabContext);
+  const openNativeTab = useTabsStore(state => state.openNativeTab);
+  const closeTab = useTabsStore(state => state.closeTab);
+  const session = useAuthStore(state => state.session);
   const isForeground = document.hasFocus() && isActive;
   
   const [selectedAttempt, setSelectedAttempt] = useState<number | undefined>(initialAttempt);
@@ -28,45 +33,45 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   const [downloadProgress, setDownloadProgress] = useState('');
   const [copied, setCopied] = useState(false);
   const [copiedStepNumber, setCopiedStepNumber] = useState<number | null>(null);
+  const [logsRequested, setLogsRequested] = useState(false);
+
+  const { data: watcherState, error, isLoading, refetch, isFetching } = useWorkflowRunWatcher(repositoryId, runId, selectedAttempt, isForeground, isActive, session.status === 'connected');
+
+  const hasCanonicalIdentity = Boolean(repositoryId.includes('/') && runId);
+
+  const jobs = useMemo(() => watcherState?.jobs ?? [], [watcherState?.jobs]);
+
+  const fallbackJobId = useMemo(() => {
+    const failedJob = jobs.find(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
+    if (failedJob) return String(failedJob.id);
+    const runningJob = jobs.find(j => j.status === 'in_progress' || j.status === 'queued' || j.status === 'waiting');
+    if (runningJob) return String(runningJob.id);
+    return jobs[0] ? String(jobs[0].id) : undefined;
+  }, [jobs]);
+
+  const effectiveSelectedJobId = selectedJobId && jobs.some(j => String(j.id) === selectedJobId) ? selectedJobId : fallbackJobId;
+  const selectedJob = useMemo(() => jobs.find(j => String(j.id) === effectiveSelectedJobId), [jobs, effectiveSelectedJobId]);
 
   useEffect(() => {
-    if (initialJobId) {
-      setSelectedJobId(initialJobId);
-    }
-  }, [initialJobId]);
-
-  useEffect(() => {
-    if (initialAttempt) {
-      setSelectedAttempt(initialAttempt);
-    }
-  }, [initialAttempt]);
-  
-  const { data: watcherState, error, isLoading, refetch, isFetching } = useWorkflowRunWatcher(repositoryId, runId, selectedAttempt, isForeground, isActive);
-  
-  // Safe default to current attempt if missing
-  useEffect(() => {
-    if (watcherState?.run && !selectedAttempt) {
-      setSelectedAttempt(watcherState.run.run_attempt);
-    }
-  }, [watcherState?.run, selectedAttempt]);
-
-  const jobs = watcherState?.jobs || [];
-  
-  useEffect(() => {
-    if (!selectedJobId && jobs.length > 0) {
-      const failedJob = jobs.find(j => j.conclusion === 'failure' || j.conclusion === 'timed_out');
-      if (failedJob) setSelectedJobId(String(failedJob.id));
-      else setSelectedJobId(String(jobs[0].id));
-    }
-  }, [jobs, selectedJobId]);
-
-  const selectedJob = useMemo(() => jobs.find(j => String(j.id) === selectedJobId), [jobs, selectedJobId]);
+    if (!watcherState?.run || !activeTabId) return;
+    updateNativeTabContext(activeTabId, {
+      type: 'ciRun',
+      repository: repositoryId,
+      repositoryId: watcherState.run.repository?.id,
+      runId,
+      runNumber: watcherState.run.run_number,
+      attempt: selectedAttempt ?? watcherState.run.run_attempt,
+      selectedJobId: effectiveSelectedJobId,
+      selectedJobName: selectedJob?.name,
+      schemaVersion: 1,
+    });
+  }, [activeTabId, effectiveSelectedJobId, repositoryId, runId, selectedAttempt, selectedJob?.name, updateNativeTabContext, watcherState]);
   
   const isJobActive = selectedJob?.status === 'in_progress';
   const { data: logData, isLoading: isLogLoading, refetch: refetchLog, isFetching: isLogFetching } = useWorkflowJobLog(
     repositoryId, 
-    selectedJobId || '', 
-    Boolean(selectedJobId && (selectedJob?.status === 'completed' || isJobActive)),
+    effectiveSelectedJobId || '',
+    Boolean(logsRequested && effectiveSelectedJobId && (selectedJob?.status === 'completed' || isJobActive)),
     isJobActive
   );
 
@@ -157,6 +162,11 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   };
 
   const handleCopyJobLogs = async () => {
+    setLogsRequested(true);
+    if (!logData?.text) {
+      await refetchLog();
+      return;
+    }
     if (!logData?.text) return;
     const plainText = stripAnsi(logData.text);
     try {
@@ -255,26 +265,51 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
      return logsByStep;
   }, [logData, selectedJob]);
 
-  // Reset expanded step when job changes
-  useEffect(() => {
-     setExpandedStepNumber(null);
-  }, [selectedJobId]);
+  const selectJob = (jobId: string) => {
+    setSelectedJobId(jobId);
+    setExpandedStepNumber(null);
+    setLogsRequested(false);
+  };
+
+  const toggleStep = (stepNumber: number) => {
+    const next = expandedStepNumber === stepNumber ? null : stepNumber;
+    setExpandedStepNumber(next);
+    if (next !== null) setLogsRequested(true);
+  };
+
+  const retry = () => void refetch();
+
+  if (!hasCanonicalIdentity) {
+    return <div className="ci-run-watcher ci-run-state" role="alert"><AlertCircle /><h2>CI run tab could not be restored</h2><p>This saved tab is missing its repository or workflow run identity.</p><div className="ci-run-state-actions"><button className="ci-btn" onClick={retry}>Retry</button><button className="ci-btn" onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Activity', false, true)}>Open CI Activity</button><button className="ci-btn" onClick={() => closeTab(activeTabId)}>Close Tab</button></div></div>;
+  }
+
+  if (session.status === 'checking') {
+    return <div className="ci-run-watcher ci-run-state" role="status"><Loader2 className="is-spinning" /><h2>Restoring CI run…</h2><p>Waiting for your GitHub session before loading run #{runId}.</p></div>;
+  }
+
+  if (session.status === 'disconnected' || session.status === 'error') {
+    return <div className="ci-run-watcher ci-run-state" role="alert"><AlertCircle /><h2>Waiting for GitHub access</h2><p>{session.status === 'error' ? session.message : 'Reconnect GitHub to load this workflow run.'}</p><div className="ci-run-state-actions"><button className="ci-btn" onClick={retry}>Retry</button><button className="ci-btn" onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Activity', false, true)}>Open CI Activity</button><button className="ci-btn" onClick={() => closeTab(activeTabId)}>Close Tab</button></div></div>;
+  }
 
   if (isLoading && !watcherState) {
     return (
-      <div className="ci-run-watcher home-loading-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
-        <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>Loading workflow run...</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '300px' }}>
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px' }} />
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px', width: '80%' }} />
-          <div className="home-skeleton-row home-skeleton" style={{ height: '20px', margin: 0, borderRadius: '4px', width: '60%' }} />
+      <div className="ci-run-watcher home-loading-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}>
+        <div className="global-spinner" />
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workflow run…</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>{repositoryId} · run {runId}</p>
         </div>
       </div>
     );
   }
 
   if (error || !watcherState) {
-    return <div className="ci-run-watcher error"><AlertCircle /> Error loading workflow run.</div>;
+    const message = String(error instanceof Error ? error.message : error ?? 'unknown_error');
+    const friendly = message.includes('404') || message.includes('not_found') ? 'The workflow run was not found or is no longer available.'
+      : message.includes('403') || message.includes('forbidden') ? 'GitHub denied access to this workflow run.'
+        : message.includes('rate') ? 'GitHub rate limiting prevented the run from loading.'
+          : 'Snow Devil could not load this workflow run.';
+    return <div className="ci-run-watcher ci-run-state" role="alert"><AlertCircle /><h2>Workflow run unavailable</h2><p>{friendly}</p><small>{repositoryId} · run {runId}</small><div className="ci-run-state-actions"><button className="ci-btn" onClick={retry}>Retry</button><button className="ci-btn" onClick={() => openNativeTab('native:ci-health', 'ciHealth', 'CI Activity', false, true)}>Open CI Activity</button><button className="ci-btn" onClick={() => closeTab(activeTabId)}>Close Tab</button></div></div>;
   }
 
   const { run } = watcherState;
@@ -359,7 +394,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
           <h3>Jobs</h3>
           <ul className="ci-job-list">
             {jobs.map(job => (
-              <li key={job.id} className={`ci-job-item ${String(job.id) === selectedJobId ? 'selected' : ''}`} onClick={() => setSelectedJobId(String(job.id))}>
+              <li key={job.id} className={`ci-job-item ${String(job.id) === effectiveSelectedJobId ? 'selected' : ''}`} onClick={() => selectJob(String(job.id))}>
                 {getStatusIcon(job.status, job.conclusion)}
                 <span>{job.name}</span>
                 {job.status === 'completed' && job.completed_at && job.started_at && <small>{formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime())}</small>}
@@ -382,7 +417,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
                  <div className="ci-job-steps-header">
                    <h4>Steps</h4>
                    <div style={{ display: 'flex', gap: '8px' }}>
-                     <button 
+                     <button
                        className="ci-btn" 
                        onClick={handleCopyJobLogs}
                        disabled={!logData?.text || isLogFetching}
@@ -390,15 +425,15 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
                      >
                        {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied!' : 'Copy Logs'}
                      </button>
-                     <button className="ci-btn" onClick={() => refetchLog()} disabled={isLogFetching}>
-                       <RefreshCw size={12} className={isLogFetching ? 'is-spinning' : ''}/> {isLogFetching ? 'Loading Logs' : 'Refresh Logs'}
+                     <button className="ci-btn" onClick={() => { setLogsRequested(true); void refetchLog(); }} disabled={isLogFetching}>
+                       <RefreshCw size={12} className={isLogFetching ? 'is-spinning' : ''}/> {logData?.text ? 'Refresh Logs' : isLogFetching ? 'Loading Logs' : 'Load Logs'}
                      </button>
                    </div>
                  </div>
                  <ul className="ci-step-list">
                    {selectedJob.steps.map(step => (
                      <li key={step.number} className={`ci-step-container ${expandedStepNumber === step.number ? 'expanded' : ''}`}>
-                        <div className="ci-step-item" onClick={() => setExpandedStepNumber(expandedStepNumber === step.number ? null : step.number)}>
+                        <div className="ci-step-item" onClick={() => toggleStep(step.number)}>
                           <ChevronRight size={14} className={`ci-step-chevron ${expandedStepNumber === step.number ? 'expanded' : ''}`} />
                           {getStatusIcon(step.status, step.conclusion)}
                           <span>{step.name}</span>

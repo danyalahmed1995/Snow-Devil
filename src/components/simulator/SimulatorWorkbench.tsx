@@ -59,7 +59,15 @@ function ciRunEntity(run: CIWorkflowRun): SimulatorEntityState {
 }
 
 function HistoryLoadingState({ reducedMotion }: { reducedMotion: boolean }) {
-  return <div className={`history-loading ${loadingMotionClass(reducedMotion)}`} role="status" aria-live="polite"><strong>Loading historical evidence…</strong><span>Building a consistent selected-date snapshot.</span><div>{Array.from({ length: 6 }, (_, index) => <i key={index}/>)}</div></div>;
+  return (
+    <div className={`simulator-loading-state ${loadingMotionClass(reducedMotion)}`} style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }} role="status" aria-live="polite">
+      <div className="global-spinner" />
+      <div style={{ textAlign: 'center' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading historical evidence…</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: '15px', marginTop: '12px', animation: 'fresh-fade-in 0.7s ease-out backwards' }}>Building a consistent selected-date snapshot.</p>
+      </div>
+    </div>
+  );
 }
 
 export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {

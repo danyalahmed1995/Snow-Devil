@@ -16,10 +16,18 @@ const baseEntity: DeliveryEntity = {
   updatedAt: '2026-05-10T00:00:00Z',
   branchName: 'fix/delivery',
   checkState: 'success',
+  mergeability: 'mergeable',
   sourceCompleteness: 'complete',
 };
 
 function dataset(entities: DeliveryEntity[]): AnalyticsDataset {
+  const derivedEvents: AnalyticsDataset['events'] = [];
+  for (const entity of entities) {
+    if (entity.reviewState === 'requested') derivedEvents.push({ id: `${entity.id}:review-requested`, entityId: entity.id, repositoryId: entity.repositoryId, type: 'review_requested', occurredAt: entity.updatedAt, sourceCompleteness: 'complete' });
+    else if (entity.reviewState === 'approved') derivedEvents.push({ id: `${entity.id}:approved`, entityId: entity.id, repositoryId: entity.repositoryId, type: 'approved', occurredAt: entity.updatedAt, sourceCompleteness: 'complete' });
+    if (entity.checkState === 'failure') derivedEvents.push({ id: `${entity.id}:check-failed`, entityId: entity.id, repositoryId: entity.repositoryId, type: 'check_failed', occurredAt: entity.updatedAt, sourceCompleteness: 'complete', requiredCheck: true });
+    else if (entity.checkState === 'success') derivedEvents.push({ id: `${entity.id}:check-succeeded`, entityId: entity.id, repositoryId: entity.repositoryId, type: 'check_succeeded', occurredAt: entity.updatedAt, sourceCompleteness: 'complete', requiredCheck: true });
+  }
   return {
     referenceDate: '2026-05-20T00:00:00Z',
     refreshedAt: '2026-05-20T00:00:00Z',
@@ -30,6 +38,7 @@ function dataset(entities: DeliveryEntity[]): AnalyticsDataset {
       { id: 'failure-2', entityId: 'workflow-2', repositoryId: 'octo/app', type: 'workflow_failed', occurredAt: '2026-05-10T00:00:00Z', sourceCompleteness: 'complete' },
       { id: 'merge-1', entityId: 'pr-1', repositoryId: 'octo/app', type: 'merged', occurredAt: '2026-05-11T00:00:00Z', sourceCompleteness: 'complete' },
       { id: 'merge-duplicate', entityId: 'pr-1', repositoryId: 'octo/app', type: 'merged', occurredAt: '2026-05-11T00:00:00Z', sourceCompleteness: 'complete' },
+      ...derivedEvents,
     ],
     branches: [],
     relationships: [],
@@ -83,6 +92,36 @@ describe('analytics product correctness', () => {
     expect(items.some(item => item.type === 'merged_not_deployed')).toBe(false);
   });
 
+  it('requires complete, known checks and approvals before calling a pull request ready', () => {
+    const variants = [
+      { ...baseEntity, id: 'unknown-checks', checkState: 'unknown' as const, reviewState: 'approved' as const },
+      { ...baseEntity, id: 'unknown-review', checkState: 'success' as const, reviewState: 'none' as const },
+      { ...baseEntity, id: 'draft', state: 'open', isDraft: true, checkState: 'success' as const, reviewState: 'approved' as const },
+      { ...baseEntity, id: 'partial', checkState: 'success' as const, reviewState: 'approved' as const, sourceCompleteness: 'partial' as const },
+      { ...baseEntity, id: 'ready', state: 'open', checkState: 'success' as const, reviewState: 'approved' as const, sourceCompleteness: 'complete' as const },
+    ];
+    const ready = inventoryItems(dataset(variants.map((entity, index) => ({ ...entity, number: index + 10 }))), DEFAULT_ANALYTICS_SETTINGS).filter(item => item.riskCategory === 'ready_to_merge');
+    expect(ready.map(item => item.entity.id)).toEqual(['ready']);
+  });
+
+  it('only marks explicit, overdue review requests as awaiting review', () => {
+    const reviewCases: DeliveryEntity[] = [
+      { ...baseEntity, id: 'no-request', reviewState: 'none', requestedReviewers: [] },
+      { ...baseEntity, id: 'requested', reviewState: 'requested', requestedReviewers: ['grace'] },
+      { ...baseEntity, id: 'request-without-reviewer', reviewState: 'requested', requestedReviewers: [] },
+    ];
+    const items = inventoryItems(dataset(reviewCases.map((entity, index) => ({ ...entity, number: index + 20 }))), DEFAULT_ANALYTICS_SETTINGS);
+    expect(items.filter(item => item.riskCategory === 'awaiting_review').map(item => item.entity.id)).toEqual(['requested']);
+  });
+
+  it('uses honest unknown-delivery language when matching exists without conclusive evidence', () => {
+    const value = dataset([{ ...baseEntity, stage: 'merged', state: 'merged', mergedAt: '2026-05-11T00:00:00Z' }]);
+    value.repositories[0].releaseMatching = true;
+    const item = inventoryItems(value, DEFAULT_ANALYTICS_SETTINGS)[0];
+    expect(item).toMatchObject({ riskCategory: 'delivery_status_unknown', riskLabel: 'Delivery status unknown' });
+    expect(item.inventoryReason.toLowerCase()).not.toContain('not released');
+  });
+
   it('keeps unique inventory stable across 100 repositories and 5,000 normalized items', () => {
     const repositories = Array.from({ length: 100 }, (_, index) => ({
       id: `octo/repo-${index}`,
@@ -98,6 +137,7 @@ describe('analytics product correctness', () => {
       number: index + 1,
       title: `Delivery item ${index + 1}`,
       checkState: 'failure',
+      evidence: ['Required checks failing'],
     })));
     const largeDataset: AnalyticsDataset = {
       referenceDate: '2026-05-20T00:00:00Z',

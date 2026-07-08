@@ -25,7 +25,7 @@ function SyncStatusIcon({ state }: { state: 'running' | 'idle' | 'success' | 'fa
   );
 }
 
-export function AnalyticsPage({ title, description, demo, controls, children }: { title: string; description: string; demo: boolean; controls?: ReactNode; children: ReactNode }) {
+export function AnalyticsPage({ title, description, demo, controls, children, compactSync = false }: { title: string; description: string; demo: boolean; controls?: ReactNode; children: ReactNode; compactSync?: boolean }) {
   const sync = useAnalyticsSync();
   const failedRepositories = sync.state ? safeArray(sync.state.failed_repositories_json) : [];
   const failed = failedRepositories.length;
@@ -61,7 +61,7 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
         </div>
         {controls && <div className="analytics-controls">{controls}</div>}
       </header>
-      {!demo && <section className={`analytics-sync analytics-sync--${sync.coverage}`} aria-label="Analytics synchronization and coverage">
+      {!demo && <details className={`analytics-sync-shell${compactSync ? ' analytics-sync-shell--compact' : ''}`} open={compactSync ? undefined : true}><summary><span>{sync.syncing && syncSummary.currentJob ? `Updating delivery evidence · ${syncSummary.currentJob.completedRepositories} of ${syncSummary.currentJob.totalRepositories} repositories` : sync.state?.error?.includes('rate_limited') ? 'GitHub rate limit reached. Showing cached delivery risks.' : `Delivery evidence · ${sync.coverage}`}</span><small>Synchronization details</small></summary><section className={`analytics-sync analytics-sync--${sync.coverage}`} aria-label="Analytics synchronization and coverage">
         <div className="analytics-sync__content">
           <div className="analytics-sync__pulse-dot" />
           <div className="analytics-sync__info">
@@ -98,7 +98,7 @@ export function AnalyticsPage({ title, description, demo, controls, children }: 
             <span>{sync.syncing ? 'Cancel sync' : (failed || sync.coverage === 'failed' ? 'Retry failed sources' : 'Sync new GitHub data')}</span>
           </button>
         </div>
-      </section>}
+      </section></details>}
       {children}
     </main>
   );

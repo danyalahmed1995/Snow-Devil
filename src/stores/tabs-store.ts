@@ -97,6 +97,53 @@ function safeString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
+function safeNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function safeStringOrNumber(value: unknown): string | number | undefined {
+  return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+}
+
+function canonicalCIRunTabId(repository: string, runId: string | number): string {
+  return `ciRun:${repository}:${runId}`;
+}
+
+function normalizeCIRunContext(context: Record<string, unknown>, tab?: Record<string, unknown>): NativeTabContext | undefined {
+  const legacyRepository = typeof context.repository === 'string' ? context.repository : typeof context.repositoryId === 'string' && context.repositoryId.includes('/') ? context.repositoryId : undefined;
+  let repository = legacyRepository;
+  let runId = typeof context.runId === 'string' || typeof context.runId === 'number' ? String(context.runId) : undefined;
+
+  if ((!repository || !runId) && typeof tab?.id === 'string') {
+    const match = tab.id.match(/^ciRun:(.+):([^:]+)$/);
+    if (match) {
+      repository ??= match[1];
+      runId ??= match[2];
+    }
+  }
+
+  if (!repository || !repository.includes('/') || !runId) return undefined;
+  const [owner] = repository.split('/');
+  const selectedJobId = typeof context.selectedJobId === 'string' || typeof context.selectedJobId === 'number'
+    ? String(context.selectedJobId)
+    : typeof context.jobId === 'string' || typeof context.jobId === 'number'
+      ? String(context.jobId)
+      : undefined;
+
+  return {
+    type: 'ciRun',
+    owner: typeof context.owner === 'string' ? context.owner : owner,
+    repository,
+    repositoryId: safeStringOrNumber(context.repositoryId),
+    runId,
+    runNumber: safeNumber(context.runNumber),
+    attempt: safeNumber(context.attempt),
+    selectedJobId,
+    selectedJobName: typeof context.selectedJobName === 'string' ? context.selectedJobName : undefined,
+    schemaVersion: 1,
+  };
+}
+
 function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext | undefined {
   const context = tab.context;
   if (!isObject(context)) return undefined;
@@ -114,6 +161,9 @@ function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext 
   if (context.type === 'commit' && typeof context.repository === 'string' && typeof context.sha === 'string') {
     return { type: 'commit', repository: context.repository, sha: context.sha };
   }
+  if (context.type === 'ciRun') {
+    return normalizeCIRunContext(context, tab);
+  }
   if (context.type === 'evidenceGraph') {
     return { type: 'evidenceGraph' };
   }
@@ -127,17 +177,19 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
   }
   if (tab.family === 'native') {
     const kind = NATIVE_KINDS.has(tab.kind as NativeTabKind) ? tab.kind as NativeTabKind : 'home';
+    const context = normalizeNativeContext(tab);
+    const ciCanonicalId = kind === 'ciRun' && context?.type === 'ciRun' ? canonicalCIRunTabId(context.repository, context.runId) : undefined;
     const canonicalId = canonicalFixedTabId(safeString(tab.id), kind);
     const normalized: NativeTab = {
-      id: canonicalId ?? safeString(tab.id, `native:${kind}`),
+      id: ciCanonicalId ?? canonicalId ?? safeString(tab.id, `native:${kind}`),
       family: 'native',
       kind,
-      title: safeString(tab.title, kind === 'home' ? 'Home' : 'Workspace'),
+      title: safeString(tab.title, kind === 'home' ? 'Home' : kind === 'ciRun' && context?.type === 'ciRun' && context.runNumber ? `CI · Run #${context.runNumber}` : 'Workspace'),
       pinned: typeof tab.pinned === 'boolean' ? tab.pinned : false,
       closable: typeof tab.closable === 'boolean' ? tab.closable : kind !== 'home',
       createdAt: typeof tab.createdAt === 'number' ? tab.createdAt : Date.now(),
       lastActivatedAt: typeof tab.lastActivatedAt === 'number' ? tab.lastActivatedAt : Date.now(),
-      context: normalizeNativeContext(tab),
+      context,
     };
     if (normalized.kind === 'repositoryExplorer' && normalized.context?.type !== 'repository') return undefined;
     if (normalized.kind === 'pullRequestDiff' && normalized.context?.type !== 'pullRequest') return undefined;
@@ -179,6 +231,7 @@ function normalizeKnownTab(tab: WorkspaceTab): WorkspaceTab {
   }
   if (isNativeTab(tab) && tab.kind === 'accountSimulator') return { ...tab, title: 'Account History' };
   if (isNativeTab(tab) && tab.kind === 'repositorySimulator') return { ...tab, title: 'Repository History' };
+  if (isNativeTab(tab) && tab.kind === 'inventory') return { ...tab, title: 'Delivery Risks' };
   return tab;
 }
 
@@ -219,6 +272,9 @@ interface TabsState {
     closable?: boolean,
     context?: NativeTabContext,
   ) => void;
+
+  /** Patch serializable native-tab context, preserving canonical persistence identity. */
+  updateNativeTabContext: (id: string, context: NativeTabContext) => void;
 
   /** Open or focus a browser tab. */
   openBrowserTab: (
@@ -362,7 +418,7 @@ export const useTabsStore = create<TabsState>()(
       // ---------------------------------------------------------------
       openNativeTab: (id, kind, title, pinned = false, closable = true, context) => {
         const { tabs } = get();
-        const canonicalId = canonicalFixedTabId(id, kind) ?? id;
+        const canonicalId = context?.type === 'ciRun' ? canonicalCIRunTabId(context.repository, context.runId) : canonicalFixedTabId(id, kind) ?? id;
         const existing = tabs.find(t => t.id === canonicalId);
         const now = Date.now();
 
@@ -389,6 +445,17 @@ export const useTabsStore = create<TabsState>()(
         };
 
         set({ tabs: [...tabs, newTab], activeTabId: canonicalId });
+      },
+
+      updateNativeTabContext: (id, context) => {
+        const canonicalId = context.type === 'ciRun' ? canonicalCIRunTabId(context.repository, context.runId) : id;
+        set({
+          tabs: get().tabs.map(tab => {
+            if (!isNativeTab(tab) || tab.id !== id && tab.id !== canonicalId) return tab;
+            const title = context.type === 'ciRun' && context.runNumber ? `CI · Run #${context.runNumber}` : tab.title;
+            return { ...tab, id: canonicalId, context, title };
+          }),
+        });
       },
 
       // ---------------------------------------------------------------
@@ -656,7 +723,7 @@ export const useTabsStore = create<TabsState>()(
     }),
     {
       name: 'github-graph-browser-tabs',
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         if (version < 2) {
           const migrated = migrateLegacyTabs(persisted);
@@ -700,6 +767,12 @@ export const useTabsStore = create<TabsState>()(
                 state.activeTabId = 'native:flow';
             }
             return state;
+        }
+        if (version < 6) {
+          const state = persisted as any;
+          if (state?.tabs) state.tabs = normalizeRestoredTabs(state.tabs);
+          if (state?.closedTabs) state.closedTabs = normalizeRestoredTabs(state.closedTabs).filter(tab => tab.id !== 'native:home');
+          return state;
         }
         return persisted;
       },

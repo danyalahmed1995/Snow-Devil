@@ -29,7 +29,15 @@ export interface DeliveryEntity {
   isDraft?: boolean;
   isBot?: boolean;
   reviewState?: 'none' | 'requested' | 'approved' | 'changes_requested';
+  reviewDecision?: 'none' | 'approved' | 'changes_requested' | 'review_required' | 'unknown';
+  mergeStateStatus?: string;
+  requiredApprovalCount?: number;
+  qualifyingApprovalCount?: number;
+  approvalRequirementConfidence?: 'exact' | 'partial';
+  headSha?: string;
+  latestSnapshotAt?: string;
   checkState?: 'unknown' | 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
+  mergeability?: 'mergeable' | 'conflicting' | 'blocked' | 'unknown';
   requestedReviewers?: string[];
   assignees?: string[];
   sourceCompleteness: 'complete' | 'partial' | 'unknown';
@@ -52,6 +60,10 @@ export interface DeliveryEvent {
   repositoryId: string;
   type: SimulatorEventType;
   occurredAt: string;
+  sourceOccurredAt?: string;
+  observedAt?: string;
+  persistedAt?: string;
+  observationOnly?: boolean;
   stage?: SimulatorStage;
   actor?: string;
   directPush?: boolean;
@@ -97,6 +109,7 @@ export interface DeliveryBranch {
 
 export interface AnalyticsRepository {
   id: string;
+  databaseId?: string | number;
   nameWithOwner: string;
   url?: string;
   defaultBranch: string;
@@ -128,6 +141,7 @@ export interface AnalyticsDataset {
 export interface InventoryThresholds {
   agingDays: number;
   staleDays: number;
+  reviewWaitDays?: number;
 }
 
 export interface RepositoryAnalyticsOverride {
@@ -166,7 +180,50 @@ export interface AnalyticsSettings {
   deploymentMatchingStrategy: 'explicit' | 'environment_or_sha' | 'disabled';
   minimumPercentileSamples: number;
   reducedMotion: boolean;
+  mutedDeliveryRiskItems: string[];
+  mutedDeliveryRiskRepositories: string[];
+  mutedDeliveryRiskReasons: string[];
+  deliveryRiskMuteMetadata: Record<string, { mutedAt: string; note?: string; until?: string }>;
+  deliveryRiskSavedViews: DeliveryRiskSavedView[];
+  deliveryRiskLastView?: DeliveryRiskViewState;
+  defaultDeliveryRiskViewId?: string;
   repositoryOverrides: Record<string, RepositoryAnalyticsOverride>;
+}
+
+export type DeliveryRiskCategory =
+  | 'blocked'
+  | 'awaiting_review'
+  | 'stale'
+  | 'ready_to_merge'
+  | 'delivery_status_unknown'
+  | 'delivery_blocked';
+
+export type DeliveryRiskBacklog = 'active' | 'legacy' | 'bot' | 'informational';
+export type DeliveryRiskSort = 'priority' | 'activity' | 'oldest' | 'newest' | 'repository' | 'actionable' | 'age';
+
+export interface DeliveryRiskViewState {
+  category: 'all' | DeliveryRiskCategory;
+  scope: string;
+  ownership: string;
+  repositoryId: string;
+  actor: string;
+  entityType: string;
+  age: string;
+  archived: string;
+  forks: string;
+  muted: string;
+  confidence: string;
+  backlog: DeliveryRiskBacklog | 'all';
+  sort: DeliveryRiskSort;
+  search: string;
+}
+
+export interface DeliveryRiskSavedView extends DeliveryRiskViewState {
+  id: string;
+  name: string;
+  builtIn?: boolean;
+  accountKey?: string;
+  visibleColumns?: string[];
 }
 
 export type CiStatus = 'excellent' | 'healthy' | 'warning' | 'poor' | 'unknown' | 'sync_failed' | 'unsupported';
@@ -210,9 +267,9 @@ export interface InventoryItem {
   repository: AnalyticsRepository;
   type: InventoryType;
   stage: string;
-  ageBusinessDays: number;
+  ageBusinessDays?: number;
   ageBand: AgeBand;
-  lastActivityAt: string;
+  lastActivityAt?: string;
   blockingReason: string;
   relatedEntityIds: string[];
   confidence: LineageConfidence;
@@ -225,6 +282,25 @@ export interface InventoryItem {
   latestRunStatus?: string;
   resolutionRule?: string;
   canonicalKey?: string;
+  riskCategory: DeliveryRiskCategory;
+  riskLabel: string;
+  riskReasonCode: string;
+  secondaryRisks: DeliveryRiskCategory[];
+  owner?: string;
+  suggestedAction: 'Open CI' | 'Review changes' | 'Request review' | 'Open PR' | 'Open item' | 'Inspect evidence' | 'Confirm delivery' | 'Open repository';
+  riskSince?: string;
+  riskActor?: string;
+  riskEvidenceId?: string;
+  lastActivityLabel: string;
+  lastActivityActor?: string;
+  checksState: 'passing' | 'failing' | 'pending' | 'unavailable' | 'unknown';
+  reviewSummaryState: 'approved' | 'changes_requested' | 'review_requested' | 'none' | 'unavailable' | 'unknown';
+  mergeability: 'mergeable' | 'conflicting' | 'blocked' | 'unknown';
+  deliveryState: 'released' | 'deployed' | 'blocked' | 'unknown' | 'not_applicable';
+  isBotCreated: boolean;
+  backlog: DeliveryRiskBacklog;
+  actionableRank: number;
+  legacyMuteIds: string[];
 }
 
 export interface LeadTimeSample {
@@ -265,6 +341,28 @@ export interface AnalyticsInspectable {
   relatedEntityIds?: string[];
   timeline?: Array<{ label: string; occurredAt: string; confidence: LineageConfidence }>;
   lineage?: MetricLineage;
+  riskCategory?: DeliveryRiskCategory;
+  riskLabel?: string;
+  riskAgeDays?: number;
+  secondaryRisks?: DeliveryRiskCategory[];
+  checksState?: InventoryItem['checksState'];
+  reviewSummaryState?: InventoryItem['reviewSummaryState'];
+  mergeability?: InventoryItem['mergeability'];
+  deliveryState?: InventoryItem['deliveryState'];
+  lastActivityLabel?: string;
+  lastActivityActor?: string;
+  owner?: string;
+  riskActor?: string;
+  riskStartedAt?: string;
+  reviewDecision?: DeliveryEntity['reviewDecision'];
+  mergeStateStatus?: string;
+  requiredApprovalCount?: number;
+  qualifyingApprovalCount?: number;
+  latestSnapshotAt?: string;
+  suggestedAction?: string;
+  entityType?: DeliveryEntityType;
+  runId?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface MetricLineage {

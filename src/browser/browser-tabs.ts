@@ -35,7 +35,23 @@ export type NativeTabContext =
   | { type: "repository"; repository: string; ref?: string; path?: string }
   | { type: "pullRequest"; repository: string; number: number }
   | { type: "commit"; repository: string; sha: string }
-  | { type: "ciRun"; repository: string; runId: string; attempt?: number; jobId?: string }
+  | {
+      type: "ciRun";
+      owner?: string;
+      repository: string;
+      repositoryId?: string | number;
+      runId: string;
+      runNumber?: number;
+      attempt?: number;
+      selectedJobId?: string;
+      selectedJobName?: string;
+      /**
+       * Legacy alias kept for existing persisted tabs and open-call sites.
+       * New writes should use selectedJobId.
+       */
+      jobId?: string;
+      schemaVersion?: number;
+    }
   | { type: "evidenceGraph"; rootId?: string; repository?: string };
 
 /** A tab backed by a built-in React view. */

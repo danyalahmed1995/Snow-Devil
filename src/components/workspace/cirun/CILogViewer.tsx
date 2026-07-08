@@ -98,16 +98,17 @@ function parseAnsi(rawText: string) {
   return parts;
 }
 
-const LogLineRenderer: React.FC<{ line: LogLineData }> = ({ line }) => {
+const LogLineRenderer: React.FC<{ line: LogLineData }> = React.memo(({ line }) => {
   return (
     <div className="ci-log-line">
       <div className="ci-log-lineno">{line.lineNumber}</div>
       <div className="ci-log-content">{parseAnsi(line.text)}</div>
     </div>
   );
-};
+});
+LogLineRenderer.displayName = 'LogLineRenderer';
 
-const LogGroupRenderer: React.FC<{ node: LogNode }> = ({ node }) => {
+const LogGroupRenderer: React.FC<{ node: LogNode }> = React.memo(({ node }) => {
   const [expanded, setExpanded] = useState(false);
   
   return (
@@ -130,7 +131,8 @@ const LogGroupRenderer: React.FC<{ node: LogNode }> = ({ node }) => {
       )}
     </div>
   );
-};
+});
+LogGroupRenderer.displayName = 'LogGroupRenderer';
 
 export const CILogViewer: React.FC<{ lines: LogLineData[] }> = ({ lines }) => {
   const rootNodes = useMemo(() => {
