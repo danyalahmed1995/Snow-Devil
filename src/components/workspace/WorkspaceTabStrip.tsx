@@ -272,8 +272,8 @@ export function WorkspaceTabStrip() {
               onAuxClick={event => { if (event.button === 1 && tab.closable) { event.preventDefault(); closeTab(tab.id); } }}
             >
               {isBrowser ? <Globe2 className="workspace-tab__family" size={11} /> : ciStatusClass ? (
-                <div className={`workspace-tab__family status-icon-wrapper ${ciStatusClass}`} style={{ width: 14, height: 14 }}>
-                  <div className="spinner-ring" style={{ width: 14, height: 14, borderWidth: 1.5 }}></div>
+                <div className={`status-icon-wrapper ${ciStatusClass}`} style={{ width: 14, height: 14, marginRight: 6 }}>
+                  <div className="spinner-ring" style={{ width: 14, height: 14 }}></div>
                   {ciStatusIcon}
                 </div>
               ) : <AppWindow className="workspace-tab__family" size={11} />}
