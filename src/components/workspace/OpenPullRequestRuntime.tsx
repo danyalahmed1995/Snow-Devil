@@ -4,6 +4,9 @@ import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { pullRequestDetailsQueryRoot } from '../../hooks/usePullRequestDetails';
 import { isNativeTab, useTabsStore } from '../../stores/tabs-store';
 import type { NativeTab, NativeTabContext } from '../../browser/browser-tabs';
+import { syncTargetedRepository } from '../../analytics/sync';
+import { useAuthStore } from '../../stores/auth-store';
+import { useModeStore } from '../../stores/mode-store';
 
 type PullRequestContext = Extract<NativeTabContext, { type: 'pullRequest' }>;
 type PullRequestTab = NativeTab & { context: PullRequestContext };
@@ -16,6 +19,20 @@ export function OpenPullRequestRuntime() {
   ), [tabs]);
   const analytics = useAnalyticsData({ enabled: openPullRequests.length > 0 });
   const queryClient = useQueryClient();
+  const mode = useModeStore(state => state.mode);
+  const session = useAuthStore(state => state.session);
+  const account = mode === 'live' && session.status === 'connected' ? session.account.login : undefined;
+  const repositories = useMemo(() => [...new Set(openPullRequests.map(tab => tab.context.repository))], [openPullRequests]);
+
+  useEffect(() => {
+    if (!account || repositories.length === 0) return;
+    const refreshOpenRepositories = () => {
+      void Promise.all(repositories.map(repository => syncTargetedRepository(account, repository).catch(() => undefined)));
+    };
+    refreshOpenRepositories();
+    const timer = window.setInterval(refreshOpenRepositories, 30_000);
+    return () => window.clearInterval(timer);
+  }, [account, repositories]);
 
   useEffect(() => {
     if (!analytics.data) return;
