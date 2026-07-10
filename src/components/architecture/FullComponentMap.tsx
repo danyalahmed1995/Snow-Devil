@@ -268,6 +268,9 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             <marker id="arrow-is-indirect" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(139,148,158,.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
+            <marker id="arrow-is-connected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
           </defs>
           {edges.map(e => {
             const sLayout = layout.nodes.get(e.source);
@@ -275,18 +278,20 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             if (!sLayout || !tLayout) return null;
             const points = computeOrthogonalEdge(sLayout, tLayout);
             const pathData = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+            const isConnected = e.source === selectedComponentId || e.target === selectedComponentId;
             const statusClass = e.type !== 'normal' && e.type !== 'indirect' ? `is-${e.type}` : '';
             const indirectClass = e.type === 'indirect' ? 'is-indirect' : '';
+            const connectedClass = isConnected ? 'is-connected' : '';
             
             return (
               <g key={`${e.source}-${e.target}`} className={`full-component-map__edge-group`}>
                 <path d={pathData} className="full-component-map__edge-hitbox" />
                 <path
-                  className={`full-component-map__edge ${statusClass} ${indirectClass}`}
+                  className={`full-component-map__edge ${statusClass} ${indirectClass} ${connectedClass}`}
                   d={pathData}
-                  markerEnd={`url(#arrow-${statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default'})`}
+                  markerEnd={`url(#arrow-${isConnected ? 'is-connected' : (statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default')})`}
                 />
-                <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type}`} />
+                <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type} ${connectedClass}`} />
               </g>
             );
           })}
