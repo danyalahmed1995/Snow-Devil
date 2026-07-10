@@ -10,8 +10,13 @@ const impact = analyzePullRequestArchitecture({
   ],
 });
 
+import { useArchitectureStore } from '../../architecture/architecture-store';
+
 describe('ArchitectureContext', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    useArchitectureStore.setState({ states: {} });
+  });
   it('renders summary, evidence, and preserves unmapped warnings', () => {
     render(<ArchitectureContext impact={impact} onSelectComponent={vi.fn()} onOpenFile={vi.fn()}/>);
     expect(screen.getByText('Architecture Impact')).toBeInTheDocument();

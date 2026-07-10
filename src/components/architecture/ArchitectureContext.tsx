@@ -1,9 +1,13 @@
 import { AlertTriangle, Boxes, Braces, CircleDot, FileCode2, GitBranch, Info, Network, ShieldCheck } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { ArchitectureDependencyChange, ArchitectureRisk, PullRequestArchitectureImpact } from '../../architecture/types';
+import { useArchitectureStore, type ArchitectureSection } from '../../architecture/architecture-store';
+import { useTabsStore } from '../../stores/tabs-store';
+import { OverviewMap } from './OverviewMap';
+import { FullComponentMap } from './FullComponentMap';
 import './ArchitectureContext.css';
 
-type Section = 'overview' | 'map' | 'files' | 'dependencies' | 'blast' | 'risk';
+
 
 function tone(value: string) { return ['high', 'critical'].includes(value) ? 'danger' : value === 'medium' ? 'warning' : value === 'low' ? 'good' : 'info'; }
 function percent(score: number) { return `${Math.round(score * 100)}%`; }
@@ -21,22 +25,8 @@ function Overview({ impact, onSelect }: { impact: PullRequestArchitectureImpact;
       <article className="architecture-panel architecture-change-summary"><h3>What changed?</h3><p>This pull request primarily affects <strong>{primary?.component.name ?? 'an unmapped area'}</strong>. It changes {impact.changedFileMappings.length} {impact.changedFileMappings.length === 1 ? 'file' : 'files'} across {impact.affectedComponents.length} mapped {impact.affectedComponents.length === 1 ? 'component' : 'components'}{dependencies.length ? ` and includes ${dependencies.length} cross-component dependency ${dependencies.length === 1 ? 'change' : 'changes'}` : ''}.</p><h4>Why it matters</h4><p>{impact.risk.reasons[0]?.detail}</p><div className="architecture-evidence-note"><Info size={13}/>{impact.snapshot.status === 'ready' ? `This summary maps the patch against ${impact.snapshot.evidenceSummary.totalFiles.toLocaleString()} repository files at the exact base commit.` : impact.snapshot.warnings[0]?.message ?? 'Repository evidence is incomplete; confidence has been reduced.'}</div></article>
       <article className="architecture-panel"><header><h3>Components Affected</h3><span>{impact.affectedComponents.length}</span></header><div className="architecture-component-list">{impact.affectedComponents.map(item => <button key={item.component.id} onClick={() => onSelect(item.component.id)}><CircleDot size={13}/><span><strong>{item.component.name}</strong><small>{item.component.rootPaths.join(', ')} · {item.files.length} files</small></span><em className={`architecture-badge architecture-badge--${item.role === 'primary' ? 'info' : 'neutral'}`}>{item.role}</em><small>+{item.additions} −{item.deletions}</small></button>)}</div>{impact.unmappedFiles.length > 0 && <div className="architecture-unmapped"><AlertTriangle size={13}/>{impact.unmappedFiles.length} unmapped {impact.unmappedFiles.length === 1 ? 'file is' : 'files are'} preserved for review.</div>}</article>
     </div>
-    <div className="architecture-overview__right"><ComponentMap impact={impact} onSelect={onSelect}/><BlastSummary impact={impact}/></div>
+    <div className="architecture-overview__right"><OverviewMap impact={impact} onSelect={onSelect}/><BlastSummary impact={impact}/></div>
   </div>;
-}
-
-function ComponentMap({ impact, onSelect }: { impact: PullRequestArchitectureImpact; onSelect: (id: string) => void }) {
-  const primary = impact.snapshot.components.find(component => component.id === impact.primaryComponentId);
-  const focusedIds = new Set([...impact.directBlastRadius, ...impact.indirectBlastRadius, ...impact.affectedComponents.map(item => item.component.id)]);
-  const others = impact.snapshot.components.filter(component => component.id !== primary?.id && focusedIds.has(component.id)).slice(0, 6);
-  const nodes = primary ? [primary, ...others] : others;
-  const position = (index: number) => index === 0 ? { x: 50, y: 50 } : { x: index % 2 ? 18 : 82, y: 18 + Math.floor((index - 1) / 2) * 30 };
-  return <article className="architecture-panel architecture-map"><header><div><h3>Component Dependency Map</h3><p>Focused on changed components and bounded repository dependencies</p></div><span className="architecture-legend"><i/>Changed <b/>Dependency</span></header><div className={`architecture-map__canvas ${nodes.length === 1 ? 'is-single' : ''}`}>
-    <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">{nodes.slice(1).map((node, index) => { const point = position(index + 1); const changed = impact.dependencyChanges.some(edge => (edge.fromComponentId === primary?.id && edge.toComponentId === node.id) || (edge.toComponentId === primary?.id && edge.fromComponentId === node.id)); return <line key={node.id} x1="50" y1="50" x2={point.x} y2={point.y} className={changed ? 'is-new' : ''}/>; })}</svg>
-    {nodes.map((node, index) => { const point = position(index); const affected = impact.affectedComponents.some(item => item.component.id === node.id); return <button key={node.id} style={{ left: `${point.x}%`, top: `${point.y}%` }} className={`${index === 0 ? 'is-primary' : ''} ${affected ? 'is-affected' : ''}`} onClick={() => onSelect(node.id)}><span className="architecture-node__icon" aria-hidden="true"><Network size={13}/></span><span className="architecture-node__label"><strong>{node.name}</strong><small>{index === 0 ? 'Primary' : affected ? 'Changed' : 'Dependency'} · {node.kind}</small></span></button>; })}
-    {impact.snapshot.components.length > nodes.length && <span className="architecture-map__more">+{impact.snapshot.components.length - nodes.length} more</span>}
-    {!nodes.length && <div className="architecture-map__empty">No component boundary could be identified.</div>}
-  </div><footer>{impact.dependencyChanges.length ? impact.dependencyChanges.slice(0, 2).map(change => <span key={`${change.change}:${change.fromComponentId}:${change.toComponentId}`}><GitBranch size={11}/>{change.change === 'new' ? 'New dependency' : change.change === 'removed' ? 'Removed dependency' : change.change === 'modified' ? 'Modified dependency' : 'Existing dependency touched'}: {componentName(impact, change.fromComponentId)} → {componentName(impact, change.toComponentId)}</span>) : <span><Info size={11}/>No cross-component dependency change found in the available patch.</span>}</footer></article>;
 }
 
 function BlastSummary({ impact }: { impact: PullRequestArchitectureImpact }) {
@@ -56,17 +46,18 @@ function RiskView({ risk }: { risk: ArchitectureRisk }) {
 }
 
 export function ArchitectureContext({ impact, onSelectComponent, onOpenFile }: { impact: PullRequestArchitectureImpact; onSelectComponent: (id: string) => void; onOpenFile: (path: string) => void }) {
-  const sectionKey = `snow-devil-architecture-section:${impact.repositoryId}#${impact.pullRequestNumber}`;
-  const [section, setSection] = useState<Section>(() => { const saved = localStorage.getItem(sectionKey); return ['overview','map','files','dependencies','blast','risk'].includes(saved ?? '') ? saved as Section : 'overview'; });
-  useEffect(() => localStorage.setItem(sectionKey, section), [section, sectionKey]);
-  const available = useMemo(() => new Set<Section>(['overview', 'map', 'files', 'blast', 'risk', ...(impact.dependencyChanges.length ? ['dependencies' as const] : [])]), [impact.dependencyChanges.length]);
-  const tabs: Array<[Section, string, React.ReactNode]> = [['overview', 'Overview', <Boxes size={12}/>], ['map', 'Component Map', <Network size={12}/>], ['files', 'Changed Files', <FileCode2 size={12}/>], ['dependencies', 'Dependencies', <Braces size={12}/>], ['blast', 'Blast Radius', <GitBranch size={12}/>], ['risk', 'History & Risk', <ShieldCheck size={12}/>]];
+  const activeTabId = useTabsStore(s => s.activeTabId);
+  const section = useArchitectureStore(s => s.states[activeTabId]?.section ?? 'overview');
+  const setSection = (sec: ArchitectureSection) => useArchitectureStore.getState().setSection(activeTabId, sec);
+  
+  const available = useMemo(() => new Set<ArchitectureSection>(['overview', 'map', 'files', 'blast', 'risk', ...(impact.dependencyChanges.length ? ['dependencies' as const] : [])]), [impact.dependencyChanges.length]);
+  const tabs: Array<[ArchitectureSection, string, React.ReactNode]> = [['overview', 'Overview', <Boxes size={12}/>], ['map', 'Component Map', <Network size={12}/>], ['files', 'Changed Files', <FileCode2 size={12}/>], ['dependencies', 'Dependencies', <Braces size={12}/>], ['blast', 'Blast Radius', <GitBranch size={12}/>], ['risk', 'History & Risk', <ShieldCheck size={12}/>]];
   const primary = impact.snapshot.components.find(component => component.id === impact.primaryComponentId);
   const warning = impact.snapshot.warnings[0]?.message;
   const ready = impact.snapshot.status === 'ready';
   return <div className="architecture-context"><header className="architecture-context__title"><div><span>Architecture Context</span><h2>Architecture Impact</h2><p>Understand how this change fits into the codebase</p></div><div className="architecture-freshness"><span className={`architecture-badge architecture-badge--${ready ? 'good' : 'warning'}`}>{ready ? 'Repository snapshot ready' : `${impact.snapshot.status} repository snapshot`}</span><small>{warning ?? `${impact.snapshot.evidenceSummary.totalFiles.toLocaleString()} repository files analyzed`} · {new Date(impact.snapshot.generatedAt).toLocaleString()}</small></div></header>
     <section className="architecture-metrics"><MetricCard label="Primary Component" value={primary?.name ?? 'Unmapped'} detail={primary ? `${primary.confidence.level} confidence` : 'No reliable boundary'} icon={<CircleDot size={16}/>}/><MetricCard label="Components Affected" value={impact.affectedComponents.length} detail={`${impact.changedFileMappings.length} changed files`} icon={<Boxes size={16}/>}/><MetricCard label="Dependencies Impacted" value={impact.dependencyChanges.length} detail={impact.dependencyChanges.length ? 'Patch-backed changes' : 'None detected'} icon={<GitBranch size={16}/>}/><MetricCard label="Change Risk" value={<span className={`architecture-badge architecture-badge--${tone(impact.risk.level)}`}>{impact.risk.level}</span>} detail={`${impact.risk.reasons.length} evidence reasons`} icon={<AlertTriangle size={16}/>}/><MetricCard label="Mapping Confidence" value={<span className={`architecture-badge architecture-badge--${tone(impact.confidence.level)}`}>{impact.confidence.level}</span>} detail={`${percent(impact.confidence.score)} of weighted evidence`} icon={<ShieldCheck size={16}/>} /></section>
     <nav className="architecture-tabs" role="tablist" aria-label="Architecture Context sections">{tabs.filter(([id]) => available.has(id)).map(([id, label, icon]) => <button key={id} role="tab" aria-selected={section === id} className={section === id ? 'is-active' : ''} onClick={() => setSection(id)}>{icon}{label}</button>)}</nav>
-    <main className="architecture-context__content">{section === 'overview' && <Overview impact={impact} onSelect={onSelectComponent}/>} {section === 'map' && <ComponentMap impact={impact} onSelect={onSelectComponent}/>} {section === 'files' && <ChangedFiles impact={impact} onOpenFile={onOpenFile}/>} {section === 'dependencies' && <div className="architecture-dependencies">{impact.dependencyChanges.map(change => <DependencyRow key={`${change.change}:${change.fromComponentId}:${change.toComponentId}`} impact={impact} change={change}/>)}</div>} {section === 'blast' && <BlastSummary impact={impact}/>} {section === 'risk' && <RiskView risk={impact.risk}/>}</main>
+    <main className="architecture-context__content">{section === 'overview' && <Overview impact={impact} onSelect={onSelectComponent}/>} {section === 'map' && <FullComponentMap impact={impact} onSelect={onSelectComponent}/>} {section === 'files' && <ChangedFiles impact={impact} onOpenFile={onOpenFile}/>} {section === 'dependencies' && <div className="architecture-dependencies">{impact.dependencyChanges.map(change => <DependencyRow key={`${change.change}:${change.fromComponentId}:${change.toComponentId}`} impact={impact} change={change}/>)}</div>} {section === 'blast' && <BlastSummary impact={impact}/>} {section === 'risk' && <RiskView risk={impact.risk}/>}</main>
   </div>;
 }
