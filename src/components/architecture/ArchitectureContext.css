@@ -15,6 +15,11 @@
 @keyframes marchOverview { from { stroke-dashoffset: 3; } to { stroke-dashoffset: 0; } }
 .full-component-map{display:flex;flex-direction:column;height:100%;border:1px solid var(--border-standard);border-radius:8px;background:linear-gradient(145deg,rgba(9,27,49,.86),rgba(4,15,29,.86));box-shadow:var(--inner-highlight);overflow:hidden}
 .full-component-map__toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:15px;padding:8px 12px;border-bottom:1px solid var(--border-subtle);background:rgba(0,0,0,.2)}
+.full-component-map__commit-status{display:flex;align-items:center;gap:6px;min-width:112px;padding:4px 8px;border:1px solid var(--border-subtle);border-radius:5px;background:rgba(255,255,255,.035);color:var(--text-muted);font-size:9px;transition:border-color .2s,box-shadow .2s,color .2s}
+.full-component-map__commit-status span{font-family:var(--font-mono,monospace);color:var(--text-primary)}
+.full-component-map__commit-status strong{margin-left:auto;color:var(--text-secondary);font-size:8px;text-transform:uppercase;letter-spacing:.05em}
+.full-component-map.is-commit-refreshing .full-component-map__commit-status,.full-component-map.is-commit-updated .full-component-map__commit-status{border-color:rgba(216,168,63,.58);color:#d8a83f;box-shadow:0 0 7px rgba(216,168,63,.1);background:rgba(216,168,63,.05)}
+.full-component-map.is-commit-refreshing .full-component-map__commit-status strong,.full-component-map.is-commit-updated .full-component-map__commit-status strong{color:#f2b84b}
 .toolbar-group{display:flex;align-items:center;gap:8px}
 .toolbar-group button{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;color:var(--text-secondary);font-size:9px;background:rgba(255,255,255,.05);border:1px solid transparent}
 .toolbar-group button:hover{background:var(--surface-hover);color:var(--text-primary)}
@@ -45,6 +50,10 @@
 .full-component-map__port.is-modified{fill:var(--warning)}
 .full-component-map__port.is-indirect{fill:rgba(139,148,158,.7)}
 .full-component-map__edge-group:hover .full-component-map__port{fill:var(--accent)}
+@keyframes commit-edge-glow{0%,100%{filter:drop-shadow(0 0 1px rgba(216,168,63,.16))}50%{filter:drop-shadow(0 0 3px rgba(216,168,63,.48))}}
+.full-component-map.is-commit-refreshing .full-component-map__edge.is-refresh-affected,.full-component-map.is-commit-updated .full-component-map__edge.is-refresh-affected{stroke:#d8a83f!important;stroke-width:1.65px;animation:march .7s linear infinite,commit-edge-glow 1.4s ease-in-out infinite}
+.full-component-map.is-commit-refreshing .full-component-map__port.is-refresh-affected,.full-component-map.is-commit-updated .full-component-map__port.is-refresh-affected{fill:#d8a83f!important;filter:drop-shadow(0 0 2px rgba(216,168,63,.45))}
+html[data-reduced-motion="true"] .full-component-map.is-commit-refreshing .full-component-map__edge.is-refresh-affected,html[data-reduced-motion="true"] .full-component-map.is-commit-updated .full-component-map__edge.is-refresh-affected{animation:none}
 .full-component-map__node{position:absolute;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-left:4px solid var(--accent);border-radius:4px;color:var(--text-primary);background:#111827;box-shadow:0 4px 6px rgba(0,0,0,.3);font-size:8px;text-align:left;cursor:pointer;transition:box-shadow .2s}
 .full-component-map__node:hover{border-left-color:var(--accent-hover);box-shadow:0 4px 8px rgba(0,0,0,.4)}
 .full-component-map__node.is-primary{border-left-color:var(--success);box-shadow:0 4px 6px rgba(0,0,0,.3),0 0 16px rgba(63,185,80,.1)}

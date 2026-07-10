@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { Search, Minimize2, ZoomIn, ZoomOut, Expand, Shrink, RefreshCw, Layers, Map as MapIcon, Maximize } from 'lucide-react';
+import { Search, Expand, Shrink, RefreshCw, Layers, Map as MapIcon, Maximize, GitCommit } from 'lucide-react';
 import { ComponentIcon } from './ComponentIcon';
 import type { PullRequestArchitectureImpact, ArchitectureComponent } from '../../architecture/types';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useArchitectureStore, type ComponentMapGroupingMode } from '../../architecture/architecture-store';
-import { getRelevantComponents, getRelevantComponentIds, getShortestUniqueQualifier } from '../../architecture/graph-utils';
+import { getRelevantComponents, getShortestUniqueQualifier } from '../../architecture/graph-utils';
 import { computeLayout, computeOrthogonalEdge } from './ArchitectureGraphLayout';
+import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
 
 function getGroupId(component: ArchitectureComponent, mode: ComponentMapGroupingMode): string | undefined {
   if (mode === 'none') return undefined;
@@ -34,15 +35,25 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
   const mapState = useArchitectureStore(s => s.states[activeTabId]?.mapState);
   const setMapState = useArchitectureStore.getState().setMapState;
   const selectedComponentId = useArchitectureStore(s => s.states[activeTabId]?.selectedComponentId);
+  const synchronizedHeadSha = useTabsStore(s => {
+    const tab = s.tabs.find(value => value.id === activeTabId);
+    return tab?.family === 'native' && tab.context?.type === 'pullRequest' ? tab.context.headSha : undefined;
+  });
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const refreshState = useArchitectureRefreshStore(s => s.values[activeTabId]);
 
   if (!mapState) return null;
 
-  const { groupingMode, filters, expandedGroups, zoom, panX, panY, isFullScreen } = mapState;
+  const { groupingMode, filters, zoom, panX, panY, isFullScreen } = mapState;
+  const isCommitRefreshing = refreshState?.status === 'syncing';
+  const recentlyUpdated = refreshState?.status === 'updated';
+  const refreshStatus = refreshState?.status === 'syncing' ? 'Syncing' : recentlyUpdated ? 'Updated' : 'Current';
+  const displayedHeadSha = refreshState?.headSha || synchronizedHeadSha || impact.headSha;
+  const emphasizeRefresh = isCommitRefreshing || recentlyUpdated;
 
   // Filter nodes based on filters
   const allRelevantComponents = useMemo(() => getRelevantComponents(impact), [impact]);
@@ -82,6 +93,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
 
   const edges = useMemo(() => {
     const visibleIds = new Set(visibleComponents.map(c => c.id));
+    const affectedIds = new Set(impact.affectedComponents.map(item => item.component.id));
     const edgeMap = new Map<string, { source: string, target: string, change: string }>();
     
     for (const e of impact.snapshot.dependencies) {
@@ -102,9 +114,9 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
       else if (e.change === 'removed') type = 'removed';
       else if (e.change === 'modified') type = 'modified';
       else if (e.source !== impact.primaryComponentId && e.target !== impact.primaryComponentId) type = 'indirect';
-      return { ...e, type };
+      return { ...e, type, refreshAffected: e.change !== 'none' || affectedIds.has(e.source) || affectedIds.has(e.target) };
     });
-  }, [impact.snapshot.dependencies, impact.dependencyChanges, visibleComponents, impact.primaryComponentId]);
+  }, [impact.snapshot.dependencies, impact.dependencyChanges, impact.affectedComponents, visibleComponents, impact.primaryComponentId]);
 
   const layout = useMemo(() => computeLayout(nodes, edges, impact.primaryComponentId), [nodes, edges, impact.primaryComponentId]);
 
@@ -205,8 +217,11 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
     setTimeout(fitToView, 50);
   }, [activeTabId, setMapState, isFullScreen, fitToView]);
 
-  return <div className={`full-component-map ${isFullScreen ? 'is-full-screen' : ''}`}>
+  return <div className={`full-component-map ${isFullScreen ? 'is-full-screen' : ''} ${isCommitRefreshing ? 'is-commit-refreshing' : recentlyUpdated ? 'is-commit-updated' : ''}`}>
     <header className="full-component-map__toolbar">
+      <div className="full-component-map__commit-status" role="status" aria-live="polite">
+        <GitCommit size={13}/><span>{displayedHeadSha && displayedHeadSha !== 'head-unavailable' ? displayedHeadSha.slice(0, 7) : 'SHA unavailable'}</span><strong>{refreshStatus}</strong>
+      </div>
       <div className="toolbar-group">
         <button onClick={fitToView} title="Fit to view"><Maximize size={14}/> Fit</button>
         <button onClick={focusChanged} title="Focus changed"><MapIcon size={14}/> Focus</button>
@@ -244,7 +259,6 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
         
         {/* Draw Groups */}
         {Array.from(layout.groups.entries()).map(([gId, gLayout]) => {
-          const isExpanded = true; // For now always expanded
           return <div key={gId} className="full-component-map__group" style={{ left: gLayout.x, top: gLayout.y, width: gLayout.width, height: gLayout.height }}>
             <span className="full-component-map__group-label">{gId}</span>
           </div>;
@@ -271,6 +285,9 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             <marker id="arrow-is-connected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
+            <marker id="arrow-sync" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#d8a83f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
           </defs>
           {edges.map(e => {
             const sLayout = layout.nodes.get(e.source);
@@ -282,16 +299,17 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             const statusClass = e.type !== 'normal' && e.type !== 'indirect' ? `is-${e.type}` : '';
             const indirectClass = e.type === 'indirect' ? 'is-indirect' : '';
             const connectedClass = isConnected ? 'is-connected' : '';
+            const refreshClass = emphasizeRefresh && e.refreshAffected ? 'is-refresh-affected' : '';
             
             return (
               <g key={`${e.source}-${e.target}`} className={`full-component-map__edge-group`}>
                 <path d={pathData} className="full-component-map__edge-hitbox" />
                 <path
-                  className={`full-component-map__edge ${statusClass} ${indirectClass} ${connectedClass}`}
+                  className={`full-component-map__edge ${statusClass} ${indirectClass} ${connectedClass} ${refreshClass}`}
                   d={pathData}
-                  markerEnd={`url(#arrow-${isConnected ? 'is-connected' : (statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default')})`}
+                  markerEnd={`url(#arrow-${emphasizeRefresh && e.refreshAffected ? 'sync' : isConnected ? 'is-connected' : (statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default')})`}
                 />
-                <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type} ${connectedClass}`} />
+                <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type} ${connectedClass} ${refreshClass}`} />
               </g>
             );
           })}

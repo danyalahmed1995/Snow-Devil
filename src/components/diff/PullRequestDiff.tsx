@@ -12,6 +12,7 @@ import { useLayoutStore } from '../../stores/layout-store';
 import { ArchitectureContext } from '../architecture/ArchitectureContext';
 import { useRepositoryArchitecture } from '../../architecture/useRepositoryArchitecture';
 import { usePullRequestDetails } from '../../hooks/usePullRequestDetails';
+import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
 import './PullRequestDiff.css';
 
 interface PersistedDiff { activePath:string; layout:'unified'|'split'; viewed:string[]; ignoreWhitespace:boolean; surface:'changes'|'architecture' }
@@ -20,6 +21,9 @@ function readPersisted(repository:string,number:number):PersistedDiff{try{return
 
 export function PullRequestDiff({repository,number,observedHeadSha}:{repository:string;number:number;observedHeadSha?:string}){
   const mode=useModeStore(s=>s.mode);const name=repository.split('/')[1]??repository;const initial=useMemo(()=>readPersisted(repository,number),[repository,number]);const details=usePullRequestDetails(repository,number,observedHeadSha);const data=details.data;const error=details.error?String(details.error):undefined;const[surface,setSurface]=useState<'changes'|'architecture'>(architectureContextEnabled()?initial.surface:'changes');const[layout,setLayout]=useState<'unified'|'split'>(initial.layout);const[activePath,setActivePath]=useState(initial.activePath);const[query,setQuery]=useState('');const[ignoreWhitespace,setIgnoreWhitespace]=useState(initial.ignoreWhitespace);const[expandedContext,setExpandedContext]=useState(false);const[renderLimit,setRenderLimit]=useState(CHUNK);const[viewed,setViewed]=useState(new Set(initial.viewed));const mainRef=useRef<HTMLElement>(null);const activeTabId=useTabsStore(s=>s.activeTabId);const setInspectorOpen=useLayoutStore(s=>s.setInspectorOpen);const architectureEnabled=architectureContextEnabled();
+  const completedHeadRef=useRef<string | undefined>(undefined);
+  const setRefreshState=useArchitectureRefreshStore(s=>s.set);
+  useEffect(()=>{if(!architectureEnabled)return;const currentHead=data?.headRefOid;const newHeadPending=Boolean(observedHeadSha&&currentHead&&currentHead!==observedHeadSha);if(details.isFetching&&newHeadPending){setRefreshState(activeTabId,{status:'syncing',headSha:observedHeadSha});return;}if(!details.isFetching&&currentHead&&completedHeadRef.current&&completedHeadRef.current!==currentHead){setRefreshState(activeTabId,{status:'updated',headSha:currentHead});const timer=window.setTimeout(()=>setRefreshState(activeTabId,{status:'current',headSha:currentHead}),4000);return()=>window.clearTimeout(timer);}if(currentHead)completedHeadRef.current=currentHead;},[activeTabId,architectureEnabled,data?.headRefOid,details.isFetching,observedHeadSha,setRefreshState]);
   useEffect(()=>{localStorage.setItem(persistedKey(repository,number),JSON.stringify({activePath,layout,viewed:[...viewed],ignoreWhitespace,surface}));},[activePath,ignoreWhitespace,layout,number,repository,surface,viewed]);
   const files=useMemo(()=>parseUnifiedDiff(data?.diff??''),[data?.diff]);
   const repositoryArchitecture=useRepositoryArchitecture(repository,data?.baseRefOid,architectureEnabled&&Boolean(data)&&surface==='architecture');
