@@ -43,7 +43,7 @@ describe('ArchitectureContext', () => {
   it('keeps the component glyph constrained inside the node instead of scaling it as the graph SVG', () => {
     const { container } = render(<ArchitectureContext impact={impact} onSelectComponent={vi.fn()} onOpenFile={vi.fn()}/>);
     const canvas = container.querySelector('.architecture-map__canvas');
-    const graphSvgs = canvas?.querySelectorAll(':scope > svg');
+    const graphSvgs = canvas?.querySelectorAll(':scope > div > svg');
     const nodeIcon = canvas?.querySelector('.architecture-node__icon > svg');
     expect(graphSvgs).toHaveLength(1);
     expect(nodeIcon).toHaveAttribute('width', '13');

@@ -35,7 +35,7 @@
 .full-component-map__layer{position:absolute;top:0;left:0;transform-origin:0 0}
 .full-component-map__group{position:absolute;border:1px solid rgba(79,143,239,.3);border-radius:8px;background:rgba(0,0,0,.15);pointer-events:none}
 .full-component-map__group-label{position:absolute;top:-10px;left:10px;background:var(--surface-content);padding:0 8px;color:var(--text-secondary);font-size:10px;font-weight:600;border-radius:4px}
-.full-component-map__edges{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
+.full-component-map__edges{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;animation:march 1.25s linear infinite}
 .full-component-map__edge{stroke:rgba(79,143,239,.85);stroke-width:1.5px;fill:none;stroke-dasharray:6,6;transition:stroke-width .2s,stroke .2s}
 .full-component-map__edge.is-new{stroke:var(--success)}
 .full-component-map__edge.is-removed{stroke:var(--danger);stroke-dasharray:4,4}
@@ -54,6 +54,7 @@
 .full-component-map.is-commit-refreshing .full-component-map__edge.is-refresh-affected,.full-component-map.is-commit-updated .full-component-map__edge.is-refresh-affected{stroke:#d8a83f!important;stroke-width:1.65px;animation:march .7s linear infinite,commit-edge-glow 1.4s ease-in-out infinite}
 .full-component-map.is-commit-refreshing .full-component-map__port.is-refresh-affected,.full-component-map.is-commit-updated .full-component-map__port.is-refresh-affected{fill:#d8a83f!important;filter:drop-shadow(0 0 2px rgba(216,168,63,.45))}
 html[data-reduced-motion="true"] .full-component-map.is-commit-refreshing .full-component-map__edge.is-refresh-affected,html[data-reduced-motion="true"] .full-component-map.is-commit-updated .full-component-map__edge.is-refresh-affected{animation:none}
+html[data-reduced-motion="true"] .full-component-map__edges{animation:none}
 .full-component-map__node{position:absolute;display:flex;align-items:center;gap:8px;padding:8px 10px;border:none;border-left:4px solid var(--accent);border-radius:4px;color:var(--text-primary);background:#111827;box-shadow:0 4px 6px rgba(0,0,0,.3);font-size:8px;text-align:left;cursor:pointer;transition:box-shadow .2s}
 .full-component-map__node:hover{border-left-color:var(--accent-hover);box-shadow:0 4px 8px rgba(0,0,0,.4)}
 .full-component-map__node.is-primary{border-left-color:var(--success);box-shadow:0 4px 6px rgba(0,0,0,.3),0 0 16px rgba(63,185,80,.1)}
