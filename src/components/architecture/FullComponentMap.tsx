@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { FitToScreen, Maximize, Minimize, Search, Settings, Layers, RefreshCw, Network, Box, Map as MapIcon, Check, Expand, Shrink } from 'lucide-react';
+import { Search, Minimize2, ZoomIn, ZoomOut, Expand, Shrink, RefreshCw, Layers, Map as MapIcon, Maximize } from 'lucide-react';
+import { ComponentIcon } from './ComponentIcon';
 import type { PullRequestArchitectureImpact, ArchitectureComponent } from '../../architecture/types';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useArchitectureStore, type ComponentMapGroupingMode } from '../../architecture/architecture-store';
@@ -108,11 +109,14 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
   const layout = useMemo(() => computeLayout(nodes, edges, impact.primaryComponentId), [nodes, edges, impact.primaryComponentId]);
 
   // Handle Search Focus
+  const lastMatchedId = useRef<string | null>(null);
+
   useEffect(() => {
     if (searchQuery.trim().length > 2) {
       const q = searchQuery.toLowerCase();
       const match = visibleComponents.find(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
-      if (match) {
+      if (match && match.id !== lastMatchedId.current) {
+        lastMatchedId.current = match.id;
         const nodeLayout = layout.nodes.get(match.id);
         if (nodeLayout && containerRef.current) {
           const rect = containerRef.current.getBoundingClientRect();
@@ -122,6 +126,8 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           onSelect(match.id);
         }
       }
+    } else {
+      lastMatchedId.current = null;
     }
   }, [searchQuery, layout, zoom, visibleComponents, activeTabId, setMapState, onSelect]);
 
@@ -244,23 +250,24 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           </div>;
         })}
 
-        {/* Draw Edges SVG Layer */}
-        <svg className="full-component-map__edges" width={Math.max(100, layout.width)} height={Math.max(100, layout.height)} aria-hidden="true">
+        {/* Draw Edges */}
+        <svg className="full-component-map__edges" width={Math.max(100, layout.width)} height={Math.max(100, layout.height)} style={{ width: Math.max(100, layout.width), height: Math.max(100, layout.height) }}>
           <defs>
-            {['normal', 'new', 'removed', 'modified', 'indirect'].map(type => {
-              let color = 'rgba(79,143,239,0.85)';
-              if (type === 'new') color = '#3fb950'; // var(--success)
-              if (type === 'removed') color = '#f85149'; // var(--danger)
-              if (type === 'modified') color = '#d29922'; // var(--warning)
-              if (type === 'indirect') color = 'rgba(139,148,158,0.7)';
-              
-              const markerScale = 1 / zoom;
-              return (
-                <marker key={type} id={`arrowhead-${type}`} markerWidth={12 * markerScale} markerHeight={8 * markerScale} refX={(12 + 6) * markerScale} refY={4 * markerScale} orient="auto" markerUnits="userSpaceOnUse">
-                  <polygon points={`0 0, ${12 * markerScale} ${4 * markerScale}, 0 ${8 * markerScale}`} fill={color} />
-                </marker>
-              );
-            })}
+            <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(79,143,239,.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+            <marker id="arrow-is-new" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#3fb950" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+            <marker id="arrow-is-removed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#f85149" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+            <marker id="arrow-is-modified" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#d29922" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
+            <marker id="arrow-is-indirect" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(139,148,158,.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </marker>
           </defs>
           {edges.map(e => {
             const sLayout = layout.nodes.get(e.source);
@@ -268,11 +275,17 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             if (!sLayout || !tLayout) return null;
             const points = computeOrthogonalEdge(sLayout, tLayout);
             const pathData = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+            const statusClass = e.type !== 'normal' && e.type !== 'indirect' ? `is-${e.type}` : '';
+            const indirectClass = e.type === 'indirect' ? 'is-indirect' : '';
             
             return (
               <g key={`${e.source}-${e.target}`} className={`full-component-map__edge-group`}>
                 <path d={pathData} className="full-component-map__edge-hitbox" />
-                <path d={pathData} className={`full-component-map__edge is-${e.type}`} markerEnd={`url(#arrowhead-${e.type})`} />
+                <path
+                  className={`full-component-map__edge ${statusClass} ${indirectClass}`}
+                  d={pathData}
+                  markerEnd={`url(#arrow-${statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default'})`}
+                />
                 <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type}`} />
               </g>
             );
@@ -290,7 +303,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           const isMatch = searchQuery && (c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.toLowerCase().includes(searchQuery.toLowerCase()));
 
           return <button key={c.id} className={`full-component-map__node ${isPrimary ? 'is-primary' : ''} ${isAffected ? 'is-affected' : ''} ${isSelected ? 'is-selected' : ''} ${isMatch ? 'is-match' : ''}`} style={{ left: nLayout.x, top: nLayout.y, width: nLayout.width, height: nLayout.height }} onClick={(e) => { e.stopPropagation(); onSelect(c.id); }}>
-            <span className="architecture-node__icon" aria-hidden="true"><Network size={13}/></span>
+            <ComponentIcon component={c} />
             <span className="architecture-node__label">
               <strong>{c.name}</strong>
               <small>{qualifier} {isPrimary ? '· Primary' : isAffected ? '· Changed' : ''}</small>

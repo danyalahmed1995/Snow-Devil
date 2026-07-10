@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Info, GitBranch, Network } from 'lucide-react';
+import { Info, GitBranch } from 'lucide-react';
+import { ComponentIcon } from './ComponentIcon';
 import type { PullRequestArchitectureImpact } from '../../architecture/types';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useArchitectureStore } from '../../architecture/architecture-store';
@@ -26,6 +27,12 @@ export function OverviewMap({ impact, onSelect }: { impact: PullRequestArchitect
   const [panY, setPanY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(impact.primaryComponentId ?? null);
+
+  const handleSelect = (id: string) => {
+    setSelectedNodeId(id);
+    onSelect(id);
+  };
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
@@ -53,10 +60,20 @@ export function OverviewMap({ impact, onSelect }: { impact: PullRequestArchitect
     setZoom(Math.max(0.2, Math.min(5, newZoom)));
   };
 
-  return <article className="architecture-panel architecture-map"><header><div><h3>Component Dependency Map</h3><p>Focused on changed components and bounded repository dependencies</p></div><span className="architecture-legend"><i/>Changed <b/>Dependency</span></header><div className={`architecture-map__canvas architecture-canvas-pan ${nodes.length === 1 ? 'is-single' : ''} ${isDragging ? 'is-dragging' : ''}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel} style={{ touchAction: 'none' }}>
+  return <article className="architecture-panel architecture-map"><header><div><h3>Component Dependency Map</h3><p>Focused on changed components and bounded repository dependencies</p></div><span className="architecture-legend"><span className="architecture-legend-item"><i/>Changed</span><span className="architecture-legend-item"><b/>Dependency</span></span></header><div className={`architecture-map__canvas architecture-canvas-pan ${nodes.length === 1 ? 'is-single' : ''} ${isDragging ? 'is-dragging' : ''}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel} style={{ touchAction: 'none' }}>
     <div style={{ width: '100%', height: '100%', transform: `translate(${panX}px, ${panY}px) scale(${zoom})`, transformOrigin: 'center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }}>
-      <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>{nodes.slice(1).map((node, index) => { const point = position(index + 1); const changed = impact.dependencyChanges.some(edge => (edge.fromComponentId === primary?.id && edge.toComponentId === node.id) || (edge.toComponentId === primary?.id && edge.fromComponentId === node.id)); return <line key={node.id} x1="50" y1="50" x2={point.x} y2={point.y} className={changed ? 'is-new' : ''}/>; })}</svg>
-      {nodes.map((node, index) => { const point = position(index); const affected = impact.affectedComponents.some(item => item.component.id === node.id); return <button key={node.id} style={{ left: `${point.x}%`, top: `${point.y}%` }} className={`${index === 0 ? 'is-primary' : ''} ${affected ? 'is-affected' : ''}`} onClick={() => onSelect(node.id)}><span className="architecture-node__icon" aria-hidden="true"><Network size={13}/></span><span className="architecture-node__label"><strong>{node.name}</strong><small>{index === 0 ? 'Primary' : affected ? 'Changed' : 'Dependency'} · {node.kind}</small></span></button>; })}
+      <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+        <defs>
+          <marker id="arrow-overview-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(79,143,239,.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </marker>
+          <marker id="arrow-overview-new" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+            <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#3fb950" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </marker>
+        </defs>
+        {nodes.slice(1).map((node, index) => { const point = position(index + 1); const changed = impact.dependencyChanges.some(edge => (edge.fromComponentId === primary?.id && edge.toComponentId === node.id) || (edge.toComponentId === primary?.id && edge.fromComponentId === node.id)); return <line key={node.id} x1="50" y1="50" x2={point.x} y2={point.y} className={changed ? 'is-new' : ''} markerEnd={changed ? "url(#arrow-overview-new)" : "url(#arrow-overview-default)"} />; })}
+      </svg>
+      {nodes.map((node, index) => { const point = position(index); const affected = impact.affectedComponents.some(item => item.component.id === node.id); return <button key={node.id} style={{ left: `${point.x}%`, top: `${point.y}%` }} className={`${index === 0 ? 'is-primary' : ''} ${affected ? 'is-affected' : ''} ${selectedNodeId === node.id ? 'is-selected' : ''}`} onClick={() => handleSelect(node.id)}><ComponentIcon component={node} /><span className="architecture-node__label"><strong>{node.name}</strong><small>{index === 0 ? 'Primary' : affected ? 'Changed' : 'Dependency'} · {node.kind}</small></span></button>; })}
       {!nodes.length && <div className="architecture-map__empty">No component boundary could be identified.</div>}
     </div>
   </div><footer>

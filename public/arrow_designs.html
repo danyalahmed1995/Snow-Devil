@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Connector Arrow Designs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #06101d;
+      --text-primary: #e2e8f0;
+      --text-muted: #64748b;
+      --accent-blue: #00bfff;
+      --accent-green: #3fb950;
+    }
+
+    body {
+      margin: 0; padding: 0;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      display: flex; flex-direction: column; gap: 60px;
+      padding: 60px 40px 100px;
+    }
+
+    .gallery-header { text-align: center; margin-bottom: 20px; }
+    .gallery-header h1 { margin: 0; font-size: 2.5rem; font-weight: 700; color: #fff; }
+    .gallery-header p { color: var(--text-muted); margin-top: 10px; font-size: 1.1rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .theme-card {
+      background: #0d1624;
+      border: 1px solid #1e2d40;
+      border-radius: 12px;
+      padding: 30px;
+      display: flex; flex-direction: column; gap: 20px;
+      position: relative; overflow: hidden;
+    }
+
+    .theme-title { font-size: 1.1rem; color: #fff; font-weight: 600; z-index: 1; border-bottom: 1px solid #1e2d40; padding-bottom: 15px; }
+
+    .canvas-container {
+      position: relative; height: 160px; border-radius: 8px;
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 20px 20px; border: 1px solid rgba(255,255,255,0.05);
+      overflow: hidden;
+    }
+
+    /* Base Node Styles (Mockup) */
+    .mock-node {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: #111827; border-radius: 4px; border-left: 4px solid var(--accent-blue);
+      padding: 8px 12px; font-size: 0.75rem; font-weight: 600; color: #fff;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 10;
+    }
+    .mock-node.primary { left: 10%; border-left-color: var(--accent-green); }
+    .mock-node.secondary { right: 10%; border-left-color: var(--accent-blue); }
+
+    /* SVG Canvas */
+    svg {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+    }
+
+    /* Animations */
+    @keyframes march { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    @keyframes packetFlow { 
+      0% { offset-distance: 0%; opacity: 0; } 
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { offset-distance: 100%; opacity: 0; }
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="gallery-header">
+    <h1>Connector Arrow Concepts</h1>
+    <p>10 visual treatments for dependency lines and directionality.</p>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const defs = `
+      <defs>
+        <!-- 1. Classic Solid -->
+        <marker id="arrow-classic" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#00bfff" />
+        </marker>
+
+        <!-- 2. Sleek Chevron -->
+        <marker id="arrow-chevron" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#00bfff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </marker>
+
+        <!-- 3. Double Chevron -->
+        <marker id="arrow-double" viewBox="0 0 14 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M 0 1 L 6 5 L 0 9 M 6 1 L 12 5 L 6 9" fill="none" stroke="#00bfff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </marker>
+
+        <!-- 4. Neon Glow -->
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <marker id="arrow-neon" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3fb950" filter="url(#glow)" />
+        </marker>
+
+        <!-- 5. Dotted Path Arrow -->
+        <marker id="arrow-dot" viewBox="0 0 12 12" refX="8" refY="6" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <circle cx="2" cy="6" r="2" fill="#00bfff" />
+          <path d="M 5 2 L 11 6 L 5 10" fill="none" stroke="#00bfff" stroke-width="1.5" stroke-linecap="round" />
+        </marker>
+
+        <!-- 6. Gradient Flow -->
+        <linearGradient id="grad-flow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="rgba(0,191,255,0.1)" />
+          <stop offset="100%" stop-color="rgba(0,191,255,1)" />
+        </linearGradient>
+        <marker id="arrow-grad" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#00bfff" stroke-width="2" stroke-linecap="round" />
+        </marker>
+
+        <!-- 7. Diamond Terminal -->
+        <marker id="arrow-diamond" viewBox="0 0 14 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <rect x="0" y="2.5" width="5" height="5" fill="#00bfff" transform="rotate(45 2.5 5)" />
+          <path d="M 6 1 L 12 5 L 6 9" fill="none" stroke="#00bfff" stroke-width="1.5" stroke-linecap="round" />
+        </marker>
+
+        <!-- 8. Circuit Board Hub -->
+        <marker id="arrow-circuit" viewBox="0 0 16 16" refX="12" refY="8" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <circle cx="4" cy="8" r="3" fill="#06101d" stroke="#00bfff" stroke-width="1.5" />
+          <path d="M 8 4 L 14 8 L 8 12 z" fill="#00bfff" />
+        </marker>
+      </defs>
+    `;
+
+    const themes = [
+      { id: 1, name: 'Classic Solid', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1.5" marker-end="url(#arrow-classic)" />` },
+      { id: 2, name: 'Sleek Chevron', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1.5" marker-end="url(#arrow-chevron)" />` },
+      { id: 3, name: 'Double Chevron', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1" marker-end="url(#arrow-double)" />` },
+      { id: 4, name: 'Neon Glow', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#3fb950" stroke-width="2" filter="url(#glow)" marker-end="url(#arrow-neon)" />` },
+      { id: 5, name: 'Dotted Path', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1.5" stroke-dasharray="4, 4" marker-end="url(#arrow-dot)" />` },
+      { id: 6, name: 'Gradient Flow', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="url(#grad-flow)" stroke-width="2" marker-end="url(#arrow-grad)" />` },
+      { id: 7, name: 'Diamond Terminal', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1.5" marker-end="url(#arrow-diamond)" />` },
+      { id: 8, name: 'Circuit Board Hub', html: `<path d="M 20% 50% H 40% V 30% H 70%" stroke="#00bfff" stroke-width="1.5" fill="none" marker-end="url(#arrow-circuit)" />` },
+      { id: 9, name: 'Animated Marching Ants', html: `<line x1="20%" y1="50%" x2="70%" y2="50%" stroke="#00bfff" stroke-width="1.5" stroke-dasharray="6, 6" marker-end="url(#arrow-chevron)" style="animation: march 1s linear infinite;" />` },
+      { id: 10, name: 'Animated Data Packets', html: `<path id="flowPath" d="M 20% 50% Q 45% 20%, 70% 50%" stroke="#1e2d40" stroke-width="2" fill="none" marker-end="url(#arrow-chevron)" /><circle r="3" fill="#00bfff" filter="url(#glow)" style="offset-path: path('M 76 80 Q 171 32, 266 80'); animation: packetFlow 2s linear infinite;" />` }
+    ];
+
+    // For Theme 10, the offset-path needs absolute coordinates for the browser, 
+    // so we simulate it via offset-path above.
+
+    const grid = document.getElementById('grid');
+
+    themes.forEach(t => {
+      const card = document.createElement('div');
+      card.className = `theme-card`;
+      card.innerHTML = `
+        <div class="theme-title">#${String(t.id).padStart(2, '0')} ${t.name}</div>
+        <div class="canvas-container">
+          <div class="mock-node primary">Test Suite</div>
+          <div class="mock-node secondary">Library</div>
+          <svg preserveAspectRatio="none">
+            ${defs}
+            ${t.html}
+          </svg>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>
