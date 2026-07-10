@@ -58,3 +58,28 @@
 .full-component-map.is-full-screen{position:fixed;inset:0;z-index:15;border:none;border-radius:0;background:var(--surface-primary, #0d1117)}
 .full-component-map__exit-fullscreen{margin-left:auto;display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:4px;color:var(--text-primary);background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);font-size:9px;cursor:pointer}
 .full-component-map__exit-fullscreen:hover{background:rgba(255,255,255,.15)}
+
+/* THEME: DEEP BLUEPRINT */
+.theme-blueprint.architecture-context {
+  background: #081226;
+  background-image: linear-gradient(rgba(42, 130, 230, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(42, 130, 230, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid rgba(42, 130, 230, 0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 12px;
+}
+.theme-blueprint .architecture-metric,
+.theme-blueprint .architecture-panel {
+  background: rgba(4, 9, 18, 0.85);
+  border: 1px solid rgba(42, 130, 230, 0.25);
+  border-radius: 6px;
+}
+.theme-blueprint .architecture-metric:hover {
+  background: rgba(42, 130, 230, 0.1);
+  border-color: rgba(42, 130, 230, 0.5);
+}
+.theme-blueprint .architecture-tabs button.is-active {
+  color: #2a82e6;
+  border-bottom: 2px solid #2a82e6;
+}

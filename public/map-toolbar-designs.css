@@ -1,0 +1,276 @@
+/* 
+  Snow Devil - Component Map Toolbar 10 CSS Designs
+  Apply these classes (e.g. .theme-neon-cyan) to the parent container to test the designs.
+*/
+
+/* Base reset for testing */
+.theme-container .full-component-map__toolbar {
+  transition: all 0.3s ease;
+}
+
+/* =========================================
+   THEME 1: NEON CYAN GLOW
+   ========================================= */
+.theme-neon-cyan .full-component-map__toolbar {
+  background: #040914;
+  border-bottom: 1px solid #00e5ff;
+  box-shadow: 0 4px 15px rgba(0, 229, 255, 0.1);
+}
+.theme-neon-cyan .toolbar-group button, 
+.theme-neon-cyan .toolbar-group select, 
+.theme-neon-cyan .toolbar-search input {
+  background: rgba(0, 229, 255, 0.05);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: #e0fbfc;
+}
+.theme-neon-cyan .toolbar-group button:hover,
+.theme-neon-cyan .toolbar-group select:hover,
+.theme-neon-cyan .toolbar-search input:focus {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+}
+.theme-neon-cyan select option {
+  background: #040914;
+  color: #00e5ff;
+}
+
+/* =========================================
+   THEME 2: GLASSMORPHISM FROSTED
+   ========================================= */
+.theme-glass .full-component-map__toolbar {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.theme-glass .toolbar-group button, 
+.theme-glass .toolbar-group select, 
+.theme-glass .toolbar-search input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+.theme-glass .toolbar-group button:hover,
+.theme-glass .toolbar-search input:focus {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.theme-glass select option {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+/* =========================================
+   THEME 3: DEEP NAVY PROFESSIONAL
+   ========================================= */
+.theme-navy .full-component-map__toolbar {
+  background: #0a192f;
+  border-bottom: 1px solid #172a45;
+}
+.theme-navy .toolbar-group button, 
+.theme-navy .toolbar-group select, 
+.theme-navy .toolbar-search input {
+  background: #112240;
+  border: 1px solid #233554;
+  color: #ccd6f6;
+  border-radius: 4px;
+}
+.theme-navy .toolbar-group button:hover,
+.theme-navy .toolbar-search input:focus {
+  background: #233554;
+  border-color: #64ffda;
+  color: #64ffda;
+}
+.theme-navy select option {
+  background: #112240;
+  color: #ccd6f6;
+}
+
+/* =========================================
+   THEME 4: HACKER TERMINAL
+   ========================================= */
+.theme-terminal .full-component-map__toolbar {
+  background: #000;
+  border-bottom: 1px dashed #33ff00;
+}
+.theme-terminal .toolbar-group button, 
+.theme-terminal .toolbar-group select, 
+.theme-terminal .toolbar-search input,
+.theme-terminal .toolbar-group label {
+  background: transparent;
+  border: 1px solid #003300;
+  color: #33ff00;
+  font-family: monospace;
+  border-radius: 0;
+}
+.theme-terminal .toolbar-group button:hover,
+.theme-terminal .toolbar-search input:focus {
+  background: rgba(51, 255, 0, 0.1);
+  border-color: #33ff00;
+}
+.theme-terminal select option {
+  background: #000;
+  color: #33ff00;
+}
+
+/* =========================================
+   THEME 5: CYBERPUNK EDGE
+   ========================================= */
+.theme-cyberpunk .full-component-map__toolbar {
+  background: #120428;
+  border-bottom: 2px solid #ff007f;
+}
+.theme-cyberpunk .toolbar-group button, 
+.theme-cyberpunk .toolbar-group select, 
+.theme-cyberpunk .toolbar-search input {
+  background: rgba(255, 0, 127, 0.1);
+  border: 1px solid #7000ff;
+  color: #fff;
+  border-radius: 0;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+.theme-cyberpunk .toolbar-group button:hover,
+.theme-cyberpunk .toolbar-search input:focus {
+  background: rgba(112, 0, 255, 0.3);
+  border-color: #ff007f;
+  box-shadow: 0 0 10px #ff007f;
+}
+.theme-cyberpunk select option {
+  background: #120428;
+  color: #ff007f;
+}
+
+/* =========================================
+   THEME 6: POLISHED OBSIDIAN
+   ========================================= */
+.theme-obsidian .full-component-map__toolbar {
+  background: #050505;
+  border-bottom: 1px solid #222;
+}
+.theme-obsidian .toolbar-group button, 
+.theme-obsidian .toolbar-group select, 
+.theme-obsidian .toolbar-search input {
+  background: #0a0a0a;
+  border: 1px solid #333;
+  color: #e5e5e5;
+  border-radius: 6px;
+}
+.theme-obsidian .toolbar-group button:hover,
+.theme-obsidian .toolbar-search input:focus {
+  background: #1a1a1a;
+  border-color: #666;
+  color: #fff;
+}
+.theme-obsidian select option {
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
+
+/* =========================================
+   THEME 7: ETHEREAL PURPLE
+   ========================================= */
+.theme-purple .full-component-map__toolbar {
+  background: #0f0a1f;
+  border-bottom: 1px solid rgba(138, 43, 226, 0.3);
+}
+.theme-purple .toolbar-group button, 
+.theme-purple .toolbar-group select, 
+.theme-purple .toolbar-search input {
+  background: rgba(138, 43, 226, 0.05);
+  border: 1px solid rgba(138, 43, 226, 0.2);
+  color: #d8b4fe;
+  border-radius: 20px; /* Pill shape */
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.theme-purple .toolbar-group button:hover,
+.theme-purple .toolbar-search input:focus {
+  background: rgba(138, 43, 226, 0.15);
+  border-color: #a855f7;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+}
+.theme-purple select option {
+  background: #0f0a1f;
+  color: #d8b4fe;
+}
+
+/* =========================================
+   THEME 8: MINIMALIST FROST
+   ========================================= */
+.theme-frost .full-component-map__toolbar {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+}
+.theme-frost .toolbar-group button, 
+.theme-frost .toolbar-group select, 
+.theme-frost .toolbar-search input {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  color: #94a3b8;
+  border-radius: 4px;
+}
+.theme-frost .toolbar-group button:hover,
+.theme-frost .toolbar-search input:focus {
+  background: #334155;
+  border-color: #475569;
+  color: #f8fafc;
+}
+.theme-frost select option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+/* =========================================
+   THEME 9: CRIMSON FORGE
+   ========================================= */
+.theme-crimson .full-component-map__toolbar {
+  background: #1a0f0f;
+  border-bottom: 1px solid #4a1515;
+}
+.theme-crimson .toolbar-group button, 
+.theme-crimson .toolbar-group select, 
+.theme-crimson .toolbar-search input {
+  background: rgba(255, 50, 50, 0.05);
+  border: 1px solid #3d1414;
+  color: #fca5a5;
+  border-radius: 4px;
+}
+.theme-crimson .toolbar-group button:hover,
+.theme-crimson .toolbar-search input:focus {
+  background: rgba(255, 50, 50, 0.1);
+  border-color: #ef4444;
+  color: #fee2e2;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+}
+.theme-crimson select option {
+  background: #1a0f0f;
+  color: #fca5a5;
+}
+
+/* =========================================
+   THEME 10: HOLOGRAPHIC PROJECTION
+   ========================================= */
+.theme-holographic .full-component-map__toolbar {
+  background: rgba(2, 6, 23, 0.85);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 4px 20px rgba(56, 189, 248, 0.05);
+}
+.theme-holographic .toolbar-group button, 
+.theme-holographic .toolbar-group select, 
+.theme-holographic .toolbar-search input {
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.05) 0%, rgba(2, 6, 23, 0) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  color: #bae6fd;
+  border-radius: 6px;
+}
+.theme-holographic .toolbar-group button:hover,
+.theme-holographic .toolbar-search input:focus {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+  color: #fff;
+  box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2);
+}
+.theme-holographic select option {
+  background: #020617;
+  color: #38bdf8;
+}
