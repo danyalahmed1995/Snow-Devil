@@ -341,3 +341,4 @@
 .inspector-load-jobs-btn:active {
   transform: scale(0.98);
 }
+.inspector-architecture-path{overflow-wrap:anywhere;font-family:var(--font-mono);font-size:9px!important}

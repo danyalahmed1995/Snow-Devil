@@ -311,6 +311,43 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
             [],
         )?;
     }
+    if current_version < 8 {
+        tx.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS architecture_snapshots (
+                repository_id TEXT NOT NULL,
+                base_commit_sha TEXT NOT NULL,
+                algorithm_version INTEGER NOT NULL,
+                config_hash TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                generated_at TEXT NOT NULL,
+                last_accessed_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                payload_bytes INTEGER NOT NULL,
+                PRIMARY KEY (repository_id, base_commit_sha, algorithm_version, config_hash)
+            );
+            CREATE TABLE IF NOT EXISTS pr_architecture_impacts (
+                repository_id TEXT NOT NULL,
+                pull_request_number INTEGER NOT NULL,
+                base_sha TEXT NOT NULL,
+                head_sha TEXT NOT NULL,
+                snapshot_sha TEXT NOT NULL,
+                algorithm_version INTEGER NOT NULL,
+                generated_at TEXT NOT NULL,
+                last_accessed_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                payload_bytes INTEGER NOT NULL,
+                PRIMARY KEY (repository_id, pull_request_number, base_sha, head_sha, snapshot_sha, algorithm_version)
+            );
+            CREATE INDEX IF NOT EXISTS idx_architecture_snapshots_access ON architecture_snapshots(repository_id, last_accessed_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_pr_architecture_impacts_access ON pr_architecture_impacts(repository_id, pull_request_number, last_accessed_at DESC);
+            ",
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO schema_version (version) VALUES (8)",
+            [],
+        )?;
+    }
 
     tx.commit()?;
     Ok(())
@@ -370,5 +407,19 @@ mod tests {
         assert_eq!(ambiguous, 0);
         assert_eq!(canonical, 1);
         assert_eq!(canonical_event, 1);
+    }
+
+    #[test]
+    fn v8_creates_versioned_architecture_caches() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        run_migrations(&mut connection).unwrap();
+        let snapshot_table: i64 = connection.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'architecture_snapshots'", [], |row| row.get(0)).unwrap();
+        let impact_table: i64 = connection.query_row("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'pr_architecture_impacts'", [], |row| row.get(0)).unwrap();
+        let version: i64 = connection
+            .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!((snapshot_table, impact_table, version), (1, 1, 8));
     }
 }

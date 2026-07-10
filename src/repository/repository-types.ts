@@ -6,7 +6,7 @@ export interface RepositoryEntry {
   type: RepositoryEntryType;
 }
 
-export interface RepositoryBranch { name: string; kind: 'branch' | 'tag'; isDefault?: boolean }
+export interface RepositoryBranch { name: string; kind: 'branch' | 'tag'; isDefault?: boolean; oid?: string }
 export interface RepositoryFile { text: string | null; byteSize: number; path: string; contentBase64?: string; mimeType?: string }
 
 export type FilePreviewKind = 'text' | 'markdown' | 'image' | 'binary' | 'large';

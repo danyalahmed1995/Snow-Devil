@@ -9,6 +9,7 @@ import { Inspector } from '../inspector/Inspector';
 import { useEffect, useRef } from 'react';
 import { isNativeTab } from '../../browser/browser-tabs';
 import { useFlowStore } from '../../stores/flow-store';
+import { useArchitectureStore } from '../../architecture/architecture-store';
 
 export function Layout() {
   const inspectorResizeCleanup = useRef<(() => void) | undefined>(undefined);
@@ -19,11 +20,12 @@ export function Layout() {
   const activeTab = tabs.find(t => t.id === activeTabId);
   const isBrowserActive = activeTab ? isBrowserTab(activeTab) : false;
   const selection = useFlowStore(state => state.getTabState(activeTabId));
+  const architectureSelection = useArchitectureStore(state => state.states[activeTabId]?.selectedComponentId);
   useEffect(() => {
-    const hasSelection = Boolean(selection.selectedFlowItem || selection.selectedAnalyticsEntity || selection.selectedSimulatorEntity || selection.selectedSimulatorEvent);
+    const hasSelection = Boolean(selection.selectedFlowItem || selection.selectedAnalyticsEntity || selection.selectedSimulatorEntity || selection.selectedSimulatorEvent || architectureSelection);
     if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'settings' || (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator') && !hasSelection)) setInspectorOpen(false);
     else if (hasSelection) setInspectorOpen(true);
-  }, [activeTab, selection.selectedAnalyticsEntity, selection.selectedFlowItem, selection.selectedSimulatorEntity, selection.selectedSimulatorEvent, setInspectorOpen]);
+  }, [activeTab, architectureSelection, selection.selectedAnalyticsEntity, selection.selectedFlowItem, selection.selectedSimulatorEntity, selection.selectedSimulatorEvent, setInspectorOpen]);
   useEffect(() => () => inspectorResizeCleanup.current?.(), []);
 
   // Hide inspector when a browser tab is active (webview fills the space)

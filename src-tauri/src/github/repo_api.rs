@@ -382,6 +382,8 @@ pub async fn fetch_pr_details(
                     reviewDecision
                     baseRefName
                     headRefName
+                    baseRefOid
+                    headRefOid
                     commits(last: 1) {
                         nodes {
                             commit {

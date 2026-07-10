@@ -5,6 +5,7 @@ const FILES: Record<string, string> = {
   'package.json': '{\n  "name": "snow-devil",\n  "private": true,\n  "scripts": { "dev": "vite", "test": "vitest run" }\n}\n',
   'src/main.tsx': "import React from 'react';\nimport { createRoot } from 'react-dom/client';\nimport App from './app/App';\n\ncreateRoot(document.getElementById('root')!).render(<App />);\n",
   'src/app/App.tsx': "import { Layout } from '../../components/layout/Layout';\n\nexport default function App() {\n  return <Layout />;\n}\n",
+  'src/palette/CommandPalette.tsx': "export function CommandPalette() { return null; }\n",
   'src/styles/tokens.css': ':root {\n  --bg-primary: #080d14;\n  --accent: #3b8ef3;\n  --text-primary: #e6edf3;\n}\n',
   'docs/architecture.md': '# Architecture\n\nThe native workspace reuses typed tabs, shared data providers, and a read-only GitHub adapter.\n',
   'Benchmark Files/heavy_mdx_5mb_examples/01-large-doc.mdx': '# Oversized benchmark\n',
@@ -20,8 +21,8 @@ const FILES: Record<string, string> = {
 };
 
 export const demoBranches: RepositoryBranch[] = [
-  { name: 'main', kind: 'branch', isDefault: true },
-  { name: 'feat/native-browser', kind: 'branch' },
+  { name: 'main', kind: 'branch', isDefault: true, oid: 'demo-main-architecture-v1' },
+  { name: 'feat/native-browser', kind: 'branch', oid: 'demo-head-native-browser-v1' },
   { name: 'release/2.4', kind: 'branch' },
   { name: 'v2.4.0', kind: 'tag' },
 ];
@@ -58,6 +59,7 @@ export function demoFile(path: string): RepositoryFile | undefined {
 
 export const demoPullRequest = {
   baseRefName: 'main', headRefName: 'feat/native-browser',
+  baseRefOid: 'demo-base-architecture-v1', headRefOid: 'demo-head-native-browser-v1',
   title: 'Add native repository explorer and command palette', state: 'OPEN', author: { login: 'snowdevil-demo' }, createdAt: '2026-02-13T10:00:00Z', reviewDecision: 'REVIEW_REQUIRED',
   body: 'Connects workflow context to source navigation through typed native tabs.',
   diff: `diff --git a/src/app/App.tsx b/src/app/App.tsx\nindex 312a..82bc 100644\n--- a/src/app/App.tsx\n+++ b/src/app/App.tsx\n@@ -1,4 +1,6 @@\n import { Layout } from './Layout';\n+import { CommandPalette } from '../palette/CommandPalette';\n \n export default function App() {\n-  return <Layout />;\n+  return <><Layout /><CommandPalette /></>;\n }\ndiff --git a/src/styles/tokens.css b/src/styles/tokens.css\nindex b42d..ad91 100644\n--- a/src/styles/tokens.css\n+++ b/src/styles/tokens.css\n@@ -1,3 +1,4 @@\n :root {\n-  --bg-primary: #0d1117;\n+  --bg-primary: #080d14;\n+  --accent: #3b8ef3;\n }\n`,
