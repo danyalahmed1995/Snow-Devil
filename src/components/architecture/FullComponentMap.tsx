@@ -233,7 +233,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
       )}
     </header>
     
-    <div className="full-component-map__canvas" ref={containerRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel}>
+    <div className={`full-component-map__canvas architecture-canvas-pan ${isDragging ? 'is-dragging' : ''}`} ref={containerRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel}>
       <div className="full-component-map__layer" style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}>
         
         {/* Draw Groups */}
