@@ -4,6 +4,7 @@ import { useTabsStore } from '../../stores/tabs-store';
 import { AsyncViewState } from '../../types';
 import { activeAccountOrganizations, useAccountRepositories } from '../../hooks/useAccountContext';
 import { useAuthStore } from '../../stores/auth-store';
+import { LocalWorkspaceStatus } from '../worktrees/LocalWorkspaceStatus';
 
 export function ListView({ type }: { type: string }) {
   const [state, setState] = useState<AsyncViewState<any[]>>({ status: 'loading' });
@@ -133,6 +134,18 @@ export function ListView({ type }: { type: string }) {
                 </div>
               )}
               {type === 'organizations' && <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{item.role ?? 'member'} · {item.visibility ?? 'membership visibility unavailable'}</div>}
+              {(type === 'pullRequests' || type === 'issues') && (
+                <div style={{ marginTop: '12px' }} onClick={(e) => e.stopPropagation()}>
+                  <LocalWorkspaceStatus 
+                    repositoryId={item.repository.nameWithOwner} 
+                    itemType={type === 'pullRequests' ? 'pr' : 'issue'} 
+                    itemId={item.number.toString()} 
+                    defaultBranchName={`${type === 'pullRequests' ? 'pr' : 'issue'}/${item.number}`} 
+                    showCreateButton={false} 
+                    variant="compact" 
+                  />
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useTabsStore } from '../../../stores/tabs-store';
+import { LocalWorkspaceStatus } from '../../worktrees/LocalWorkspaceStatus';
 import { useAuthStore } from '../../../stores/auth-store';
 import { useCurrentTabId } from '../TabInstanceContext';
 import { useWorkflowRunWatcher } from '../../../hooks/useWorkflowRunWatcher';
@@ -340,7 +341,6 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
            {attemptOptions.length > 1 && <Select options={attemptOptions} value={String(selectedAttempt || run.run_attempt)} onChange={(v) => setSelectedAttempt(parseInt(v, 10))} ariaLabel="Run Attempt" />}
            <button className="ci-btn" onClick={() => refetch()}><RefreshCw size={14} className={isFetching ? 'is-spinning' : ''}/> Refresh</button>
            <a className="ci-btn" href={run.html_url} target="_blank" rel="noreferrer">Open in Browser</a>
-
            <div className="download-dropdown-container" style={{ position: 'relative', marginLeft: 'auto' }}>
              <button className="ci-btn" onClick={() => setIsDownloadDropdownOpen(!isDownloadDropdownOpen)} disabled={jobs.length === 0}>
                <Download size={14} /> Download Logs
@@ -388,6 +388,15 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
            </div>
         </div>
       </header>
+
+      <div style={{ padding: '0 24px 16px 24px' }}>
+        <LocalWorkspaceStatus 
+          repositoryId={repositoryId}
+          itemType="ci"
+          itemId={String(runId)}
+          defaultBranchName={run.head_branch}
+        />
+      </div>
       
       <div className="ci-run-layout">
         <aside className="ci-run-sidebar">

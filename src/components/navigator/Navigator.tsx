@@ -88,6 +88,7 @@ export function Navigator() {
     'native:inventory': <PackageSearch size={15} />, 'native:flow-analytics': <ChartNoAxesCombined size={15} />,
     'native:personal-focus': <Activity size={15} />, 'native:account-simulator': <SlidersHorizontal size={15} />,
     'native:repository-simulator': <Boxes size={15} />, 'native:settings': <Settings size={15} />,
+    'native:worktree-environments': <GitPullRequest size={15} />,
     'github:profile': <CircleUserRound size={15} />, 'github:repositories': <FolderGit2 size={15} />,
     'github:pull-requests': <GitPullRequest size={15} />, 'github:issues': <PackageSearch size={15} />,
     'native:notifications': <Bell size={15} />, 'native:organizations': <Building2 size={15} />,

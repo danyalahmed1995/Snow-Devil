@@ -56,6 +56,10 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'notifications',
   'organizations',
   'evidenceGraph',
+  'worktreeEnvironments',
+  'worktreeLocalExplorer',
+  'worktreeLocalFile',
+  'worktreeChanges',
 ]);
 
 export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
@@ -70,6 +74,7 @@ export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
   settings: 'native:settings',
   notifications: 'native:notifications',
   organizations: 'native:organizations',
+  worktreeEnvironments: 'native:worktree-environments',
 };
 
 export function fixedNativeTabId(kind: NativeTabKind): string | undefined {
@@ -167,6 +172,22 @@ function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext 
   if (context.type === 'evidenceGraph') {
     return { type: 'evidenceGraph' };
   }
+  if (context.type === 'worktreeEnvironments' && typeof context.repositoryRootPath === 'string') {
+    return { type: 'worktreeEnvironments', repositoryRootPath: context.repositoryRootPath };
+  }
+  if (
+    context.type === 'worktreeLocal' &&
+    typeof context.repositoryRootPath === 'string' &&
+    typeof context.worktreeId === 'string'
+  ) {
+    return {
+      type: 'worktreeLocal',
+      repositoryRootPath: context.repositoryRootPath,
+      worktreeId: context.worktreeId,
+      subRoute: typeof context.subRoute === 'string' ? context.subRoute : undefined,
+      filePath: typeof context.filePath === 'string' ? context.filePath : undefined,
+    };
+  }
   return undefined;
 }
 
@@ -195,6 +216,10 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
     if (normalized.kind === 'pullRequestDiff' && normalized.context?.type !== 'pullRequest') return undefined;
     if (normalized.kind === 'commitDiff' && normalized.context?.type !== 'commit') return undefined;
     if (normalized.kind === 'evidenceGraph' && normalized.context?.type !== 'evidenceGraph') normalized.context = { type: 'evidenceGraph' };
+    if (normalized.kind === 'worktreeLocalExplorer' && normalized.context?.type !== 'worktreeLocal') return undefined;
+    if (normalized.kind === 'worktreeLocalFile' && normalized.context?.type !== 'worktreeLocal') return undefined;
+    if (normalized.kind === 'worktreeChanges' && normalized.context?.type !== 'worktreeLocal') return undefined;
+    if (normalized.kind === 'worktreeEnvironments' && normalized.context?.type !== 'worktreeEnvironments') return undefined;
     return normalized;
   }
   if (tab.family === 'browser') {
@@ -325,6 +350,19 @@ interface TabsState {
 
   /** Get the currently active tab if it is a browser tab (derived). */
   getActiveBrowserTab: () => BrowserTab | undefined;
+
+  /**
+   * Open a worktree-scoped local tab.
+   * The canonical ID encodes worktreeId + kind + filePath so that two different
+   * worktrees with the same relative file path always open separate tabs.
+   */
+  openWorktreeLocalTab: (
+    worktreeId: string,
+    repositoryRootPath: string,
+    kind: 'worktreeLocalExplorer' | 'worktreeLocalFile' | 'worktreeChanges',
+    title: string,
+    filePath?: string,
+  ) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -720,10 +758,47 @@ export const useTabsStore = create<TabsState>()(
         const tab = get().getActiveTab();
         return tab && isBrowserTab(tab) ? tab : undefined;
       },
+
+      // ---------------------------------------------------------------
+      openWorktreeLocalTab: (worktreeId, repositoryRootPath, kind, title, filePath) => {
+        // Canonical ID includes worktreeId to prevent cross-worktree tab collisions
+        const canonicalId = `worktreeLocal:${worktreeId}:${kind}${filePath ? ':' + filePath : ''}`;
+        const context: NativeTabContext = {
+          type: 'worktreeLocal',
+          repositoryRootPath,
+          worktreeId,
+          subRoute: kind,
+          filePath,
+        };
+        const { tabs } = get();
+        const existing = tabs.find((t) => t.id === canonicalId);
+        const now = Date.now();
+        if (existing) {
+          set({
+            activeTabId: canonicalId,
+            tabs: tabs.map((t) =>
+              t.id === canonicalId ? { ...t, lastActivatedAt: now } : t,
+            ),
+          });
+          return;
+        }
+        const newTab: NativeTab = {
+          id: canonicalId,
+          family: 'native',
+          kind,
+          title,
+          pinned: false,
+          closable: true,
+          createdAt: now,
+          lastActivatedAt: now,
+          context,
+        };
+        set({ tabs: [...tabs, newTab], activeTabId: canonicalId });
+      },
     }),
     {
       name: 'github-graph-browser-tabs',
-      version: 6,
+      version: 7,
       migrate: (persisted, version) => {
         if (version < 2) {
           const migrated = migrateLegacyTabs(persisted);
@@ -772,6 +847,13 @@ export const useTabsStore = create<TabsState>()(
           const state = persisted as any;
           if (state?.tabs) state.tabs = normalizeRestoredTabs(state.tabs);
           if (state?.closedTabs) state.closedTabs = normalizeRestoredTabs(state.closedTabs).filter(tab => tab.id !== 'native:home');
+          return state;
+        }
+        if (version === 6) {
+          // v6 → v7: worktree tab kinds added; existing tabs are unaffected.
+          const state = persisted as any;
+          if (state?.tabs) state.tabs = normalizeRestoredTabs(state.tabs);
+          if (state?.closedTabs) state.closedTabs = normalizeRestoredTabs(state.closedTabs ?? []).filter((tab: any) => tab.id !== 'native:home');
           return state;
         }
         return persisted;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { LocalWorkspaceStatus } from '../worktrees/LocalWorkspaceStatus';
 
 export function PullRequestView({ nodeId }: { nodeId: string }) {
   const [pr, setPr] = useState<any>(null);
@@ -56,6 +57,16 @@ export function PullRequestView({ nodeId }: { nodeId: string }) {
             {pr.author?.login} opened this on {new Date(pr.createdAt).toLocaleDateString()}
           </span>
         </div>
+      </div>
+
+      <div style={{ marginBottom: '24px' }}>
+        <LocalWorkspaceStatus 
+          repositoryId={nodeId.split('/').slice(0, 2).join('/')}
+          itemType="pr"
+          itemId={nodeId.split('/')[2]}
+          defaultBranchName={pr.headRefName}
+          defaultBranchBase={pr.baseRefName}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: '24px' }}>

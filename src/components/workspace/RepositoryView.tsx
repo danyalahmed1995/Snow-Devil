@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useTabsStore } from '../../stores/tabs-store';
+import { RepositoryLocalMapping } from '../repository/RepositoryLocalMapping';
 
 export function RepositoryView({ nodeId }: { nodeId: string }) {
   const [repo, setRepo] = useState<any>(null);
@@ -123,6 +124,10 @@ export function RepositoryView({ nodeId }: { nodeId: string }) {
       <div style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
         {activeInnerTab === 'overview' && (
           <div>
+            <div style={{ marginBottom: '24px' }}>
+              <RepositoryLocalMapping repositoryId={repo.nameWithOwner} />
+            </div>
+            
             <h2 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '8px', marginBottom: '16px' }}>README</h2>
             <div className="markdown-body" style={{ background: 'var(--surface)', padding: '24px', borderRadius: '6px', border: '1px solid var(--border)' }}>
               {repo.object && repo.object.text ? (

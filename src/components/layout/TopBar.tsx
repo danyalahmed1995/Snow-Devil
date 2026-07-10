@@ -21,6 +21,7 @@ import { resetLocalAppData } from '../../services/reset-local-app-data';
 import './TopBar.css';
 import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actions';
 import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
+import { ActiveWorktreeBadge } from '../worktrees/ActiveWorktreeBadge';
 
 export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
@@ -37,6 +38,8 @@ export function TopBar() {
   const activeTab = tabs.find(t => t.id === activeTabId);
   const activeBrowserTab =
     activeTab && isBrowserTab(activeTab) ? activeTab : undefined;
+
+  const repositoryRootPath = (activeTab as any)?.context && ('repositoryRootPath' in (activeTab as any).context) ? (activeTab as any).context.repositoryRootPath : undefined;
 
   useEffect(() => {
     checkAuthStatus();
@@ -68,8 +71,9 @@ export function TopBar() {
           <BrowserToolbar activeTab={activeBrowserTab} />
         </div>
         
-        <div className="top-bar-center">
+        <div className="top-bar-center" style={{ gap: 'var(--space-2)' }}>
           <AddressBar />
+          {repositoryRootPath && <ActiveWorktreeBadge repositoryRootPath={repositoryRootPath} />}
         </div>
         
         <div className="top-bar-right">

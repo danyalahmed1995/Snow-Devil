@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { githubLabelStyle } from '../../lib/color-contrast';
+import { LocalWorkspaceStatus } from '../worktrees/LocalWorkspaceStatus';
 
 export function IssueView({ nodeId }: { nodeId: string }) {
   const [issue, setIssue] = useState<any>(null);
@@ -57,6 +58,15 @@ export function IssueView({ nodeId }: { nodeId: string }) {
             {issue.author?.login} opened this issue on {new Date(issue.createdAt).toLocaleDateString()}
           </span>
         </div>
+      </div>
+
+      <div style={{ marginBottom: '24px' }}>
+        <LocalWorkspaceStatus 
+          repositoryId={nodeId.split('/').slice(0, 2).join('/')}
+          itemType="issue"
+          itemId={nodeId.split('/')[2]}
+          defaultBranchName={`issue/${nodeId.split('/')[2]}-${issue.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}`}
+        />
       </div>
 
       <div style={{ display: 'flex', gap: '24px' }}>

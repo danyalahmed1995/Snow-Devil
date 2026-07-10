@@ -28,6 +28,10 @@ const CommitDiff = lazy(() => import('../diff/CommitDiff').then(module => ({ def
 const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({ default: module.CIRunWatcher })));
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
+const WorktreeEnvironmentsPage = lazy(() => import('../worktrees/WorktreeEnvironmentsPage').then(module => ({ default: module.WorktreeEnvironmentsPage })));
+const WorktreeLocalExplorer = lazy(() => import('../worktrees/WorktreeLocalExplorer').then(module => ({ default: module.WorktreeLocalExplorer })));
+const WorktreeLocalFilePage = lazy(() => import('../worktrees/WorktreeLocalFilePage').then(module => ({ default: module.WorktreeLocalFilePage })));
+const WorktreeChangesPanel = lazy(() => import('../worktrees/WorktreeChangesPanel').then(module => ({ default: module.WorktreeChangesPanel })));
 
 function SurfaceLoading() { return <div className="workspace-loading" role="status">Loading workspace surface…</div>; }
 
@@ -67,6 +71,16 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'notifications' && <NotificationsPage />}
       {tab.kind === 'organizations' && <ListView type="organizations" />}
       {tab.kind === 'evidenceGraph' && <EvidenceGraphPage rootId={tab.context?.type === 'evidenceGraph' ? tab.context.rootId : undefined} />}
+      {tab.kind === 'worktreeEnvironments' && <WorktreeEnvironmentsPage />}
+      {tab.kind === 'worktreeLocalExplorer' && tab.context?.type === 'worktreeLocal' && (
+        <WorktreeLocalExplorer worktreeId={tab.context.worktreeId} repositoryRootPath={tab.context.repositoryRootPath} />
+      )}
+      {tab.kind === 'worktreeLocalFile' && tab.context?.type === 'worktreeLocal' && tab.context.filePath && (
+        <WorktreeLocalFilePage worktreeId={tab.context.worktreeId} filePath={tab.context.filePath} repositoryRootPath={tab.context.repositoryRootPath} />
+      )}
+      {tab.kind === 'worktreeChanges' && tab.context?.type === 'worktreeLocal' && (
+        <WorktreeChangesPanel worktreeId={tab.context.worktreeId} repositoryRootPath={tab.context.repositoryRootPath} />
+      )}
     </Suspense>
   </TabInstanceProvider>;
 }

@@ -29,7 +29,11 @@ export type NativeTabKind =
   | "ciRun"
   | "notifications"
   | "organizations"
-  | "evidenceGraph";
+  | "evidenceGraph"
+  | "worktreeEnvironments"
+  | "worktreeLocalExplorer"
+  | "worktreeLocalFile"
+  | "worktreeChanges";
 
 export type NativeTabContext =
   | { type: "repository"; repository: string; ref?: string; path?: string }
@@ -52,7 +56,31 @@ export type NativeTabContext =
       jobId?: string;
       schemaVersion?: number;
     }
-  | { type: "evidenceGraph"; rootId?: string; repository?: string };
+  | { type: "evidenceGraph"; rootId?: string; repository?: string }
+  | {
+      /**
+       * Context for worktree-scoped local tabs (explorer, file viewer, changes).
+       * Including worktreeId ensures two different worktrees with the same
+       * relative file path open separate, distinct tabs.
+       */
+      type: "worktreeLocal";
+      repositoryRootPath: string;
+      worktreeId: string;
+      /** Sub-route hint used by the tab renderer (e.g. 'worktreeLocalFile'). */
+      subRoute?: string;
+      /** For file tabs: path relative to the worktree root. */
+      filePath?: string;
+    }
+  | {
+      /** Context for the worktree environments manager tab. */
+      type: "worktreeEnvironments";
+      repositoryRootPath: string;
+      defaultBranchName?: string;
+      defaultBranchBase?: string;
+      linkSourceItemType?: "pr" | "issue" | "ci" | "branch" | "manual";
+      linkSourceItemId?: string;
+      linkSourceRepositoryId?: string;
+    };
 
 /** A tab backed by a built-in React view. */
 export type NativeTab = {
