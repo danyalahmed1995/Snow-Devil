@@ -29,7 +29,7 @@ const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
 
-function SurfaceLoading() { return <div className="workspace-loading" role="status">Loading workspace surface…</div>; }
+function SurfaceLoading() { return <div className="workspace-loading" role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}><div className="global-spinner" /><div style={{ textAlign: 'center' }}><h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workspace surface…</h1></div></div>; }
 
 function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
   const closeTab = useTabsStore(state => state.closeTab);
