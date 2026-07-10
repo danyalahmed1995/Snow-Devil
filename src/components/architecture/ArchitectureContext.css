@@ -36,7 +36,7 @@
 .full-component-map__group{position:absolute;border:1px solid rgba(79,143,239,.3);border-radius:8px;background:rgba(0,0,0,.15);pointer-events:none}
 .full-component-map__group-label{position:absolute;top:-10px;left:10px;background:var(--surface-content);padding:0 8px;color:var(--text-secondary);font-size:10px;font-weight:600;border-radius:4px}
 .full-component-map__edges{position:absolute;top:0;left:0;pointer-events:none;overflow:visible}
-.full-component-map__edge{stroke:rgba(79,143,239,.85);stroke-width:1.5px;fill:none;stroke-dasharray:6,6;animation:march 1s linear infinite;transition:stroke-width .2s,stroke .2s}
+.full-component-map__edge{stroke:rgba(79,143,239,.85);stroke-width:1.5px;fill:none;stroke-dasharray:6,6;transition:stroke-width .2s,stroke .2s}
 .full-component-map__edge.is-new{stroke:var(--success)}
 .full-component-map__edge.is-removed{stroke:var(--danger);stroke-dasharray:4,4}
 .full-component-map__edge.is-modified{stroke:var(--warning)}

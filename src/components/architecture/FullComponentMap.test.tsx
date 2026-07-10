@@ -19,7 +19,7 @@ function createImpact(components: any[], dependencies: any[], changes: any[]) {
 
 describe('FullComponentMap Edge Rendering', () => {
   beforeEach(() => {
-    useArchitectureStore.setState({ states: { 'test-tab': { section: 'map', mapState: { groupingMode: 'none', filters: { dependencies: true, dependents: true, indirect: true }, expandedGroups: [], zoom: 1, panX: 0, panY: 0 } } } });
+    useArchitectureStore.setState({ states: { 'test-tab': { section: 'map', mapState: { groupingMode: 'none', filters: { dependencies: true, dependents: true, indirect: true, external: true }, expandedGroups: [], zoom: 1, panX: 0, panY: 0 } } } });
     useTabsStore.setState({ activeTabId: 'test-tab' });
   });
 
@@ -50,10 +50,10 @@ describe('FullComponentMap Edge Rendering', () => {
     expect(edges.length).toBe(1);
     
     const edge = edges[0];
-    expect(edge.getAttribute('marker-end')).toContain('url(#arrowhead-new)');
+    expect(edge.getAttribute('marker-end')).toContain('url(#arrow-is-new)');
     
     // Check computed styles or classes to verify non-scaling-stroke logic
-    expect(edge.className.baseVal).toContain('is-new');
+    expect(edge.getAttribute('class')).toContain('is-new');
   });
 
   it('arrowheads remain visible after Fit-to-view (markerUnits="userSpaceOnUse" scales with zoom)', () => {

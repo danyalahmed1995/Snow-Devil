@@ -267,25 +267,25 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
         {/* Draw Edges */}
         <svg className="full-component-map__edges" width={Math.max(100, layout.width)} height={Math.max(100, layout.height)} style={{ width: Math.max(100, layout.width), height: Math.max(100, layout.height) }}>
           <defs>
-            <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(79,143,239,.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-is-new" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-is-new" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#3fb950" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-is-removed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-is-removed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#f85149" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-is-modified" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-is-modified" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#d29922" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-is-indirect" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-is-indirect" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="rgba(139,148,158,.7)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-is-connected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-is-connected" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="var(--success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
-            <marker id="arrow-sync" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <marker id="arrow-sync" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" markerUnits="userSpaceOnUse" orient="auto-start-reverse">
               <path d="M 0 1 L 8 5 L 0 9" fill="none" stroke="#d8a83f" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </marker>
           </defs>

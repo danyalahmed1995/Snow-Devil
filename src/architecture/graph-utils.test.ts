@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { calculateHiddenComponentCount, getRelevantComponentIds, getShortestUniqueQualifier } from './graph-utils';
+import { calculateHiddenComponentCount, getShortestUniqueQualifier } from './graph-utils';
 import type { ArchitectureComponent, PullRequestArchitectureImpact } from './types';
+
+const component = (value: Pick<ArchitectureComponent, 'id' | 'name' | 'kind' | 'rootPaths' | 'manifestPaths'>): ArchitectureComponent => ({
+  ...value,
+  repositoryId: 'acme/repo',
+  configured: false,
+  owners: [],
+  confidence: { level: 'high', score: 1 },
+});
 
 describe('graph-utils', () => {
   describe('calculateHiddenComponentCount', () => {
@@ -35,29 +43,29 @@ describe('graph-utils', () => {
 
   describe('getShortestUniqueQualifier', () => {
     it('returns kind if no duplicate names exist', () => {
-      const c1 = { id: '1', name: 'App', kind: 'application', rootPaths: ['src/app'], manifestPaths: [] } as ArchitectureComponent;
+      const c1 = component({ id: '1', name: 'App', kind: 'application', rootPaths: ['src/app'], manifestPaths: [] });
       const all = [c1];
       expect(getShortestUniqueQualifier(c1, all)).toBe('application');
     });
 
     it('returns unique root path if duplicates exist', () => {
-      const c1 = { id: '1', name: 'Test Suite', kind: 'tests', rootPaths: ['tests/a'], manifestPaths: [] } as ArchitectureComponent;
-      const c2 = { id: '2', name: 'Test Suite', kind: 'tests', rootPaths: ['tests/b'], manifestPaths: [] } as ArchitectureComponent;
+      const c1 = component({ id: '1', name: 'Test Suite', kind: 'tests', rootPaths: ['tests/a'], manifestPaths: [] });
+      const c2 = component({ id: '2', name: 'Test Suite', kind: 'tests', rootPaths: ['tests/b'], manifestPaths: [] });
       const all = [c1, c2];
       expect(getShortestUniqueQualifier(c1, all)).toBe('tests/a');
       expect(getShortestUniqueQualifier(c2, all)).toBe('tests/b');
     });
 
     it('falls back to manifest path if root paths are not unique or missing', () => {
-      const c1 = { id: '1', name: 'Test Suite', kind: 'tests', rootPaths: [], manifestPaths: ['pkg1/package.json'] } as ArchitectureComponent;
-      const c2 = { id: '2', name: 'Test Suite', kind: 'tests', rootPaths: [], manifestPaths: ['pkg2/package.json'] } as ArchitectureComponent;
+      const c1 = component({ id: '1', name: 'Test Suite', kind: 'tests', rootPaths: [], manifestPaths: ['pkg1/package.json'] });
+      const c2 = component({ id: '2', name: 'Test Suite', kind: 'tests', rootPaths: [], manifestPaths: ['pkg2/package.json'] });
       const all = [c1, c2];
       expect(getShortestUniqueQualifier(c1, all)).toBe('pkg1/package.json');
     });
     
     it('falls back to id suffix if no unique paths', () => {
-      const c1 = { id: 'abc123456789', name: 'Test Suite', kind: 'tests', rootPaths: ['shared'], manifestPaths: [] } as ArchitectureComponent;
-      const c2 = { id: 'def123456789', name: 'Test Suite', kind: 'tests', rootPaths: ['shared'], manifestPaths: [] } as ArchitectureComponent;
+      const c1 = component({ id: 'abc123456789', name: 'Test Suite', kind: 'tests', rootPaths: ['shared'], manifestPaths: [] });
+      const c2 = component({ id: 'def123456789', name: 'Test Suite', kind: 'tests', rootPaths: ['shared'], manifestPaths: [] });
       const all = [c1, c2];
       expect(getShortestUniqueQualifier(c1, all)).toBe('abc12345');
     });
