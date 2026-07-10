@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AnalyticsInspectable } from '../../analytics/types';
 import { useMemo, useState } from 'react';
-import { Copy, X, ArrowRightCircle, Globe, History, Network } from 'lucide-react';
+import { Copy, X, ArrowRightCircle, Globe, History, Workflow } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
@@ -285,7 +285,7 @@ export function Inspector() {
       <h3 className="inspector-header-title">Inspector</h3>
       <button className="inspector-header-close" aria-label="Close Inspector" data-tooltip="Close Inspector\nHide contextual details for the current selection." onClick={() => setInspectorOpen(false)}><X size={14}/></button>
     </header>
-    {(targetSource || isSimulator || hasArchitecture) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">{(targetSource || isSimulator) && <button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>}{hasArchitecture && <button role="tab" data-tooltip="Architecture\nShow component identity, impact, confidence, and mapping evidence." aria-selected={inspectorTab === 'architecture'} className={inspectorTab === 'architecture' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'architecture'})}><Network size={11}/>Architecture</button>}{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
+    {(targetSource || isSimulator || hasArchitecture) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">{(targetSource || isSimulator) && <button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>}{hasArchitecture && <button role="tab" data-tooltip="Architecture\nShow component identity, impact, confidence, and mapping evidence." aria-selected={inspectorTab === 'architecture'} className={inspectorTab === 'architecture' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'architecture'})}><Workflow size={11}/>Architecture</button>}{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
       {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context">
