@@ -3,7 +3,6 @@ import { invoke } from '@tauri-apps/api/core';
 import { Check, ExternalLink, Files, Folder, GitPullRequest, Network, Rows3, Search } from 'lucide-react';
 import { useModeStore } from '../../stores/mode-store';
 import { useTabsStore } from '../../stores/tabs-store';
-import { demoPullRequest } from '../../repository/demo-repository';
 import { parseUnifiedDiff, type DiffFile } from '../../diff/diff-utils';
 import { DiffFileView, readableDiffError, CHUNK, statusMark } from './DiffShared';
 import { architectureContextEnabled } from '../../architecture/feature';
@@ -12,16 +11,15 @@ import { useArchitectureStore } from '../../architecture/architecture-store';
 import { useLayoutStore } from '../../stores/layout-store';
 import { ArchitectureContext } from '../architecture/ArchitectureContext';
 import { useRepositoryArchitecture } from '../../architecture/useRepositoryArchitecture';
+import { usePullRequestDetails } from '../../hooks/usePullRequestDetails';
 import './PullRequestDiff.css';
 
-interface PullRequestData extends Omit<typeof demoPullRequest,'baseRefName'|'headRefName'|'baseRefOid'|'headRefOid'>{baseRefName?:string;headRefName?:string;baseRefOid?:string;headRefOid?:string;diffTruncated?:boolean}
 interface PersistedDiff { activePath:string; layout:'unified'|'split'; viewed:string[]; ignoreWhitespace:boolean; surface:'changes'|'architecture' }
 const persistedKey=(repository:string,number:number)=>`snow-devil-diff:${repository}#${number}`;
 function readPersisted(repository:string,number:number):PersistedDiff{try{return{activePath:'',layout:'unified',viewed:[],ignoreWhitespace:false,surface:'changes',...JSON.parse(localStorage.getItem(persistedKey(repository,number))??'{}')}}catch{return{activePath:'',layout:'unified',viewed:[],ignoreWhitespace:false,surface:'changes'}}}
 
-export function PullRequestDiff({repository,number}:{repository:string;number:number}){
-  const mode=useModeStore(s=>s.mode);const[owner,name]=repository.split('/');const initial=useMemo(()=>readPersisted(repository,number),[repository,number]);const[data,setData]=useState<PullRequestData>();const[error,setError]=useState<string>();const[surface,setSurface]=useState<'changes'|'architecture'>(architectureContextEnabled()?initial.surface:'changes');const[layout,setLayout]=useState<'unified'|'split'>(initial.layout);const[activePath,setActivePath]=useState(initial.activePath);const[query,setQuery]=useState('');const[ignoreWhitespace,setIgnoreWhitespace]=useState(initial.ignoreWhitespace);const[expandedContext,setExpandedContext]=useState(false);const[renderLimit,setRenderLimit]=useState(CHUNK);const[viewed,setViewed]=useState(new Set(initial.viewed));const mainRef=useRef<HTMLElement>(null);const activeTabId=useTabsStore(s=>s.activeTabId);const setInspectorOpen=useLayoutStore(s=>s.setInspectorOpen);const architectureEnabled=architectureContextEnabled();
-  useEffect(()=>{let current=true;setData(undefined);setError(undefined);(mode==='demo'?Promise.resolve(demoPullRequest):invoke<PullRequestData>('get_pr_details',{owner,name,number})).then(value=>{if(current)setData(value)}).catch(cause=>{if(current)setError(String(cause))});return()=>{current=false}},[mode,name,number,owner]);
+export function PullRequestDiff({repository,number,observedHeadSha}:{repository:string;number:number;observedHeadSha?:string}){
+  const mode=useModeStore(s=>s.mode);const name=repository.split('/')[1]??repository;const initial=useMemo(()=>readPersisted(repository,number),[repository,number]);const details=usePullRequestDetails(repository,number,observedHeadSha);const data=details.data;const error=details.error?String(details.error):undefined;const[surface,setSurface]=useState<'changes'|'architecture'>(architectureContextEnabled()?initial.surface:'changes');const[layout,setLayout]=useState<'unified'|'split'>(initial.layout);const[activePath,setActivePath]=useState(initial.activePath);const[query,setQuery]=useState('');const[ignoreWhitespace,setIgnoreWhitespace]=useState(initial.ignoreWhitespace);const[expandedContext,setExpandedContext]=useState(false);const[renderLimit,setRenderLimit]=useState(CHUNK);const[viewed,setViewed]=useState(new Set(initial.viewed));const mainRef=useRef<HTMLElement>(null);const activeTabId=useTabsStore(s=>s.activeTabId);const setInspectorOpen=useLayoutStore(s=>s.setInspectorOpen);const architectureEnabled=architectureContextEnabled();
   useEffect(()=>{localStorage.setItem(persistedKey(repository,number),JSON.stringify({activePath,layout,viewed:[...viewed],ignoreWhitespace,surface}));},[activePath,ignoreWhitespace,layout,number,repository,surface,viewed]);
   const files=useMemo(()=>parseUnifiedDiff(data?.diff??''),[data?.diff]);
   const repositoryArchitecture=useRepositoryArchitecture(repository,data?.baseRefOid,architectureEnabled&&Boolean(data)&&surface==='architecture');

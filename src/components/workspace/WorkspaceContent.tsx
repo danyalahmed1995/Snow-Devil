@@ -60,7 +60,7 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
       {tab.kind === 'settings' && <AnalyticsSettingsPage />}
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
-      {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} />}
+      {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} observedHeadSha={tab.context.headSha} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}
       {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.selectedJobId ?? tab.context.jobId} />}
       {tab.kind === 'ciRun' && tab.context?.type !== 'ciRun' && <InvalidCIRunTab tab={tab} />}

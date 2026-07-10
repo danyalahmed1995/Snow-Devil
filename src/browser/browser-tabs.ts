@@ -33,7 +33,7 @@ export type NativeTabKind =
 
 export type NativeTabContext =
   | { type: "repository"; repository: string; ref?: string; path?: string }
-  | { type: "pullRequest"; repository: string; number: number }
+  | { type: "pullRequest"; repository: string; number: number; headSha?: string }
   | { type: "commit"; repository: string; sha: string }
   | {
       type: "ciRun";
