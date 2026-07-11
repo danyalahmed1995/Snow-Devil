@@ -10,6 +10,7 @@ import {
   Copy,
   ExternalLink,
   RotateCcw,
+  GitBranch, GitMerge, GitPullRequest,
   Snowflake,
   Bell,
 } from 'lucide-react';
@@ -62,8 +63,12 @@ export function TopBar() {
             <Menu size={18} />
           </button>
           <div className="app-title">
-            <span className="app-mark"><Snowflake size={17} /></span>
-            <span>Snow Devil</span>
+            <span className="app-mark-trio" data-tooltip="Git Trinity">
+              <div className="attr branch"><GitBranch size={9} strokeWidth={3} /></div>
+              <div className="attr merge"><GitMerge size={9} strokeWidth={3} /></div>
+              <div className="attr pr"><GitPullRequest size={9} strokeWidth={3} /></div>
+            </span>
+            <span className="app-name">Snow Devil</span>
           </div>
           <BrowserToolbar activeTab={activeBrowserTab} />
         </div>
