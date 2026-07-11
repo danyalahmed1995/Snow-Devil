@@ -11,7 +11,6 @@ import {
   ExternalLink,
   RotateCcw,
   GitBranch, GitMerge, GitPullRequest,
-  Snowflake,
   Bell,
 } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
