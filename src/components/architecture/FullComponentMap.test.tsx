@@ -117,6 +117,18 @@ describe('FullComponentMap Edge Rendering', () => {
     expect(container.querySelector('.full-component-map')?.className).not.toContain('is-full-screen');
   });
 
+  it('switches color modes without changing the graph identity', () => {
+    const impact = createImpact([{ id: 'c1', name: 'Primary', kind: 'application', rootPaths: [], manifestPaths: [], owners: [], configured: false, confidence: { level: 'high', score: 1 } }], [], []);
+    impact.primaryComponentId = 'c1';
+    impact.affectedComponents = [{ component: impact.snapshot.components[0], files: [], additions: 0, deletions: 0, role: 'primary' }];
+    const { container } = render(<FullComponentMap impact={impact} onSelect={vi.fn()} />);
+    expect(screen.getByLabelText('Color by')).toHaveValue('architecture');
+    fireEvent.change(screen.getByLabelText('Color by'), { target: { value: 'change-impact' } });
+    expect(screen.getByLabelText('Color by')).toHaveValue('change-impact');
+    expect(container.querySelector('.full-component-map__legend')).toHaveTextContent('Change Impact');
+    expect(container.querySelector('.full-component-map__node')).toHaveTextContent('Insufficient evidence');
+  });
+
   it('exits full screen with Escape key', () => {
     const impact = createImpact([{ id: 'c1', name: 'Primary', kind: 'application', rootPaths: [], manifestPaths: [], owners: [], configured: false, confidence: { level: 'high', score: 1 } }], [], []);
     impact.primaryComponentId = 'c1';

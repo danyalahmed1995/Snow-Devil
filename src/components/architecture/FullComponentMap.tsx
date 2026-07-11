@@ -1,12 +1,14 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Search, Expand, Shrink, RefreshCw, Layers, Map as MapIcon, Maximize, GitCommit } from 'lucide-react';
 import { ComponentIcon } from './ComponentIcon';
-import type { PullRequestArchitectureImpact, ArchitectureComponent } from '../../architecture/types';
+import type { ArchitectureColorMode, PullRequestArchitectureImpact, ArchitectureComponent } from '../../architecture/types';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useArchitectureStore, type ComponentMapGroupingMode } from '../../architecture/architecture-store';
 import { getRelevantComponents, getShortestUniqueQualifier } from '../../architecture/graph-utils';
 import { computeLayout, computeOrthogonalEdge } from './ArchitectureGraphLayout';
 import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
+import { analyzeComponentDecisions, decisionLabel } from '../../architecture/decision-analysis';
+import { incrementArchitectureDiagnostic } from '../../architecture/diagnostics';
 
 function getGroupId(component: ArchitectureComponent, mode: ComponentMapGroupingMode): string | undefined {
   if (mode === 'none') return undefined;
@@ -49,6 +51,11 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
   if (!mapState) return null;
 
   const { groupingMode, filters, zoom, panX, panY, isFullScreen } = mapState;
+  const colorMode: ArchitectureColorMode = mapState.colorMode ?? 'architecture';
+  const decisions = useMemo(() => impact.decisionAnalysis?.length ? impact.decisionAnalysis : analyzeComponentDecisions(impact), [impact]);
+  const decisionById = useMemo(() => new Map(decisions.map(item => [item.componentId, item])), [decisions]);
+  const modeLabel = colorMode === 'change-impact' ? 'Change Impact' : colorMode === 'fix-strategy' ? 'Fix Strategy' : 'Architecture';
+  const modeSummary = colorMode === 'change-impact' ? `${decisions.filter(item => item.impactTier === 'critical').length} critical · ${decisions.filter(item => item.impactTier === 'elevated' || item.impactTier === 'high').length} elevated` : colorMode === 'fix-strategy' ? `${decisions.filter(item => item.fixTier === 'recommended').length} recommended · ${decisions.filter(item => item.fixTier === 'plausible').length} plausible` : 'Blue and purple identity styling';
   const isCommitRefreshing = refreshState?.status === 'syncing';
   const recentlyUpdated = refreshState?.status === 'updated';
   const refreshStatus = refreshState?.status === 'syncing' ? 'Syncing' : recentlyUpdated ? 'Updated' : 'Current';
@@ -118,7 +125,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
     });
   }, [impact.snapshot.dependencies, impact.dependencyChanges, impact.affectedComponents, visibleComponents, impact.primaryComponentId]);
 
-  const layout = useMemo(() => computeLayout(nodes, edges, impact.primaryComponentId), [nodes, edges, impact.primaryComponentId]);
+  const layout = useMemo(() => { if (import.meta.env.DEV) incrementArchitectureDiagnostic('layoutRuns'); return computeLayout(nodes, edges, impact.primaryComponentId); }, [nodes, edges, impact.primaryComponentId]);
 
   // Handle Search Focus
   const lastMatchedId = useRef<string | null>(null);
@@ -217,7 +224,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
     setTimeout(fitToView, 50);
   }, [activeTabId, setMapState, isFullScreen, fitToView]);
 
-  return <div className={`full-component-map ${isFullScreen ? 'is-full-screen' : ''} ${isCommitRefreshing ? 'is-commit-refreshing' : recentlyUpdated ? 'is-commit-updated' : ''}`}>
+  return <div className={`full-component-map color-mode-${colorMode} ${isFullScreen ? 'is-full-screen' : ''} ${isCommitRefreshing ? 'is-commit-refreshing' : recentlyUpdated ? 'is-commit-updated' : ''}`}>
     <header className="full-component-map__toolbar">
       <div className="full-component-map__commit-status" role="status" aria-live="polite">
         <GitCommit size={13}/><span>{displayedHeadSha && displayedHeadSha !== 'head-unavailable' ? displayedHeadSha.slice(0, 7) : 'SHA unavailable'}</span><strong>{refreshStatus}</strong>
@@ -243,6 +250,12 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           <option value="none">No Grouping</option>
         </select>
       </div>
+      <div className="toolbar-group full-component-map__color-mode">
+        <label htmlFor="architecture-color-mode">Color by</label>
+        <select id="architecture-color-mode" aria-label="Color by" value={colorMode} onChange={e => setMapState(activeTabId, { colorMode: e.target.value as ArchitectureColorMode })}>
+          <option value="architecture">Architecture</option><option value="change-impact">Change Impact</option><option value="fix-strategy">Fix Strategy</option>
+        </select>
+      </div>
       <div className="toolbar-group toolbar-search">
         <Search size={14} className="toolbar-icon"/>
         <input type="text" placeholder="Search components..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} onKeyDown={e => { if(e.key === 'Escape') setSearchQuery('') }} />
@@ -252,7 +265,9 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           <Shrink size={14} /> Exit full screen
         </button>
       )}
+      {colorMode !== 'architecture' && <div className="full-component-map__decision-summary" role="status"><strong>{modeLabel}</strong><span>{modeSummary}</span></div>}
     </header>
+    {colorMode !== 'architecture' && <div className="full-component-map__legend" aria-label={`${modeLabel} legend`}><strong>{modeLabel}</strong>{(colorMode === 'change-impact' ? ['critical','high','elevated','contained','unknown'] : ['recommended','plausible','broad-risk','not-relevant','unknown']).map(tier => <span key={tier} className={`decision-key decision-key--${tier}`}>{decisionLabel(tier as never)}</span>)}</div>}
     
     <div className={`full-component-map__canvas architecture-canvas-pan ${isDragging ? 'is-dragging' : ''}`} ref={containerRef} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={handlePointerUp} onWheel={handleWheel}>
       <div className="full-component-map__layer" style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}>
@@ -324,12 +339,15 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
           const isAffected = impact.affectedComponents.some(a => a.component.id === c.id);
           const qualifier = getShortestUniqueQualifier(c, allRelevantComponents);
           const isMatch = searchQuery && (c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.id.toLowerCase().includes(searchQuery.toLowerCase()));
+          const decision = decisionById.get(c.id);
+          const decisionTier = colorMode === 'change-impact' ? decision?.impactTier : colorMode === 'fix-strategy' ? decision?.fixTier : undefined;
+          const decisionText = decisionTier ? decisionLabel(decisionTier) : undefined;
 
-          return <button key={c.id} className={`full-component-map__node ${isPrimary ? 'is-primary' : ''} ${isAffected ? 'is-affected' : ''} ${isSelected ? 'is-selected' : ''} ${isMatch ? 'is-match' : ''}`} style={{ left: nLayout.x, top: nLayout.y, width: nLayout.width, height: nLayout.height }} onClick={(e) => { e.stopPropagation(); onSelect(c.id); }}>
+          return <button key={c.id} title={decision ? `${decisionText}. ${decision.impactReasons[0]?.label ?? ''}` : undefined} className={`full-component-map__node ${isPrimary ? 'is-primary' : ''} ${isAffected ? 'is-affected' : ''} ${isSelected ? 'is-selected' : ''} ${isMatch ? 'is-match' : ''} ${decisionTier ? `decision-${decisionTier}` : ''}`} style={{ left: nLayout.x, top: nLayout.y, width: nLayout.width, height: nLayout.height }} onClick={(e) => { e.stopPropagation(); onSelect(c.id); }}>
             <ComponentIcon component={c} />
             <span className="architecture-node__label">
               <strong>{c.name}</strong>
-              <small>{qualifier} {isPrimary ? '· Primary' : isAffected ? '· Changed' : ''}</small>
+              <small>{qualifier} {isPrimary ? '· Primary' : isAffected ? '· Changed' : ''} {decisionText ? `· ${decisionText}` : ''}</small>
             </span>
           </button>;
         })}

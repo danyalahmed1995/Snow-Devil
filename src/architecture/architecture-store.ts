@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ArchitectureSnapshot, PullRequestArchitectureImpact } from './types';
+import type { ArchitectureColorMode, ArchitectureSnapshot, PullRequestArchitectureImpact } from './types';
 
 export type ArchitectureSection = 'overview' | 'map' | 'files' | 'dependencies' | 'blast' | 'risk';
 export type ComponentMapGroupingMode = 'subsystem' | 'rootPath' | 'package' | 'kind' | 'none';
@@ -12,6 +12,7 @@ export interface ComponentMapFilters {
 }
 
 export interface ComponentMapState {
+  colorMode?: ArchitectureColorMode;
   groupingMode: ComponentMapGroupingMode;
   filters: { dependencies: boolean; dependents: boolean; indirect: boolean; external: boolean };
   expandedGroups: string[];
@@ -22,6 +23,7 @@ export interface ComponentMapState {
 }
 
 export const defaultComponentMapState: ComponentMapState = {
+  colorMode: 'architecture',
   groupingMode: 'subsystem',
   filters: { dependencies: true, dependents: true, indirect: true, external: true },
   expandedGroups: [],
@@ -48,6 +50,7 @@ interface ArchitectureStore {
   selectGroup: (tabId: string, groupId?: string) => void;
   setSection: (tabId: string, section: ArchitectureSection) => void;
   setMapState: (tabId: string, mapState: Partial<ComponentMapState> | ((prev: ComponentMapState) => Partial<ComponentMapState>)) => void;
+  clearTab: (tabId: string) => void;
 }
 
 export const useArchitectureStore = create<ArchitectureStore>(set => ({
@@ -63,4 +66,5 @@ export const useArchitectureStore = create<ArchitectureStore>(set => ({
     const partial = typeof mapState === 'function' ? mapState(currentState) : mapState;
     return { states: { ...state.states, [tabId]: { ...state.states[tabId], mapState: { ...currentState, ...partial } } } };
   }),
+  clearTab: tabId => set(state => { const states = { ...state.states }; delete states[tabId]; return { states }; }),
 }));

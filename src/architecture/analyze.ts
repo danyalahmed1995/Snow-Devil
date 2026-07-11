@@ -1,5 +1,6 @@
-import type { ArchitectureComponent, ArchitectureConfidence, ArchitectureDependencyChange, ArchitectureDiffFile, ArchitectureEvidence, ArchitectureRisk, ArchitectureRiskReason, ArchitectureSnapshot, ChangedFileArchitectureMapping, PullRequestArchitectureImpact } from './types';
+import type { ArchitectureComponent, ArchitectureConfidence, ArchitectureDecisionContext, ArchitectureDependencyChange, ArchitectureDiffFile, ArchitectureEvidence, ArchitectureRisk, ArchitectureRiskReason, ArchitectureSnapshot, ChangedFileArchitectureMapping, PullRequestArchitectureImpact } from './types';
 import { ARCHITECTURE_ALGORITHM_VERSION } from './feature';
+import { analyzeComponentDecisions } from './decision-analysis';
 
 const EXCLUDED = ['node_modules/', 'vendor/', 'dist/', 'build/', 'target/', 'coverage/', '.next/', 'out/', 'bin/', 'obj/', 'generated/'];
 const COMPONENT_DIRS = new Set(['apps', 'packages', 'libs', 'services', 'modules', 'crates']);
@@ -118,7 +119,7 @@ function calculateRisk(mappings: ChangedFileArchitectureMapping[], dependencyCou
   return { score, level: score >= 80 ? 'critical' : score >= 55 ? 'high' : score >= 25 ? 'medium' : 'low', reasons };
 }
 
-export function analyzePullRequestArchitecture(input: { repositoryId: string; pullRequestNumber: number; baseSha?: string; headSha?: string; files: ArchitectureDiffFile[]; generatedAt?: string; snapshot?: ArchitectureSnapshot }): PullRequestArchitectureImpact {
+export function analyzePullRequestArchitecture(input: { repositoryId: string; pullRequestNumber: number; baseSha?: string; headSha?: string; files: ArchitectureDiffFile[]; generatedAt?: string; snapshot?: ArchitectureSnapshot; decisionContext?: ArchitectureDecisionContext }): PullRequestArchitectureImpact {
   const generatedAt = input.generatedAt ?? new Date().toISOString();
   const mappings = input.files.map(file => mapFile(input.repositoryId, file, input.snapshot));
   const components = new Map<string, ArchitectureComponent>((input.snapshot?.components ?? []).map(component => [component.id, component]));
@@ -173,5 +174,7 @@ export function analyzePullRequestArchitecture(input: { repositoryId: string; pu
     warnings: [{ code: 'unsupported-layout', message: 'The full repository index was unavailable; only changed-file evidence was analyzed.' }],
     evidenceSummary: { mappedFiles: mappings.length - unmappedFiles.length, totalFiles: mappings.length, configured: false, manifestCount: 0, dependencyEvidenceCount: changes.length, ownedFiles: 0, requestCount: 0, exclusions: EXCLUDED },
   };
-  return { repositoryId: input.repositoryId, pullRequestNumber: input.pullRequestNumber, baseSha, headSha: input.headSha || 'head-unavailable', architectureSnapshotSha: snapshot.baseCommitSha, primaryComponentId, affectedComponents, changedFileMappings: mappings, dependencyChanges: changes, directBlastRadius: [...direct], indirectBlastRadius: [...indirect], risk: calculateRisk(mappings, changes.length, snapshot), confidence, unmappedFiles, generatedAt, snapshot };
+  const result: PullRequestArchitectureImpact = { repositoryId: input.repositoryId, pullRequestNumber: input.pullRequestNumber, baseSha, headSha: input.headSha || 'head-unavailable', architectureSnapshotSha: snapshot.baseCommitSha, primaryComponentId, affectedComponents, changedFileMappings: mappings, dependencyChanges: changes, directBlastRadius: [...direct], indirectBlastRadius: [...indirect], risk: calculateRisk(mappings, changes.length, snapshot), confidence, unmappedFiles, generatedAt, snapshot, decisionContext: input.decisionContext };
+  result.decisionAnalysis = analyzeComponentDecisions(result);
+  return result;
 }

@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { demoPullRequest } from '../repository/demo-repository';
 import { useModeStore } from '../stores/mode-store';
+import type { ArchitectureDecisionContext } from '../architecture/types';
 
 export interface PullRequestData extends Omit<typeof demoPullRequest, 'baseRefName' | 'headRefName' | 'baseRefOid' | 'headRefOid'> {
   baseRefName?: string;
@@ -9,6 +10,7 @@ export interface PullRequestData extends Omit<typeof demoPullRequest, 'baseRefNa
   baseRefOid?: string;
   headRefOid?: string;
   diffTruncated?: boolean;
+  architectureDecisionContext?: ArchitectureDecisionContext;
 }
 
 export const pullRequestDetailsQueryRoot = (repository: string, number: number) =>

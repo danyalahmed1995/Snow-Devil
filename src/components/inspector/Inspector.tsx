@@ -18,6 +18,8 @@ import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useArchitectureStore } from '../../architecture/architecture-store';
+import { decisionFor, decisionLabel } from '../../architecture/decision-analysis';
+import { incrementArchitectureDiagnostic } from '../../architecture/diagnostics';
 import type { ArchitectureSnapshot, PullRequestArchitectureImpact } from '../../architecture/types';
 import './Inspector.css';
 
@@ -69,6 +71,7 @@ function ArchitectureDetails({ impact, selectedComponentId }: { impact: PullRequ
   const affected = impact.affectedComponents.find(item => item.component.id === component?.id);
   const outgoing = impact.snapshot.dependencies.filter(item => item.fromComponentId === component?.id);
   const incoming = impact.snapshot.dependencies.filter(item => item.toComponentId === component?.id);
+  const decision = component ? decisionFor(impact, component.id) : undefined;
   const name = (id: string) => impact.snapshot.components.find(item => item.id === id)?.name ?? id;
   if (!component) return <div className="inspector-details"><section className="inspector-section"><h5 className="section-title">Architecture Context</h5><p className="inspector-partial">No reliable component boundary was identified. Review the unmapped changed files in Architecture Context.</p></section></div>;
   return <div className="inspector-details">
@@ -76,6 +79,8 @@ function ArchitectureDetails({ impact, selectedComponentId }: { impact: PullRequ
     <section className="inspector-section"><h5 className="section-title">Component Summary</h5><div className="metadata"><Meta label="Root paths">{component.rootPaths.join(', ')}</Meta><Meta label="Changed files">{affected?.files.length ?? 0}</Meta><Meta label="Line changes">+{affected?.additions ?? 0} / −{affected?.deletions ?? 0}</Meta><Meta label="Direct dependencies">{outgoing.length}</Meta><Meta label="Direct dependents">{incoming.length}</Meta><Meta label="Owners">{component.owners.map(owner => owner.login).join(', ') || 'Not available'}</Meta><Meta label="Confidence">{component.confidence.level} ({Math.round(component.confidence.score * 100)}%)</Meta></div></section>
     {affected?.files.length ? <section className="inspector-section"><h5 className="section-title">Changed Files</h5>{affected.files.slice(0, 8).map(file => <p className="meta-val inspector-architecture-path" key={file.path}>{file.path}</p>)}{affected.files.length > 8 && <p className="inspector-partial">+{affected.files.length - 8} more files</p>}</section> : null}
     {(outgoing.length > 0 || incoming.length > 0) && <section className="inspector-section"><h5 className="section-title">Dependencies</h5>{outgoing.map(item => <p className="meta-val" key={`out:${item.toComponentId}`}>Uses {name(item.toComponentId)}</p>)}{incoming.map(item => <p className="meta-val" key={`in:${item.fromComponentId}`}>Used by {name(item.fromComponentId)}</p>)}</section>}
+    {decision && <><section className="inspector-section"><h5 className="section-title">Change Impact</h5><Meta label="Classification">{decisionLabel(decision.impactTier)}</Meta><Meta label="Score / confidence">{decision.impactScore} · {decision.impactConfidence}</Meta>{decision.impactReasons.map(item => <p className="meta-val" key={`impact:${item.code}`}><strong>{item.label}</strong><br/><span>{item.evidenceRefs.join(' · ')}</span></p>)}</section><section className="inspector-section"><h5 className="section-title">Fix Strategy</h5><Meta label="Classification">{decisionLabel(decision.fixTier)}</Meta><Meta label="Score / confidence">{decision.fixScore} · {decision.fixConfidence}</Meta>{decision.fixReasons.map(item => <p className="meta-val" key={`fix:${item.code}`}><strong>{item.label}</strong><br/><span>{item.evidenceRefs.join(' · ')}</span></p>)}{decision.validationTargets.map(target => <p className="meta-val" key={`validation:${target.label}`}><strong>Validation:</strong> {target.label}</p>)}{decision.alternatives?.length ? <><h6 className="section-title inspector-subtitle">Alternative candidates</h6>{decision.alternatives.map(candidate => <p className="meta-val" key={`alternative:${candidate.componentId}`}><strong>#{candidate.rank} {name(candidate.componentId)} · {candidate.score} · {candidate.confidence}</strong><br/>{candidate.reason}. {candidate.riskTradeoff}. {candidate.validationTarget?.label ?? 'Validation target unavailable.'}</p>)}</> : null}</section></>}
+    {impact.decisionContext && <section className="inspector-section"><h5 className="section-title">Context evidence</h5>{impact.decisionContext.ci ? <p className="meta-val"><strong>CI:</strong> {[impact.decisionContext.ci.workflow, impact.decisionContext.ci.job, impact.decisionContext.ci.failedStep, ...(impact.decisionContext.ci.testNames ?? []), ...(impact.decisionContext.ci.filePaths ?? []), impact.decisionContext.ci.headSha].filter(Boolean).join(' · ')}</p> : null}{impact.decisionContext.issue ? <p className="meta-val"><strong>Issue:</strong> {[impact.decisionContext.issue.number && `#${impact.decisionContext.issue.number}`, impact.decisionContext.issue.title, ...(impact.decisionContext.issue.filePaths ?? []), ...(impact.decisionContext.issue.labels ?? [])].filter(Boolean).join(' · ')}</p> : null}</section>}
     <section className="inspector-section"><h5 className="section-title">Mapping Evidence</h5>{affected?.files[0]?.reasons.map(item => <p className="meta-val" key={`${item.source}:${item.detail}`}><strong>{item.source}</strong><br/>{item.detail}</p>) ?? <p className="meta-val">No changed-file evidence is available.</p>}<p className="inspector-partial">Snapshot: {impact.snapshot.status} · algorithm v{impact.snapshot.algorithmVersion} · {impact.architectureSnapshotSha}</p></section>
   </div>;
 }
@@ -230,6 +235,7 @@ function FlowDetails({ item, mode, tab }: { item: FlowItem; mode: 'live' | 'demo
 }
 
 export function Inspector() {
+  if (import.meta.env.DEV) incrementArchitectureDiagnostic('inspectorRenders');
   const [copyStatus, setCopyStatus] = useState('');
   const [inspectorTabState, setInspectorTabState] = useState<{ entityKey:string; tab:InspectorTab }>({ entityKey:'', tab:'details' });
   const appMode = useModeStore(state => state.mode);

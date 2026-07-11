@@ -527,6 +527,7 @@ export const useTabsStore = create<TabsState>()(
         }
 
         if (isBrowserTab(tabToClose)) void import('../browser/browser-commands').then(({ browserClose }) => browserClose(id).catch(console.error));
+        if (isNativeTab(tabToClose)) void import('../architecture/architecture-store').then(({ useArchitectureStore }) => useArchitectureStore.getState().clearTab(id));
         set({ tabs: newTabs, activeTabId: newActiveId, closedTabs: [tabToClose, ...closedTabs].slice(0, 20) });
       },
       closeOthers: id => {
