@@ -21,7 +21,7 @@ describe.each([
   ['accountSimulator', 'issue', 8],
   ['repositorySimulator', 'pull_request', 9],
   ['repositorySimulator', 'issue', 10],
-] as const)('Inspector Open in Tab parity', (kind, subjectType, number) => {
+] as const)('Inspector context-aware open actions', (kind, subjectType, number) => {
   beforeEach(() => {
     useModeStore.setState({ mode: 'live' });
     useFlowStore.setState({ states: {} });
@@ -33,11 +33,15 @@ describe.each([
     useFlowStore.getState().setTabState(tab.id, { selectedSimulatorEntity: simulatorEntity(subjectType, number), cursorTime: 123456, isPlaying: true });
     const client = new QueryClient();
     render(<QueryClientProvider client={client}><Inspector /></QueryClientProvider>);
-    fireEvent.click(screen.getByRole('button', { name: 'Open in Tab' }));
+    fireEvent.click(screen.getByRole('button', { name: subjectType === 'issue' ? 'Open in App Browser' : 'Open PR' }));
     const preserved = useFlowStore.getState().states[tab.id];
     expect(preserved.cursorTime).toBe(123456);
     expect(preserved.isPlaying).toBe(true);
     expect(preserved.selectedSimulatorEntity?.id).toBe(`${subjectType}-${number}`);
-    expect(useTabsStore.getState().tabs.some(item => item.family === 'browser' && item.currentUrl.includes(subjectType === 'issue' ? `/issues/${number}` : `/pull/${number}`))).toBe(true);
+    if (subjectType === 'issue') {
+      expect(useTabsStore.getState().tabs.some(item => item.family === 'browser' && item.currentUrl.includes(`/issues/${number}`))).toBe(true);
+    } else {
+      expect(useTabsStore.getState().tabs.some(item => item.family === 'native' && item.kind === 'pullRequestDiff' && item.context?.type === 'pullRequest' && item.context.number === number)).toBe(true);
+    }
   });
 });

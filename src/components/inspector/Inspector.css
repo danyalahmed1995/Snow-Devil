@@ -342,3 +342,9 @@
   transform: scale(0.98);
 }
 .inspector-architecture-path{overflow-wrap:anywhere;font-family:var(--font-mono);font-size:9px!important}
+
+/* PR and CI groups have an extra app-browser action, so Copy Link owns its row. */
+.work-item-open-actions--pull_request > .work-item-open-action--copy_link,
+.work-item-open-actions--ci_run > .work-item-open-action--copy_link {
+  grid-column: 1 / -1;
+}

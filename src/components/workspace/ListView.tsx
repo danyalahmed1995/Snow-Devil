@@ -4,6 +4,7 @@ import { useTabsStore } from '../../stores/tabs-store';
 import { AsyncViewState } from '../../types';
 import { activeAccountOrganizations, useAccountRepositories } from '../../hooks/useAccountContext';
 import { useAuthStore } from '../../stores/auth-store';
+import { openPrimaryWorkItem } from '../work-items/WorkItemOpenActions';
 
 export function ListView({ type }: { type: string }) {
   const [state, setState] = useState<AsyncViewState<any[]>>({ status: 'loading' });
@@ -71,23 +72,9 @@ export function ListView({ type }: { type: string }) {
     } else if (type === 'organizations') {
       openBrowserTab(`organization-${item.login}`, 'profile', item.login, item.url ?? `https://github.com/${item.login}`, false, true);
     } else if (type === 'pullRequests') {
-      openBrowserTab(
-        `pr-${item.repository.nameWithOwner.replace('/', '-')}-${item.number}`,
-        'pullRequest',
-        `PR #${item.number}`,
-        `https://github.com/${item.repository.nameWithOwner}/pull/${item.number}`,
-        false,
-        true
-      );
+      openPrimaryWorkItem({ id: String(item.id), kind: 'pull_request', title: item.title, repository: item.repository.nameWithOwner, number: item.number, url: `https://github.com/${item.repository.nameWithOwner}/pull/${item.number}` });
     } else if (type === 'issues') {
-      openBrowserTab(
-        `issue-${item.repository.nameWithOwner.replace('/', '-')}-${item.number}`,
-        'issue',
-        `Issue #${item.number}`,
-        `https://github.com/${item.repository.nameWithOwner}/issues/${item.number}`,
-        false,
-        true
-      );
+      openPrimaryWorkItem({ id: String(item.id), kind: 'issue', title: item.title, repository: item.repository.nameWithOwner, number: item.number, url: `https://github.com/${item.repository.nameWithOwner}/issues/${item.number}` });
     }
   };
 

@@ -13,6 +13,7 @@ import { useDemoHome, useDemoManifest, useDemoPipeline } from '../../hooks/useDe
 import { demoPipelineItemToFlowItem } from '../../data/demo-provider';
 import { canonicalAttentionItems, homePreview, normalizeWorkflowItem, recentMerges, recentlyActiveRepositories, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
+import { openPrimaryWorkItem } from '../work-items/WorkItemOpenActions';
 import './Dashboard.css';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
@@ -187,7 +188,7 @@ export function Dashboard() {
     });
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
-  const openItem = (item: FlowItem) => { const target = resolveEntityTabTarget(item, mode); if (target) openBrowserTab(target.id, target.kind, target.title, target.url, false, true); };
+  const openItem = (item: FlowItem) => { const target = resolveEntityTabTarget(item, mode); if (target && (item.type === 'pull_request' || item.type === 'issue')) openPrimaryWorkItem({ id: item.id, kind: item.type, title: item.title, repository: item.repositoryName || item.repositoryId, number: item.number, url: target.url }); };
   const selectItem = (item: FlowItem) => setTabState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item, selectedAnalyticsEntity: undefined });
   const selectRepository = (repo: { id: string; nameWithOwner: string; lastActivityAt?: string }) => setTabState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined, selectedAnalyticsEntity: { id: `home-repo:${repo.id}`, kind: 'repository', title: repo.nameWithOwner, repositoryId: repo.nameWithOwner, state: 'recently active', occurredAt: repo.lastActivityAt, reason: 'Recently active based on the latest synchronized workflow item.' } });
   const openRepositoryFlow = (repo: { id: string; nameWithOwner: string }) => {

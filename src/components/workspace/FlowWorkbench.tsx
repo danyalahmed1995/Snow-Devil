@@ -13,6 +13,7 @@ import { RepositorySelector } from './RepositorySelector';
 import type { FlowItem } from '../../types/flow';
 import { canonicalAttentionItems, filterWorkflowItems, normalizeWorkflowItem, WORKFLOW_STAGES } from '../../lib/workflow-presentation';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
+import { openPrimaryWorkItem } from '../work-items/WorkItemOpenActions';
 import { Select } from '../ui/Select';
 import './FlowWorkbench.css';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
@@ -79,7 +80,6 @@ export function FlowWorkbench() {
   const { data: demoPipeline, isLoading: demoLoading, error: demoError } = useDemoPipeline();
   const activeTabId = useCurrentTabId();
   const isSurfaceActive = useTabsStore(s => s.activeTabId === activeTabId);
-  const openBrowserTab = useTabsStore(s => s.openBrowserTab);
   const openNativeTab = useTabsStore(s => s.openNativeTab);
   const flowState = useFlowStore(s => s.getTabState(activeTabId));
   const setFlowState = useFlowStore(s => s.setTabState);
@@ -458,7 +458,7 @@ export function FlowWorkbench() {
                 items={items}
                 selectedItemId={selectedItemId}
                 onSelectItem={(item) => setFlowState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item })}
-                onOpenItem={(item) => { const target = resolveEntityTabTarget(item, appMode); if (target) openBrowserTab(target.id, target.kind, target.title, target.url, false, true); }}
+                onOpenItem={(item) => { const target = resolveEntityTabTarget(item, appMode); if (target && (item.type === 'pull_request' || item.type === 'issue')) openPrimaryWorkItem({ id: item.id, kind: item.type, title: item.title, repository: item.repositoryName || item.repositoryId, number: item.number, url: target.url }); }}
                 sourceControls={sourceControls}
                 hideEmptyStages={hideEmptyStages}
                 focusedStage={filterStage}
