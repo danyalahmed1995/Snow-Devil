@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Graph Node Designs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #06101d;
+      --text-primary: #e2e8f0;
+      --text-muted: #64748b;
+      --accent-blue: #00bfff;
+      --accent-green: #3fb950;
+      --accent-purple: #8f62d8;
+    }
+
+    body {
+      margin: 0; padding: 0;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      display: flex; flex-direction: column; gap: 60px;
+      padding: 60px 40px 100px;
+    }
+
+    .gallery-header { text-align: center; margin-bottom: 20px; }
+    .gallery-header h1 { margin: 0; font-size: 2.5rem; font-weight: 700; color: #fff; }
+    .gallery-header p { color: var(--text-muted); margin-top: 10px; font-size: 1.1rem; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+      gap: 40px;
+      max-width: 1400px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .theme-card {
+      background: #0d1624;
+      border: 1px solid #1e2d40;
+      border-radius: 12px;
+      padding: 30px;
+      display: flex; flex-direction: column; gap: 25px;
+      position: relative; overflow: hidden;
+    }
+
+    .theme-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 20px 20px; pointer-events: none; z-index: 0;
+    }
+
+    .theme-title { font-size: 1.1rem; color: #fff; font-weight: 600; z-index: 1; border-bottom: 1px solid #1e2d40; padding-bottom: 15px; margin-bottom: 10px; }
+
+    .nodes-container {
+      display: flex; flex-direction: column; gap: 20px; align-items: center; z-index: 1;
+      padding: 20px; border-radius: 8px; background: rgba(0,0,0,0.2);
+    }
+
+    /* Base Node Structure */
+    .node {
+      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      width: 220px; text-align: left; cursor: pointer;
+      font-family: 'Inter', sans-serif; transition: all 0.2s ease;
+    }
+    .node-icon {
+      width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0; border-radius: 6px;
+    }
+    .node-icon svg { width: 14px; height: 14px; }
+    .node-label { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .node-label strong { font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-label small { font-size: 0.65rem; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* =========================================
+       1. NEON WIREFRAME
+       ========================================= */
+    .theme-1 .node { background: rgba(6, 23, 43, 0.4); border: 1px solid rgba(0, 191, 255, 0.4); border-radius: 8px; box-shadow: 0 0 15px rgba(0, 191, 255, 0.1); backdrop-filter: blur(4px); }
+    .theme-1 .node-icon { background: rgba(0, 191, 255, 0.15); color: var(--accent-blue); box-shadow: 0 0 10px rgba(0, 191, 255, 0.3); }
+    .theme-1 .node-label strong { color: #fff; } .theme-1 .node-label small { color: #64748b; }
+    .theme-1 .node.primary { border-color: var(--accent-green); box-shadow: 0 0 20px rgba(63, 185, 80, 0.2), inset 0 0 8px rgba(63, 185, 80, 0.1); }
+    .theme-1 .node.primary .node-icon { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); box-shadow: 0 0 10px rgba(63, 185, 80, 0.4); }
+    .theme-1 .node.affected { border-color: var(--accent-purple); box-shadow: 0 0 20px rgba(143, 98, 216, 0.2), inset 0 0 8px rgba(143, 98, 216, 0.1); }
+    .theme-1 .node.affected .node-icon { background: rgba(143, 98, 216, 0.15); color: var(--accent-purple); box-shadow: 0 0 10px rgba(143, 98, 216, 0.4); }
+
+    /* =========================================
+       2. GLASSMORPHIC FROST
+       ========================================= */
+    .theme-2 .nodes-container { background: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=600') center/cover; }
+    .theme-2 .node { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-top-color: rgba(255, 255, 255, 0.2); border-radius: 12px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); }
+    .theme-2 .node-icon { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.1); }
+    .theme-2 .node-label strong { color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); } .theme-2 .node-label small { color: rgba(255,255,255,0.7); text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+    .theme-2 .node.primary { background: rgba(63, 185, 80, 0.15); border-color: rgba(63, 185, 80, 0.3); border-top-color: rgba(63, 185, 80, 0.5); }
+    .theme-2 .node.primary .node-icon { background: rgba(63, 185, 80, 0.3); }
+    .theme-2 .node.affected { background: rgba(143, 98, 216, 0.15); border-color: rgba(143, 98, 216, 0.3); border-top-color: rgba(143, 98, 216, 0.5); }
+    .theme-2 .node.affected .node-icon { background: rgba(143, 98, 216, 0.3); }
+
+    /* =========================================
+       3. DEEP BEVEL (3D Neumorphic)
+       ========================================= */
+    .theme-3 .nodes-container { background: #0a1321; }
+    .theme-3 .node { background: #0a1321; border: none; border-radius: 10px; box-shadow: 4px 4px 10px rgba(0,0,0,0.8), -3px -3px 8px rgba(255,255,255,0.05); }
+    .theme-3 .node-icon { background: #0a1321; color: var(--accent-blue); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(255,255,255,0.05); border-radius: 50%; }
+    .theme-3 .node-label strong { color: #e2e8f0; } .theme-3 .node-label small { color: #64748b; }
+    .theme-3 .node.primary { box-shadow: 4px 4px 10px rgba(0,0,0,0.8), -3px -3px 8px rgba(63, 185, 80, 0.15); }
+    .theme-3 .node.primary .node-icon { color: var(--accent-green); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(63, 185, 80, 0.15); }
+    .theme-3 .node.affected { box-shadow: 4px 4px 10px rgba(0,0,0,0.8), -3px -3px 8px rgba(143, 98, 216, 0.15); }
+    .theme-3 .node.affected .node-icon { color: var(--accent-purple); box-shadow: inset 2px 2px 5px rgba(0,0,0,0.8), inset -2px -2px 5px rgba(143, 98, 216, 0.15); }
+
+    /* =========================================
+       4. GRADIENT CYBERPUNK
+       ========================================= */
+    .theme-4 .node { background: linear-gradient(135deg, #091221, #120921); border: 1px solid transparent; border-radius: 4px; position: relative; background-clip: padding-box; }
+    .theme-4 .node::before { content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: 4px; background: linear-gradient(45deg, #00bfff, #8f62d8); opacity: 0.3; }
+    .theme-4 .node-icon { background: transparent; color: #fff; }
+    .theme-4 .node-label strong { color: #fff; font-family: 'JetBrains Mono', monospace; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; } .theme-4 .node-label small { color: #00bfff; font-family: 'JetBrains Mono', monospace; }
+    .theme-4 .node.primary::before { background: linear-gradient(45deg, #3fb950, #00bfff); opacity: 0.6; }
+    .theme-4 .node.primary .node-label small { color: #3fb950; }
+    .theme-4 .node.affected::before { background: linear-gradient(45deg, #8f62d8, #ff007f); opacity: 0.6; }
+    .theme-4 .node.affected .node-label small { color: #8f62d8; }
+
+    /* =========================================
+       5. POLISHED METALLIC
+       ========================================= */
+    .theme-5 .node { background: linear-gradient(180deg, #1f2937, #111827); border: 1px solid #374151; border-bottom-color: #030712; border-radius: 6px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 4px 6px rgba(0,0,0,0.5); }
+    .theme-5 .node-icon { background: linear-gradient(180deg, #374151, #1f2937); border: 1px solid #4b5563; border-bottom-color: #111827; color: var(--accent-blue); box-shadow: inset 0 1px 0 rgba(255,255,255,0.1); }
+    .theme-5 .node-label strong { color: #f8fafc; text-shadow: 0 -1px 0 rgba(0,0,0,0.8); } .theme-5 .node-label small { color: #94a3b8; }
+    .theme-5 .node.primary { border-color: #166534; border-bottom-color: #052e16; border-top-color: #22c55e; }
+    .theme-5 .node.primary .node-icon { color: #4ade80; }
+    .theme-5 .node.affected { border-color: #581c87; border-bottom-color: #3b0764; border-top-color: #a855f7; }
+    .theme-5 .node.affected .node-icon { color: #c084fc; }
+
+    /* =========================================
+       6. HOLOGRAPHIC HUD
+       ========================================= */
+    .theme-6 .nodes-container { background: #000; }
+    .theme-6 .node { background: rgba(0, 191, 255, 0.05); border: 1px dashed rgba(0, 191, 255, 0.4); border-radius: 0; box-shadow: inset 0 0 20px rgba(0, 191, 255, 0.05); position: relative; }
+    .theme-6 .node::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: rgba(0, 191, 255, 0.6); }
+    .theme-6 .node-icon { background: transparent; color: var(--accent-blue); }
+    .theme-6 .node-label strong { color: var(--accent-blue); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; } .theme-6 .node-label small { color: rgba(0, 191, 255, 0.6); font-family: 'JetBrains Mono', monospace; }
+    .theme-6 .node.primary { background: rgba(63, 185, 80, 0.05); border-color: rgba(63, 185, 80, 0.4); box-shadow: inset 0 0 20px rgba(63, 185, 80, 0.05); }
+    .theme-6 .node.primary::after { background: var(--accent-green); }
+    .theme-6 .node.primary .node-icon, .theme-6 .node.primary .node-label strong { color: var(--accent-green); }
+    .theme-6 .node.primary .node-label small { color: rgba(63, 185, 80, 0.6); }
+    .theme-6 .node.affected { background: rgba(143, 98, 216, 0.05); border-color: rgba(143, 98, 216, 0.4); box-shadow: inset 0 0 20px rgba(143, 98, 216, 0.05); }
+    .theme-6 .node.affected::after { background: var(--accent-purple); }
+    .theme-6 .node.affected .node-icon, .theme-6 .node.affected .node-label strong { color: var(--accent-purple); }
+    .theme-6 .node.affected .node-label small { color: rgba(143, 98, 216, 0.6); }
+
+    /* =========================================
+       7. SOFT GLOW PILL
+       ========================================= */
+    .theme-7 .node { background: #0c182a; border: 1px solid #1a2c47; border-radius: 30px; padding: 8px 16px 8px 8px; box-shadow: 0 0 30px rgba(0, 191, 255, 0.1); }
+    .theme-7 .node-icon { background: #1a2c47; color: #fff; border-radius: 50%; width: 28px; height: 28px; }
+    .theme-7 .node-label strong { color: #fff; } .theme-7 .node-label small { color: #8b949e; }
+    .theme-7 .node.primary { border-color: rgba(63, 185, 80, 0.4); box-shadow: 0 0 30px rgba(63, 185, 80, 0.2); }
+    .theme-7 .node.primary .node-icon { background: var(--accent-green); color: #000; }
+    .theme-7 .node.affected { border-color: rgba(143, 98, 216, 0.4); box-shadow: 0 0 30px rgba(143, 98, 216, 0.2); }
+    .theme-7 .node.affected .node-icon { background: var(--accent-purple); color: #000; }
+
+    /* =========================================
+       8. LAYERED CARDS
+       ========================================= */
+    .theme-8 .node { background: #0f172a; border: 1px solid #334155; border-radius: 8px; position: relative; box-shadow: 4px 4px 0 #020617; transform: translate(-2px, -2px); }
+    .theme-8 .node-icon { background: #1e293b; color: var(--accent-blue); border: 1px solid #334155; }
+    .theme-8 .node-label strong { color: #f8fafc; } .theme-8 .node-label small { color: #94a3b8; }
+    .theme-8 .node.primary { border-color: #166534; box-shadow: 4px 4px 0 #052e16; }
+    .theme-8 .node.primary .node-icon { color: var(--accent-green); border-color: #166534; background: #052e16; }
+    .theme-8 .node.affected { border-color: #581c87; box-shadow: 4px 4px 0 #3b0764; }
+    .theme-8 .node.affected .node-icon { color: #c084fc; border-color: #581c87; background: #3b0764; }
+
+    /* =========================================
+       9. LEFT-ACCENT BAR (Minimalist)
+       ========================================= */
+    .theme-9 .node { background: #111827; border: none; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-left: 4px solid #3b82f6; }
+    .theme-9 .node-icon { background: transparent; color: #3b82f6; width: 20px; }
+    .theme-9 .node-label strong { color: #f9fafb; font-size: 0.85rem; } .theme-9 .node-label small { color: #6b7280; font-size: 0.65rem; }
+    .theme-9 .node.primary { border-left-color: #10b981; }
+    .theme-9 .node.primary .node-icon { color: #10b981; }
+    .theme-9 .node.affected { border-left-color: #8b5cf6; }
+    .theme-9 .node.affected .node-icon { color: #8b5cf6; }
+
+    /* =========================================
+       10. ETHEREAL AURA
+       ========================================= */
+    .theme-10 .node { background: radial-gradient(circle at top left, rgba(0,191,255,0.1), transparent 70%), #030712; border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+    .theme-10 .node-icon { background: rgba(255,255,255,0.03); color: #e0f2fe; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; }
+    .theme-10 .node-label strong { color: #f8fafc; font-weight: 500; } .theme-10 .node-label small { color: #64748b; }
+    .theme-10 .node.primary { background: radial-gradient(circle at top left, rgba(63,185,80,0.15), transparent 70%), #030712; border-color: rgba(63,185,80,0.2); }
+    .theme-10 .node.primary .node-icon { color: #bbf7d0; border-color: rgba(63,185,80,0.3); }
+    .theme-10 .node.affected { background: radial-gradient(circle at top left, rgba(143,98,216,0.15), transparent 70%), #030712; border-color: rgba(143,98,216,0.2); }
+    .theme-10 .node.affected .node-icon { color: #e9d5ff; border-color: rgba(143,98,216,0.3); }
+
+  </style>
+</head>
+<body>
+
+  <div class="gallery-header">
+    <h1>Component Node Concepts</h1>
+    <p>10 premium visual treatments for the Architecture graph nodes.</p>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const themes = [
+      { id: 1, name: 'Neon Wireframe' },
+      { id: 2, name: 'Glassmorphic Frost' },
+      { id: 3, name: 'Deep Bevel (3D Neumorphic)' },
+      { id: 4, name: 'Gradient Cyberpunk' },
+      { id: 5, name: 'Polished Metallic' },
+      { id: 6, name: 'Holographic HUD' },
+      { id: 7, name: 'Soft Glow Pill' },
+      { id: 8, name: 'Layered Cards' },
+      { id: 9, name: 'Left-Accent Bar (Minimalist)' },
+      { id: 10, name: 'Ethereal Aura' }
+    ];
+
+    const icons = {
+      library: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>`,
+      test: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/></svg>`,
+      bug: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>`
+    };
+
+    const generateNode = (title, subtitle, className, iconHtml) => `
+      <div class="node ${className}">
+        <div class="node-icon">
+          ${iconHtml}
+        </div>
+        <div class="node-label">
+          <strong>${title}</strong>
+          <small>${subtitle}</small>
+        </div>
+      </div>
+    `;
+
+    const grid = document.getElementById('grid');
+
+    themes.forEach(t => {
+      const card = document.createElement('div');
+      card.className = `theme-card theme-${t.id}`;
+      card.innerHTML = `
+        <div class="theme-title">#${String(t.id).padStart(2, '0')} ${t.name}</div>
+        <div class="nodes-container">
+          ${generateNode('Library Core', 'Dependency · lib', '', icons.library)}
+          ${generateNode('Test Suite', 'Primary · tests', 'primary', icons.test)}
+          ${generateNode('Diagnose Corruption', 'Changed · contrib', 'affected', icons.bug)}
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>

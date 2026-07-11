@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod architecture;
 pub mod auth;
 pub mod db;
 pub mod diagnostics;

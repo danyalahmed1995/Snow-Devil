@@ -156,7 +156,7 @@ function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext 
     };
   }
   if (context.type === 'pullRequest' && typeof context.repository === 'string' && typeof context.number === 'number') {
-    return { type: 'pullRequest', repository: context.repository, number: context.number };
+    return { type: 'pullRequest', repository: context.repository, number: context.number, headSha: typeof context.headSha === 'string' ? context.headSha : undefined };
   }
   if (context.type === 'commit' && typeof context.repository === 'string' && typeof context.sha === 'string') {
     return { type: 'commit', repository: context.repository, sha: context.sha };

@@ -29,7 +29,7 @@ const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
 
-function SurfaceLoading() { return <div className="workspace-loading" role="status">Loading workspace surface…</div>; }
+function SurfaceLoading() { return <div className="workspace-loading" role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}><div className="global-spinner" /><div style={{ textAlign: 'center' }}><h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workspace surface…</h1></div></div>; }
 
 function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
   const closeTab = useTabsStore(state => state.closeTab);
@@ -60,7 +60,7 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
       {tab.kind === 'settings' && <AnalyticsSettingsPage />}
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
-      {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} />}
+      {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} observedHeadSha={tab.context.headSha} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}
       {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.selectedJobId ?? tab.context.jobId} />}
       {tab.kind === 'ciRun' && tab.context?.type !== 'ciRun' && <InvalidCIRunTab tab={tab} />}

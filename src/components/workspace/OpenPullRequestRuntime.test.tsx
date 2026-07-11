@@ -1,0 +1,41 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useTabsStore } from '../../stores/tabs-store';
+import { OpenPullRequestRuntime } from './OpenPullRequestRuntime';
+import type { NativeTab } from '../../browser/browser-tabs';
+import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
+
+const { invoke } = vi.hoisted(() => ({ invoke: vi.fn() }));
+vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+
+describe('open pull request synchronization', () => {
+  beforeEach(() => {
+    invoke.mockReset();
+    useArchitectureRefreshStore.setState({ values: {} });
+    useTabsStore.setState({
+      tabs: [{ id: 'native:pr:acme/repo:42', family: 'native', kind: 'pullRequestDiff', title: 'PR #42', pinned: false, closable: true, createdAt: 1, lastActivatedAt: 1, context: { type: 'pullRequest', repository: 'Acme/Repo', number: 42, headSha: 'old-head' } }],
+      activeTabId: 'native:pr:acme/repo:42',
+    });
+  });
+
+  it('updates the mounted tab identity and invalidates commit-sensitive details after sync', async () => {
+    invoke.mockResolvedValue({ headRefOid: 'new-head', diff: 'new diff' });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    render(<QueryClientProvider client={client}><OpenPullRequestRuntime /></QueryClientProvider>);
+
+    await waitFor(() => expect((useTabsStore.getState().tabs[0] as NativeTab).context).toMatchObject({ headSha: 'new-head' }));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['pull-request-details', 'acme/repo', 42], refetchType: 'none' });
+    expect(useArchitectureRefreshStore.getState().values['native:pr:acme/repo:42']).toMatchObject({ status: 'updated', headSha: 'new-head' });
+  });
+
+  it('does not invalidate when synchronization reports the same head', async () => {
+    invoke.mockResolvedValue({ headRefOid: 'old-head', diff: 'old diff' });
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    render(<QueryClientProvider client={client}><OpenPullRequestRuntime /></QueryClientProvider>);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('get_pr_details', { owner: 'Acme', name: 'Repo', number: 42 }));
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+});

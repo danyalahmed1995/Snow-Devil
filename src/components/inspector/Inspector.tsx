@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AnalyticsInspectable } from '../../analytics/types';
 import { useMemo, useState } from 'react';
-import { Copy, X, ArrowRightCircle, Globe, History } from 'lucide-react';
+import { Copy, X, ArrowRightCircle, Globe, History, Workflow } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useQueryClient } from '@tanstack/react-query';
 import { resolveEntityTabTarget } from '../../lib/entity-target';
@@ -17,6 +17,8 @@ import { copyCanonicalLink, openInDefaultBrowser } from '../../lib/browser-actio
 import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
+import { useArchitectureStore } from '../../architecture/architecture-store';
+import type { ArchitectureSnapshot, PullRequestArchitectureImpact } from '../../architecture/types';
 import './Inspector.css';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
@@ -60,7 +62,33 @@ function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'ne
 }
 
 function Meta({ label, children }: { label: string; children: ReactNode }) { return <div className="meta-row"><span className="meta-key">{label}</span><span className="meta-val">{children}</span></div>; }
-type InspectorTab = 'details' | 'timeline';
+type InspectorTab = 'details' | 'timeline' | 'architecture';
+
+function ArchitectureDetails({ impact, selectedComponentId }: { impact: PullRequestArchitectureImpact; selectedComponentId?: string }) {
+  const component = impact.snapshot.components.find(item => item.id === selectedComponentId) ?? impact.snapshot.components.find(item => item.id === impact.primaryComponentId);
+  const affected = impact.affectedComponents.find(item => item.component.id === component?.id);
+  const outgoing = impact.snapshot.dependencies.filter(item => item.fromComponentId === component?.id);
+  const incoming = impact.snapshot.dependencies.filter(item => item.toComponentId === component?.id);
+  const name = (id: string) => impact.snapshot.components.find(item => item.id === id)?.name ?? id;
+  if (!component) return <div className="inspector-details"><section className="inspector-section"><h5 className="section-title">Architecture Context</h5><p className="inspector-partial">No reliable component boundary was identified. Review the unmapped changed files in Architecture Context.</p></section></div>;
+  return <div className="inspector-details">
+    <section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone={component.id === impact.primaryComponentId ? 'good' : 'info'}>{component.id === impact.primaryComponentId ? 'Primary Component' : 'Architecture Component'}</Badge><span className="inspector-stage-badge">{component.kind}</span></div><h4 className="inspector-title">{component.name}</h4><p className="inspector-repository">{impact.repositoryId}</p></section>
+    <section className="inspector-section"><h5 className="section-title">Component Summary</h5><div className="metadata"><Meta label="Root paths">{component.rootPaths.join(', ')}</Meta><Meta label="Changed files">{affected?.files.length ?? 0}</Meta><Meta label="Line changes">+{affected?.additions ?? 0} / −{affected?.deletions ?? 0}</Meta><Meta label="Direct dependencies">{outgoing.length}</Meta><Meta label="Direct dependents">{incoming.length}</Meta><Meta label="Owners">{component.owners.map(owner => owner.login).join(', ') || 'Not available'}</Meta><Meta label="Confidence">{component.confidence.level} ({Math.round(component.confidence.score * 100)}%)</Meta></div></section>
+    {affected?.files.length ? <section className="inspector-section"><h5 className="section-title">Changed Files</h5>{affected.files.slice(0, 8).map(file => <p className="meta-val inspector-architecture-path" key={file.path}>{file.path}</p>)}{affected.files.length > 8 && <p className="inspector-partial">+{affected.files.length - 8} more files</p>}</section> : null}
+    {(outgoing.length > 0 || incoming.length > 0) && <section className="inspector-section"><h5 className="section-title">Dependencies</h5>{outgoing.map(item => <p className="meta-val" key={`out:${item.toComponentId}`}>Uses {name(item.toComponentId)}</p>)}{incoming.map(item => <p className="meta-val" key={`in:${item.fromComponentId}`}>Used by {name(item.fromComponentId)}</p>)}</section>}
+    <section className="inspector-section"><h5 className="section-title">Mapping Evidence</h5>{affected?.files[0]?.reasons.map(item => <p className="meta-val" key={`${item.source}:${item.detail}`}><strong>{item.source}</strong><br/>{item.detail}</p>) ?? <p className="meta-val">No changed-file evidence is available.</p>}<p className="inspector-partial">Snapshot: {impact.snapshot.status} · algorithm v{impact.snapshot.algorithmVersion} · {impact.architectureSnapshotSha}</p></section>
+  </div>;
+}
+
+function RepositoryArchitectureDetails({ snapshot, selectedComponentId }: { snapshot: ArchitectureSnapshot; selectedComponentId?: string }) {
+  const component = snapshot.components.find(item => item.id === selectedComponentId) ?? snapshot.components[0];
+  if (!component) return <p className="inspector-empty">No architecture component is available for this repository.</p>;
+  const files = snapshot.files.filter(file => file.componentId === component.id);
+  const outgoing = snapshot.dependencies.filter(item => item.fromComponentId === component.id);
+  const incoming = snapshot.dependencies.filter(item => item.toComponentId === component.id);
+  const name = (id: string) => snapshot.components.find(item => item.id === id)?.name ?? id;
+  return <div className="inspector-details"><section className="inspector-section inspector-header-section"><div className="inspector-entity-row"><Badge tone="info">Architecture Component</Badge><span className="inspector-stage-badge">{component.kind}</span></div><h4 className="inspector-title">{component.name}</h4><p className="inspector-repository">{snapshot.repositoryId}</p></section><section className="inspector-section"><h5 className="section-title">Component Summary</h5><div className="metadata"><Meta label="Root paths">{component.rootPaths.join(', ')}</Meta><Meta label="Files mapped">{files.length}</Meta><Meta label="Manifests">{component.manifestPaths.join(', ') || 'None detected'}</Meta><Meta label="Direct dependencies">{outgoing.length}</Meta><Meta label="Direct dependents">{incoming.length}</Meta><Meta label="Owners">{component.owners.map(owner => owner.login).join(', ') || 'Not available'}</Meta><Meta label="Confidence">{component.confidence.level} ({Math.round(component.confidence.score * 100)}%)</Meta></div></section>{(outgoing.length>0||incoming.length>0)&&<section className="inspector-section"><h5 className="section-title">Dependencies</h5>{outgoing.map(edge=><p className="meta-val" key={`out:${edge.toComponentId}`}>Uses {name(edge.toComponentId)} · {edge.kind}</p>)}{incoming.map(edge=><p className="meta-val" key={`in:${edge.fromComponentId}`}>Used by {name(edge.fromComponentId)} · {edge.kind}</p>)}</section>}<section className="inspector-section"><h5 className="section-title">Snapshot Evidence</h5><p className="meta-val">{files[0]?.reasons[0]?.detail ?? 'No file mapping evidence is available.'}</p><p className="inspector-partial">{snapshot.status} · {snapshot.baseCommitSha} · {new Date(snapshot.generatedAt).toLocaleString()}</p></section></div>;
+}
 
 function AnalyticsDetails({ tab }: { tab: InspectorTab }) {
   const activeTabId = useTabsStore(state => state.activeTabId);
@@ -210,6 +238,7 @@ export function Inspector() {
   const setInspectorOpen = useLayoutStore(state => state.setInspectorOpen);
   const { tabs, activeTabId, openBrowserTab, openNativeTab } = useTabsStore();
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
+  const architectureState = useArchitectureStore(state => state.states[activeTabId]);
   const activeTab = tabs.find(tab => tab.id === activeTabId);
   const resolvedItem = useResolvedFlowItem(flowState.selectedItemId);
   const selectedItem = flowState.selectedFlowItem ?? resolvedItem;
@@ -224,11 +253,17 @@ export function Inspector() {
   const target = resolveEntityTabTarget(targetSource, appMode);
   const demoUnavailableTarget = appMode === 'demo' && !!resolveEntityTabTarget(targetSource, 'live');
   const hasTimeline = Boolean(selectedItem?.stageHistory?.length || flowState.selectedAnalyticsEntity?.timeline?.length);
-  const entityKey = flowState.selectedItemId ?? flowState.selectedAnalyticsEntity?.id ?? simulatorEntity?.id ?? simulatorEvent?.id ?? 'empty';
-  const inspectorTab: InspectorTab = inspectorTabState.entityKey === entityKey && (hasTimeline || inspectorTabState.tab === 'details') ? inspectorTabState.tab : 'details';
+  const hasArchitecture = Boolean(activeTab && isNativeTab(activeTab) && (activeTab.kind === 'pullRequestDiff' && architectureState?.impact || activeTab.kind === 'repositoryExplorer' && architectureState?.snapshot));
+  const entityKey = architectureState?.selectedComponentId ?? flowState.selectedItemId ?? flowState.selectedAnalyticsEntity?.id ?? simulatorEntity?.id ?? simulatorEvent?.id ?? (hasArchitecture ? 'architecture' : 'empty');
+  const storedTabValid = inspectorTabState.tab === 'details' || inspectorTabState.tab === 'timeline' && hasTimeline || inspectorTabState.tab === 'architecture' && hasArchitecture;
+  const inspectorTab: InspectorTab = inspectorTabState.entityKey === entityKey && storedTabValid ? inspectorTabState.tab : hasArchitecture ? 'architecture' : 'details';
   let content: ReactNode;
 
-  if (isAnalytics || homeRepositoryContext) {
+  if (inspectorTab === 'architecture' && architectureState?.impact) {
+    content = <ArchitectureDetails impact={architectureState.impact} selectedComponentId={architectureState.selectedComponentId} />;
+  } else if (inspectorTab === 'architecture' && architectureState?.snapshot) {
+    content = <RepositoryArchitectureDetails snapshot={architectureState.snapshot} selectedComponentId={architectureState.selectedComponentId} />;
+  } else if (isAnalytics || homeRepositoryContext) {
     if (flowState.selectedAnalyticsEntity?.kind === 'ci_health') {
       content = <WorkflowRunDetails selected={flowState.selectedAnalyticsEntity} tab={inspectorTab} />;
     } else {
@@ -250,7 +285,7 @@ export function Inspector() {
       <h3 className="inspector-header-title">Inspector</h3>
       <button className="inspector-header-close" aria-label="Close Inspector" data-tooltip="Close Inspector\nHide contextual details for the current selection." onClick={() => setInspectorOpen(false)}><X size={14}/></button>
     </header>
-    {(targetSource || isSimulator) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections"><button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
+    {(targetSource || isSimulator || hasArchitecture) && <div className="inspector-tabs" role="tablist" aria-label="Inspector sections">{(targetSource || isSimulator) && <button role="tab" data-tooltip="Details\nShow the selected item's state, evidence, and canonical identity." aria-selected={inspectorTab === 'details'} className={inspectorTab === 'details' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'details'})}>Details</button>}{hasArchitecture && <button role="tab" data-tooltip="Architecture\nShow component identity, impact, confidence, and mapping evidence." aria-selected={inspectorTab === 'architecture'} className={inspectorTab === 'architecture' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'architecture'})}><Workflow size={11}/>Architecture</button>}{hasTimeline && <button role="tab" data-tooltip="Timeline\nShow the selected item's evidence-backed stage history." aria-selected={inspectorTab === 'timeline'} className={inspectorTab === 'timeline' ? 'is-active' : ''} onClick={() => setInspectorTabState({entityKey,tab:'timeline'})}>Timeline</button>}</div>}
     <div className="inspector-content">{content}</div>
     {(target || demoUnavailableTarget || isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId) && <footer className="inspector-footer">
       {isAnalytics && flowState.selectedAnalyticsEntity?.repositoryId && <div className="inspector-actions inspector-actions--context">
