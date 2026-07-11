@@ -1,5 +1,70 @@
 export type ArchitectureConfidenceLevel = 'high' | 'medium' | 'low' | 'unknown';
 
+export type ArchitectureColorMode = 'architecture' | 'change-impact' | 'fix-strategy';
+export type ImpactTier = 'contained' | 'elevated' | 'high' | 'critical' | 'unknown';
+export type FixTier = 'recommended' | 'plausible' | 'broad-risk' | 'not-relevant' | 'unknown';
+
+export interface DecisionReason {
+  code: string;
+  label: string;
+  weight: number;
+  direction: 'positive' | 'negative' | 'neutral';
+  evidenceRefs: string[];
+}
+
+export interface ValidationTarget {
+  label: string;
+  componentId?: string;
+  evidenceRefs: string[];
+}
+
+export interface ArchitectureDecisionContext {
+  ci?: {
+    workflow?: string;
+    job?: string;
+    failedStep?: string;
+    testNames?: string[];
+    filePaths?: string[];
+    headSha?: string;
+    linkedPullRequest?: number;
+    componentIds?: string[];
+  };
+  issue?: {
+    number?: number;
+    title?: string;
+    filePaths?: string[];
+    stackTrace?: string;
+    labels?: string[];
+    linkedPullRequests?: number[];
+    componentIds?: string[];
+  };
+}
+
+export interface DecisionAlternative {
+  componentId: string;
+  rank: number;
+  score: number;
+  confidence: ArchitectureConfidenceLevel;
+  reason: string;
+  riskTradeoff: string;
+  validationTarget?: ValidationTarget;
+}
+
+export interface ComponentDecisionAnalysis {
+  componentId: string;
+  impactScore: number;
+  impactTier: ImpactTier;
+  impactConfidence: ArchitectureConfidenceLevel;
+  impactReasons: DecisionReason[];
+  fixScore: number;
+  fixTier: FixTier;
+  fixConfidence: ArchitectureConfidenceLevel;
+  fixReasons: DecisionReason[];
+  validationTargets: ValidationTarget[];
+  evidence: string[];
+  alternatives?: DecisionAlternative[];
+}
+
 export interface ArchitectureConfidence {
   level: ArchitectureConfidenceLevel;
   score: number;
@@ -146,6 +211,8 @@ export interface PullRequestArchitectureImpact {
   unmappedFiles: string[];
   generatedAt: string;
   snapshot: ArchitectureSnapshot;
+  decisionAnalysis?: ComponentDecisionAnalysis[];
+  decisionContext?: ArchitectureDecisionContext;
 }
 
 export interface ArchitectureDiffFile {

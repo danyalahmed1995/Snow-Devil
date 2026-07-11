@@ -1,0 +1,153 @@
+/* 
+  Snow Devil - 10 Triple Hexagon Designs
+*/
+
+/* Base layout for the app icon container */
+.theme-container .app-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.theme-container .trio-hex {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 36px;
+  height: 36px;
+  transition: all 0.3s ease;
+}
+
+/* Individual attribute containers (Hexagon shape) */
+.theme-container .attr {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.theme-container .attr svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2.5;
+}
+
+/* Positioning in a triangle */
+.theme-container .attr.top-hex { top: 0; left: 9px; z-index: 3; }
+.theme-container .attr.left-hex { bottom: 2px; left: 0px; z-index: 2; }
+.theme-container .attr.right-hex { bottom: 2px; right: 0px; z-index: 1; }
+
+.theme-container .app-brand:hover .attr.top-hex { transform: translateY(-3px) scale(1.1); }
+.theme-container .app-brand:hover .attr.left-hex { transform: translate(-3px, 2px) scale(1.1); }
+.theme-container .app-brand:hover .attr.right-hex { transform: translate(3px, 2px) scale(1.1); }
+
+.theme-container .app-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  transition: all 0.3s ease;
+  color: #fff;
+}
+
+/* =========================================
+   THEME 1: SOLID MATRIX (Current Baseline)
+   ========================================= */
+.theme-matrix .app-brand:hover { background: rgba(255, 255, 255, 0.05); }
+.theme-matrix .attr { background: #0f172a; }
+.theme-matrix .attr.top-hex { color: #a855f7; box-shadow: inset 0 0 10px #a855f7; }
+.theme-matrix .attr.left-hex { color: #eab308; box-shadow: inset 0 0 10px #eab308; }
+.theme-matrix .attr.right-hex { color: #ef4444; box-shadow: inset 0 0 10px #ef4444; }
+
+/* =========================================
+   THEME 2: NEON EDGE GLOW
+   ========================================= */
+.theme-neon .app-brand:hover { background: rgba(0, 0, 0, 0.4); }
+.theme-neon .attr { background: #000; }
+.theme-neon .attr.top-hex { color: #c084fc; box-shadow: inset 0 0 4px 2px #c084fc; }
+.theme-neon .attr.left-hex { color: #facc15; box-shadow: inset 0 0 4px 2px #facc15; }
+.theme-neon .attr.right-hex { color: #f87171; box-shadow: inset 0 0 4px 2px #f87171; }
+.theme-neon .app-brand:hover .attr { box-shadow: inset 0 0 8px 3px currentColor; }
+
+/* =========================================
+   THEME 3: FROSTED GLASS
+   ========================================= */
+.theme-glass .app-brand:hover { background: rgba(255,255,255,0.03); }
+.theme-glass .attr { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(4px); color: #fff; }
+.theme-glass .attr.top-hex { background: rgba(168, 85, 247, 0.4); }
+.theme-glass .attr.left-hex { background: rgba(234, 179, 8, 0.4); }
+.theme-glass .attr.right-hex { background: rgba(239, 68, 68, 0.4); }
+.theme-glass .app-brand:hover .attr { background: rgba(255,255,255,0.8); color: #000; }
+
+/* =========================================
+   THEME 4: HACKER TERMINAL
+   ========================================= */
+.theme-terminal .app-brand:hover { background: rgba(51, 255, 0, 0.05); }
+.theme-terminal .attr { background: #000; color: #33ff00; box-shadow: inset 0 0 0 1px #33ff00; }
+.theme-terminal .app-brand:hover .attr { background: #33ff00; color: #000; }
+.theme-terminal .app-name { color: #33ff00; font-family: monospace; font-weight: normal; }
+
+/* =========================================
+   THEME 5: CONTINUOUS GRADIENT FLOW
+   ========================================= */
+.theme-gradient .trio-hex { background: linear-gradient(135deg, #a855f7, #ef4444, #eab308); padding: 4px; border-radius: 50%; }
+.theme-gradient .attr { background: #fff; color: #000; }
+.theme-gradient .app-brand:hover .trio-hex { transform: rotate(90deg); }
+.theme-gradient .app-brand:hover .attr { transform: rotate(-90deg); }
+
+/* =========================================
+   THEME 6: POLISHED OBSIDIAN SHIFT
+   ========================================= */
+.theme-obsidian .app-brand:hover { background: #111; }
+.theme-obsidian .attr { background: linear-gradient(145deg, #333, #000); color: #888; box-shadow: inset 1px 1px 2px rgba(255,255,255,0.2); }
+.theme-obsidian .app-brand:hover .attr.top-hex { color: #a855f7; }
+.theme-obsidian .app-brand:hover .attr.left-hex { color: #eab308; }
+.theme-obsidian .app-brand:hover .attr.right-hex { color: #ef4444; }
+
+/* =========================================
+   THEME 7: CYBERPUNK CUT
+   ========================================= */
+.theme-cyberpunk .app-brand:hover { background: rgba(255, 0, 127, 0.1); }
+.theme-cyberpunk .attr { background: #00e5ff; color: #000; }
+.theme-cyberpunk .attr.top-hex { background: #ff007f; }
+.theme-cyberpunk .attr.left-hex { background: #7000ff; color: #fff; }
+.theme-cyberpunk .app-brand:hover .attr { transform: scale(1.1) skew(-10deg); }
+.theme-cyberpunk .app-name { text-shadow: 2px 2px 0px #ff007f; letter-spacing: 0.1em; }
+
+/* =========================================
+   THEME 8: MINIMALIST WHITE
+   ========================================= */
+.theme-minimal .app-brand:hover { background: rgba(255,255,255,0.1); }
+.theme-minimal .attr { background: #fff; color: #000; }
+.theme-minimal .app-brand:hover .attr { background: #000; color: #fff; box-shadow: inset 0 0 0 1px #fff; }
+
+/* =========================================
+   THEME 9: GOLDEN TRIFORCE
+   ========================================= */
+.theme-gold .app-brand:hover { background: rgba(234, 179, 8, 0.05); }
+.theme-gold .attr { background: linear-gradient(145deg, #fef08a, #ca8a04); color: #422006; }
+.theme-gold .app-brand:hover .attr { background: linear-gradient(145deg, #ca8a04, #fef08a); box-shadow: 0 0 10px rgba(234, 179, 8, 0.5); }
+.theme-gold .app-name { color: #fef08a; }
+
+/* =========================================
+   THEME 10: PULSING CORE
+   ========================================= */
+.theme-pulse .app-brand:hover { background: rgba(14, 165, 233, 0.05); }
+.theme-pulse .attr { background: #0f172a; color: #38bdf8; animation: pulse 2s infinite alternate; }
+.theme-pulse .attr.top-hex { animation-delay: 0s; }
+.theme-pulse .attr.left-hex { animation-delay: 0.6s; }
+.theme-pulse .attr.right-hex { animation-delay: 1.2s; }
+@keyframes pulse {
+  0% { box-shadow: inset 0 0 5px rgba(56, 189, 248, 0.2); }
+  100% { box-shadow: inset 0 0 15px rgba(56, 189, 248, 0.8); }
+}
+.theme-pulse .app-name { color: #bae6fd; }

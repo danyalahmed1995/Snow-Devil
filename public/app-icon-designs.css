@@ -1,0 +1,320 @@
+/* 
+  Snow Devil - App Icon 20 CSS Designs
+  Apply these classes (e.g. .theme-neon-cyan) to the parent container to test the designs.
+*/
+
+/* Base layout for the app icon container */
+.theme-container .app-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.theme-container .app-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  transition: all 0.3s ease;
+}
+
+.theme-container .app-logo svg {
+  width: 16px;
+  height: 16px;
+  transition: all 0.3s ease;
+}
+
+.theme-container .app-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.3s ease;
+}
+
+/* =========================================
+   THEME 1: NEON CYAN
+   ========================================= */
+.theme-neon-cyan .app-brand:hover { background: rgba(0, 229, 255, 0.05); }
+.theme-neon-cyan .app-logo {
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid #00e5ff;
+  border-radius: 6px;
+  color: #00e5ff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.4);
+}
+.theme-neon-cyan .app-brand:hover .app-logo { box-shadow: 0 0 15px rgba(0, 229, 255, 0.6); transform: scale(1.05); }
+.theme-neon-cyan .app-name { color: #e0fbfc; text-shadow: 0 0 5px rgba(0, 229, 255, 0.3); }
+
+/* =========================================
+   THEME 2: GLASSMORPHISM
+   ========================================= */
+.theme-glass .app-brand:hover { background: rgba(255, 255, 255, 0.05); }
+.theme-glass .app-logo {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.theme-glass .app-brand:hover .app-logo { background: rgba(255, 255, 255, 0.15); border-color: rgba(255, 255, 255, 0.4); }
+.theme-glass .app-name { color: #f8fafc; }
+
+/* =========================================
+   THEME 3: DEEP NAVY
+   ========================================= */
+.theme-navy .app-brand:hover { background: #1e293b; }
+.theme-navy .app-logo {
+  background: #1e3a8a;
+  border-radius: 4px;
+  color: #60a5fa;
+  border: 1px solid #2563eb;
+}
+.theme-navy .app-brand:hover .app-logo { background: #2563eb; color: #fff; }
+.theme-navy .app-name { color: #bfdbfe; }
+
+/* =========================================
+   THEME 4: HACKER TERMINAL
+   ========================================= */
+.theme-terminal .app-brand:hover { background: rgba(51, 255, 0, 0.1); }
+.theme-terminal .app-logo {
+  background: #000;
+  border: 1px solid #33ff00;
+  border-radius: 0;
+  color: #33ff00;
+}
+.theme-terminal .app-brand:hover .app-logo { background: #33ff00; color: #000; }
+.theme-terminal .app-name { color: #33ff00; font-family: monospace; font-weight: normal; }
+
+/* =========================================
+   THEME 5: CYBERPUNK
+   ========================================= */
+.theme-cyberpunk .app-brand:hover { background: rgba(255, 0, 127, 0.1); }
+.theme-cyberpunk .app-logo {
+  background: #7000ff;
+  border: 2px solid #ff007f;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  color: #fff;
+  border-radius: 0;
+}
+.theme-cyberpunk .app-brand:hover .app-logo { background: #ff007f; box-shadow: 0 0 10px #ff007f; }
+.theme-cyberpunk .app-name { color: #fff; text-shadow: 2px 0px 0px #ff007f, -2px 0px 0px #00e5ff; }
+
+/* =========================================
+   THEME 6: POLISHED OBSIDIAN
+   ========================================= */
+.theme-obsidian .app-brand:hover { background: #111; }
+.theme-obsidian .app-logo {
+  background: linear-gradient(145deg, #222, #000);
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #e5e5e5;
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+}
+.theme-obsidian .app-brand:hover .app-logo { border-color: #666; color: #fff; }
+.theme-obsidian .app-name { color: #e5e5e5; }
+
+/* =========================================
+   THEME 7: ETHEREAL PURPLE
+   ========================================= */
+.theme-purple .app-brand:hover { background: rgba(138, 43, 226, 0.05); }
+.theme-purple .app-logo {
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+.theme-purple .app-brand:hover .app-logo { transform: rotate(15deg) scale(1.1); box-shadow: 0 0 20px rgba(168, 85, 247, 0.6); }
+.theme-purple .app-name { color: #d8b4fe; }
+
+/* =========================================
+   THEME 8: MINIMALIST SLATE
+   ========================================= */
+.theme-slate .app-brand:hover { background: #1e293b; }
+.theme-slate .app-logo {
+  background: #0f172a;
+  border-radius: 6px;
+  color: #cbd5e1;
+}
+.theme-slate .app-brand:hover .app-logo { color: #f8fafc; }
+.theme-slate .app-name { color: #cbd5e1; }
+
+/* =========================================
+   THEME 9: CRIMSON FORGE
+   ========================================= */
+.theme-crimson .app-brand:hover { background: rgba(220, 38, 38, 0.05); }
+.theme-crimson .app-logo {
+  background: #7f1d1d;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  color: #fca5a5;
+  box-shadow: inset 0 0 5px rgba(239, 68, 68, 0.3);
+}
+.theme-crimson .app-brand:hover .app-logo { background: #991b1b; color: #fff; box-shadow: 0 0 10px rgba(220, 38, 38, 0.5); }
+.theme-crimson .app-name { color: #fca5a5; }
+
+/* =========================================
+   THEME 10: HOLOGRAPHIC
+   ========================================= */
+.theme-hologram .app-brand:hover { background: rgba(56, 189, 248, 0.05); }
+.theme-hologram .app-logo {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 8px;
+  color: #7dd3fc;
+  box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.2);
+}
+.theme-hologram .app-brand:hover .app-logo { border-color: #38bdf8; background: rgba(14, 165, 233, 0.2); }
+.theme-hologram .app-name { color: #bae6fd; text-shadow: 0 0 8px rgba(56, 189, 248, 0.4); }
+
+/* =========================================
+   THEME 11: SUNSET GRADIENT
+   ========================================= */
+.theme-sunset .app-brand:hover { background: rgba(249, 115, 22, 0.05); }
+.theme-sunset .app-logo {
+  background: linear-gradient(135deg, #f97316 0%, #ec4899 100%);
+  border-radius: 8px;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);
+}
+.theme-sunset .app-brand:hover .app-logo { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(236, 72, 153, 0.4); }
+.theme-sunset .app-name { color: #ffedd5; }
+
+/* =========================================
+   THEME 12: RETRO 80S SYNTHWAVE
+   ========================================= */
+.theme-retro .app-brand:hover { background: rgba(255, 0, 255, 0.05); }
+.theme-retro .app-logo {
+  background: #2b00ff;
+  border-bottom: 2px solid #ff00ff;
+  border-radius: 4px;
+  color: #00ffff;
+  box-shadow: 0 4px 0 #ff00ff;
+}
+.theme-retro .app-brand:hover .app-logo { transform: translateY(2px); box-shadow: 0 2px 0 #ff00ff; }
+.theme-retro .app-name { color: #ff00ff; font-family: "Courier New", Courier, monospace; text-shadow: 2px 2px 0px #00ffff; }
+
+/* =========================================
+   THEME 13: CRYSTAL CLEAR
+   ========================================= */
+.theme-crystal .app-brand:hover { background: rgba(255, 255, 255, 0.03); }
+.theme-crystal .app-logo {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  color: #fff;
+}
+.theme-crystal .app-brand:hover .app-logo { border-color: #fff; background: #fff; color: #000; }
+.theme-crystal .app-name { color: rgba(255, 255, 255, 0.8); }
+.theme-crystal .app-brand:hover .app-name { color: #fff; }
+
+/* =========================================
+   THEME 14: GOLDEN PRESTIGE
+   ========================================= */
+.theme-gold .app-brand:hover { background: rgba(250, 204, 21, 0.05); }
+.theme-gold .app-logo {
+  background: linear-gradient(135deg, #fef08a 0%, #eab308 100%);
+  border-radius: 4px;
+  color: #422006;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.4);
+}
+.theme-gold .app-brand:hover .app-logo { box-shadow: 0 4px 12px rgba(234, 179, 8, 0.6); }
+.theme-gold .app-name { color: #fef08a; }
+
+/* =========================================
+   THEME 15: ECO GREEN LEAF
+   ========================================= */
+.theme-eco .app-brand:hover { background: rgba(34, 197, 94, 0.05); }
+.theme-eco .app-logo {
+  background: #14532d;
+  border-radius: 14px 4px 14px 4px; /* Leaf shape */
+  color: #4ade80;
+  border: 1px solid #166534;
+}
+.theme-eco .app-brand:hover .app-logo { background: #166534; border-color: #22c55e; }
+.theme-eco .app-name { color: #86efac; }
+
+/* =========================================
+   THEME 16: MONOCHROMATIC SHARP
+   ========================================= */
+.theme-mono .app-brand:hover { background: #fff; }
+.theme-mono .app-brand:hover .app-name { color: #000; }
+.theme-mono .app-logo {
+  background: #fff;
+  border-radius: 0;
+  color: #000;
+}
+.theme-mono .app-brand:hover .app-logo { background: #000; color: #fff; }
+.theme-mono .app-name { color: #fff; }
+
+/* =========================================
+   THEME 17: SOFT NEUMORPHISM
+   ========================================= */
+.theme-neumorph .app-brand:hover { background: rgba(255, 255, 255, 0.02); }
+.theme-neumorph .app-logo {
+  background: #1e293b;
+  border-radius: 8px;
+  color: #94a3b8;
+  box-shadow: 4px 4px 8px rgba(0, 0, 0, 0.4), -4px -4px 8px rgba(255, 255, 255, 0.05);
+}
+.theme-neumorph .app-brand:hover .app-logo { box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.05); color: #38bdf8; }
+.theme-neumorph .app-name { color: #94a3b8; }
+.theme-neumorph .app-brand:hover .app-name { color: #e2e8f0; }
+
+/* =========================================
+   THEME 18: LIQUID MORPH
+   ========================================= */
+.theme-liquid .app-brand:hover { background: rgba(56, 189, 248, 0.05); }
+.theme-liquid .app-logo {
+  background: #0ea5e9;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; /* Organic Blob */
+  color: #fff;
+  animation: morph 3s ease-in-out infinite;
+}
+@keyframes morph {
+  0%, 100% { border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%; }
+  34% { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
+  67% { border-radius: 100% 60% 60% 100% / 100% 100% 60% 60%; }
+}
+.theme-liquid .app-name { color: #7dd3fc; }
+
+/* =========================================
+   THEME 19: HIGH-TECH BLUEPRINT
+   ========================================= */
+.theme-blueprint .app-brand:hover { background: rgba(37, 99, 235, 0.1); }
+.theme-blueprint .app-logo {
+  background: #0f172a;
+  border: 1px dashed #3b82f6;
+  border-radius: 4px;
+  color: #60a5fa;
+  position: relative;
+}
+.theme-blueprint .app-logo::after {
+  content: '';
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+}
+.theme-blueprint .app-brand:hover .app-logo { border-style: solid; background: #1d4ed8; color: #fff; }
+.theme-blueprint .app-name { color: #bfdbfe; letter-spacing: 0.1em; }
+
+/* =========================================
+   THEME 20: EMBER GLOW
+   ========================================= */
+.theme-ember .app-brand:hover { background: rgba(239, 68, 68, 0.05); }
+.theme-ember .app-logo {
+  background: #450a0a;
+  border-radius: 8px;
+  color: #f87171;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+  border: 1px solid #991b1b;
+}
+.theme-ember .app-brand:hover .app-logo { background: #ef4444; color: #fff; box-shadow: 0 0 25px rgba(239, 68, 68, 0.6); }
+.theme-ember .app-name { color: #fca5a5; }

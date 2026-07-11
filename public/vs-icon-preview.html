@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vanquish Soul App Icon</title>
+  <link rel="stylesheet" href="vs-icon-designs.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      padding: 40px;
+      margin: 0;
+    }
+    .controls {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+    .controls div {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    select {
+      padding: 8px;
+      font-size: 16px;
+      background: #21262d;
+      color: white;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    
+    .sidebar-header {
+      width: 260px;
+      padding: 16px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+  <h2>Vanquish Soul Snow Devil ❄️👿</h2>
+  <p style="color: #8b949e; margin-bottom: 30px;">Reveal 1 DARK, 1 EARTH, and 1 FIRE attribute to destroy all monsters on the field!</p>
+  
+  <div class="controls">
+    <div>
+      <label for="theme-select"><strong>Select Theme:</strong></label>
+      <select id="theme-select">
+        <option value="theme-vanquish">1. Vanquish Soul (Authentic YGO)</option>
+        <option value="theme-neon">2. Neon Trinity</option>
+        <option value="theme-orbs">3. Minimalist Orbs</option>
+        <option value="theme-glass">4. Glassmorphism Overlap</option>
+        <option value="theme-hex">5. Triple Hexagon (Tech YGO)</option>
+        <option value="theme-battle">6. Battle Trinity</option>
+        <option value="theme-mono">7. Monochrome Symbols</option>
+        <option value="theme-runes">8. Glowing Runes (Inverted Triangle)</option>
+        <option value="theme-storm">9. Snow Devil Storm (Animated)</option>
+        <option value="theme-trap">10. Trap Card Border</option>
+      </select>
+    </div>
+    
+    <div>
+      <label for="icon-dark"><strong>Symbol 1:</strong></label>
+      <select id="icon-dark" class="icon-selector" data-target="dark">
+        <option value="git-branch">Git Branch</option>
+        <option value="git-commit">Git Commit</option>
+        <option value="moon">Moon</option>
+        <option value="skull">Skull</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="icon-earth"><strong>Symbol 2:</strong></label>
+      <select id="icon-earth" class="icon-selector" data-target="earth">
+        <option value="git-merge">Git Merge</option>
+        <option value="git-fork">Git Fork</option>
+        <option value="mountain">Mountain</option>
+        <option value="globe">Globe</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="icon-fire"><strong>Symbol 3:</strong></label>
+      <select id="icon-fire" class="icon-selector" data-target="fire">
+        <option value="git-pull-request">Git Pull Request</option>
+        <option value="github">GitHub</option>
+        <option value="flame">Flame</option>
+        <option value="zap">Zap</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="preview-container" class="theme-container theme-vanquish">
+    <div class="sidebar-header">
+      <div class="app-brand">
+        <div class="trio-logo">
+          <div class="attr dark"><i data-lucide="git-branch" id="icon-render-dark"></i></div>
+          <div class="attr earth"><i data-lucide="git-merge" id="icon-render-earth"></i></div>
+          <div class="attr fire"><i data-lucide="git-pull-request" id="icon-render-fire"></i></div>
+        </div>
+        <span class="app-name">Snow Devil</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    const themeSelect = document.getElementById('theme-select');
+    const container = document.getElementById('preview-container');
+    themeSelect.addEventListener('change', (e) => {
+      container.className = 'theme-container ' + e.target.value;
+    });
+
+    document.querySelectorAll('.icon-selector').forEach(select => {
+      select.addEventListener('change', (e) => {
+        const targetClass = e.target.dataset.target;
+        const iconRender = document.getElementById(`icon-render-${targetClass}`);
+        
+        // We have to recreate the i tag because lucide replaces it with an svg
+        const parent = iconRender.parentNode;
+        parent.innerHTML = `<i data-lucide="${e.target.value}" id="icon-render-${targetClass}"></i>`;
+        
+        lucide.createIcons();
+      });
+    });
+  </script>
+</body>
+</html>
