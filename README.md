@@ -1,17 +1,23 @@
 # Snow Devil
 
-Snow Devil is a local-first Windows desktop application for understanding how work moves through GitHub. It brings current responsibilities, historical account and repository state, delivery analytics, source browsing, pull-request diffs, notifications, and inspectable evidence into one persistent Tauri workspace.
+[![CI](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/ci.yml)
+[![Release](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/release.yml/badge.svg)](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/release.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-3878ff)](https://github.com/danyalahmed1995/Snow-Devil/releases)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL%20v3-blue.svg)](LICENSE)
+[![Platform: Windows](https://img.shields.io/badge/platform-Windows-0078d4)](#product-status)
 
-The product is intentionally evidence-aware: incomplete GitHub data is labeled partial, inferred, stale, unsupported, or unavailable instead of being presented as exact.
+Snow Devil is a Windows desktop app for keeping track of work in GitHub. It brings your current work, account and repository history, delivery analytics, source browsing, pull-request diffs, notifications, and related evidence into one Tauri workspace.
+
+GitHub data is not always complete. Snow Devil marks results as partial, inferred, stale, unsupported, or unavailable when that is the honest answer.
 
 ## Product status
 
 - Version: `0.1.0`
 - Primary platform: Windows desktop through Tauri 2 and WebView2
-- GitHub behavior: read-only native integration
+- GitHub behavior: read-only integration
 - Modes: authenticated GitHub account and deterministic offline Demo Mode
 - Persistence: local SQLite, operating-system credential storage, and selected local preferences
-- Current verification baseline: 289 frontend tests, 27 Playwright tests, and 60 Rust tests passing
+- Current verification baseline: 450 frontend tests, 49 Playwright tests passing, and 69 Rust tests passing
 
 ## What Snow Devil helps answer
 
@@ -42,6 +48,15 @@ The product is intentionally evidence-aware: incomplete GitHub data is labeled p
 - Organization-aware repository discovery and base-repository handling for incoming fork pull requests.
 - Saved local views for reusable Flow and analytics filters.
 - Event Stream and supporting totals with inspectable evidence.
+
+### Opening work items
+
+- Pull requests open in Snow Devil's native pull-request viewer.
+- CI runs open in the native CI run viewer.
+- Issues open in Snow Devil's built-in browser; there is no native issue viewer yet.
+- `Open in Flow` carries the selected item into the right Flow stage and is hidden when you are already in Flow.
+- Repeated clicks focus an existing destination tab instead of opening another copy.
+- The Inspector uses clear labels such as `Open PR`, `Open CI Run`, `Open in App Browser`, `Open on GitHub`, and `Copy Link`.
 
 #### Focused-stage scrolling
 
@@ -215,15 +230,15 @@ Release builds are unsigned and are not notarized. Windows may show an unrecogni
 
 ## Latest verification
 
-The History controls, loading truthfulness, and persistent-tab final patch was verified with:
+The current branch was checked with:
 
 | Check | Result |
 | --- | --- |
 | Frontend production build | Pass |
-| Frontend unit/integration | 65 files, 306 tests passed |
-| Playwright | 29 tests passed |
-| Rust | 60 tests passed |
-| ESLint | 0 errors; 42 advisory warnings |
+| Frontend unit/integration | 99 files, 450 tests passed |
+| Playwright | 49 tests passed, 1 skipped |
+| Rust | 69 tests passed |
+| ESLint | 0 errors; existing warnings remain |
 | Diff whitespace check | Pass |
 | Native Tauri layouts | Verified at 1280×720, 1600×900, and 1920×1080 |
 
@@ -243,4 +258,4 @@ Native checks covered History playback and Source Details at all target widths, 
 
 ## Design principle
 
-Snow Devil is not a replacement for GitHub. It is a calm, local, evidence-aware workspace for understanding GitHub work—and for knowing when the available evidence is not complete enough to support a stronger claim.
+Snow Devil does not replace GitHub. It gives you a local place to see what is happening, follow work through its history, and spot where the available data is incomplete.
