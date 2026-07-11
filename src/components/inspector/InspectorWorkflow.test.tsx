@@ -40,9 +40,10 @@ describe('workflow Inspector', () => {
 
   it('provides internal, external, and copy actions with feedback', async () => {
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
-    expect(screen.getByRole('button', { name: 'Open in Tab' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open PR' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open in Flow' })).not.toBeInTheDocument();
     expect(screen.getByRole('contentinfo')).toHaveClass('inspector-footer');
-    fireEvent.click(screen.getByRole('button', { name: 'Open in Default Browser' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open on GitHub' }));
     fireEvent.click(screen.getByRole('button', { name: 'Copy Link' }));
     await waitFor(() => expect(screen.getByText('Link copied')).toBeInTheDocument());
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://github.com/octo/app/pull/42');
