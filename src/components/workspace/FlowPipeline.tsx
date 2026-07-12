@@ -245,8 +245,8 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
 
     const hasItem = currentItems.some(item => item.id === pendingScrollItemId);
     if (!hasItem) {
-      // Safe failure path: if data is fully loaded and item is not found, consume to lift cloak.
-      if (!currentSource.isFetching && !currentSource.hasNextPage) {
+      // Safe failure path: if data is fully loaded for this page and item is not found, consume to lift cloak.
+      if (!currentSource.isFetching) {
         console.warn(`[FlowFocus] Target ${pendingScrollItemId} not found in stage ${stage.id}. Consuming request to lift cloak.`);
         requestAnimationFrame(() => currentConsume?.());
       }

@@ -316,8 +316,31 @@ export function FlowWorkbench() {
     setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
   }, [scope, selectedRepository?.id, activeTabId, setFlowState]);
   useEffect(() => {
-    if (selectedItemId && !items.some(item => item.id === selectedItemId)) setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
+    if (selectedItemId && !items.some(item => item.id === selectedItemId)) {
+      const pending = useFlowStore.getState().getTabState(activeTabId).pendingScrollItemId;
+      if (pending === selectedItemId) return;
+      setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
+    }
   }, [activeTabId, items, selectedItemId, setFlowState]);
+
+  // Auto-focus the stage lane if we arrive via a focus navigation and the stage is unknown
+  useEffect(() => {
+    const state = useFlowStore.getState().getTabState(activeTabId);
+    const pending = state.pendingScrollItemId;
+    if (pending && !filterStage) {
+      // Try exact ID match first. If the ID is a focus: pseudo-ID and we have exactly 1 item due to the search filter, use that item.
+      const targetItem = items.find(i => i.id === pending) || (pending.startsWith('focus:') && items.length === 1 ? items[0] : undefined);
+      if (targetItem && targetItem.stage) {
+        setFlowState(activeTabId, { 
+          filterStage: targetItem.stage,
+          ...(pending.startsWith('focus:') && { 
+            selectedItemId: targetItem.id, 
+            pendingScrollItemId: targetItem.id 
+          })
+        });
+      }
+    }
+  }, [activeTabId, filterStage, items, setFlowState]);
 
   useEffect(() => {
     const clearTransientFilters = (event: KeyboardEvent) => {
