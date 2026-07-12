@@ -9,6 +9,8 @@
 import type { BrowserTabKind } from './browser-url';
 import type { NativeTabKind } from './browser-tabs';
 
+import { ENABLE_FLOW_ANALYTICS } from '../config/features';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -55,7 +57,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
   },
   { label: 'CI Activity', tabId: 'native:ci-health', family: 'native', nativeKind: 'ciHealth', pinned: false, closable: true },
   { label: 'Delivery Risks', tabId: 'native:inventory', family: 'native', nativeKind: 'inventory', pinned: false, closable: true },
-  { label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native', nativeKind: 'flowAnalytics', pinned: false, closable: true },
+  ...(ENABLE_FLOW_ANALYTICS ? [{ label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native' as const, nativeKind: 'flowAnalytics' as NativeTabKind, pinned: false, closable: true }] : []),
   { label: 'Personal Focus', tabId: 'native:personal-focus', family: 'native', nativeKind: 'personalFocus', pinned: false, closable: true },
   {
     label: 'Account History',

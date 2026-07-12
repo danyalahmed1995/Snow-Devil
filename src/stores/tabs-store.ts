@@ -16,6 +16,7 @@ import type { NativeTabKind, NativeTabContext } from '../browser/browser-tabs';
 import type { BrowserTabKind } from '../browser/browser-url';
 import { isNativeTab, isBrowserTab } from '../browser/browser-tabs';
 import { normalizeGithubUrl, tabIdForUrl, titleForGithubUrl } from '../browser/browser-url';
+import { ENABLE_FLOW_ANALYTICS } from '../config/features';
 
 // Re-export type guards for convenience
 export { isNativeTab, isBrowserTab };
@@ -63,7 +64,7 @@ export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
   flow: 'native:flow',
   ciHealth: 'native:ci-health',
   inventory: 'native:inventory',
-  flowAnalytics: 'native:flow-analytics',
+  ...(ENABLE_FLOW_ANALYTICS ? { flowAnalytics: 'native:flow-analytics' } : {}),
   personalFocus: 'native:personal-focus',
   accountSimulator: 'native:account-simulator',
   repositorySimulator: 'native:repository-simulator',
@@ -177,6 +178,9 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
   }
   if (tab.family === 'native') {
     const kind = NATIVE_KINDS.has(tab.kind as NativeTabKind) ? tab.kind as NativeTabKind : 'home';
+    if (!ENABLE_FLOW_ANALYTICS && kind === 'flowAnalytics') {
+      return undefined;
+    }
     const context = normalizeNativeContext(tab);
     const ciCanonicalId = kind === 'ciRun' && context?.type === 'ciRun' ? canonicalCIRunTabId(context.repository, context.runId) : undefined;
     const canonicalId = canonicalFixedTabId(safeString(tab.id), kind);

@@ -5,7 +5,7 @@
  * - Browser tabs → BrowserViewport (webview placeholder)
  */
 
-import { useTabsStore, isNativeTab, isBrowserTab, isFixedNativeTab } from '../../stores/tabs-store';
+import { useTabsStore, isNativeTab, isBrowserTab } from '../../stores/tabs-store';
 import type { NativeTab } from '../../browser/browser-tabs';
 import { Dashboard } from './Dashboard';
 import { FlowWorkbench } from './FlowWorkbench';
@@ -15,10 +15,11 @@ import { lazy, Suspense, useEffect } from 'react';
 import { useModeStore } from '../../stores/mode-store';
 import { ListView } from './ListView';
 import { TabInstanceProvider } from './TabInstanceContext';
+import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
 
 const CIActivityPage = lazy(() => import('../analytics/CIActivityPage').then(module => ({ default: module.CIActivityPage })));
 const InventoryPage = lazy(() => import('../analytics/InventoryPage').then(module => ({ default: module.InventoryPage })));
-const FlowAnalyticsPage = lazy(() => import('../analytics/FlowAnalyticsPage').then(module => ({ default: module.FlowAnalyticsPage })));
+const FlowAnalyticsPage = ENABLE_FLOW_ANALYTICS ? lazy(() => import('../analytics/FlowAnalyticsPage').then(module => ({ default: module.FlowAnalyticsPage }))) : () => null;
 const PersonalFocusPage = lazy(() => import('../analytics/PersonalFocusPage').then(module => ({ default: module.PersonalFocusPage })));
 const AnalyticsSettingsPage = lazy(() => import('../analytics/AnalyticsSettingsPage').then(module => ({ default: module.AnalyticsSettingsPage })));
 const SimulatorWorkbench = lazy(() => import('../simulator/SimulatorWorkbench').then(module => ({ default: module.SimulatorWorkbench })));
@@ -54,7 +55,7 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'flow' && <FlowWorkbench />}
       {tab.kind === 'ciHealth' && <CIActivityPage />}
       {tab.kind === 'inventory' && <InventoryPage />}
-      {tab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
+      {ENABLE_FLOW_ANALYTICS && tab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
       {tab.kind === 'personalFocus' && <PersonalFocusPage />}
       {tab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-history-${demoRevision}`} mode="account" />}
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
@@ -93,11 +94,13 @@ export function WorkspaceContent() {
     );
   }
 
-  const fixedTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && isFixedNativeTab(tab));
-  const dynamicNative = isNativeTab(activeTab) && !isFixedNativeTab(activeTab) ? activeTab : undefined;
+  const nativeTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab));
   return <div className="workspace-content">
-    {fixedTabs.map(tab => <div className="workspace-native-surface" key={tab.id} hidden={activeTabId !== tab.id} aria-hidden={activeTabId !== tab.id}><NativeSurface tab={tab} demoRevision={demoRevision} /></div>)}
-    {dynamicNative && <div className="workspace-native-surface"><NativeSurface tab={dynamicNative} demoRevision={demoRevision} /></div>}
+    {nativeTabs.map(tab => (
+      <div className="workspace-native-surface" key={tab.id} hidden={activeTabId !== tab.id} aria-hidden={activeTabId !== tab.id}>
+        <NativeSurface tab={tab} demoRevision={demoRevision} />
+      </div>
+    ))}
     {isBrowserTab(activeTab) && <BrowserViewport />}
   </div>;
 }

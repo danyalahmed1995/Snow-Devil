@@ -235,6 +235,8 @@ function FlowDetails({ item, mode, tab }: { item: FlowItem; mode: 'live' | 'demo
   </div>;
 }
 
+import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
+
 export function Inspector() {
   if (import.meta.env.DEV) incrementArchitectureDiagnostic('inspectorRenders');
   const [copyStatus, setCopyStatus] = useState('');
@@ -252,7 +254,7 @@ export function Inspector() {
   const simulatorEntity = flowState.selectedSimulatorEntity;
   const simulatorCurrentEntity = flowState.selectedSimulatorCurrentEntity;
   const simulatorEvent = flowState.selectedSimulatorEvent;
-  const analyticsKinds = new Set(['ciHealth', 'inventory', 'flowAnalytics', 'personalFocus']);
+  const analyticsKinds = new Set(['ciHealth', 'inventory', ...(ENABLE_FLOW_ANALYTICS ? ['flowAnalytics'] : []), 'personalFocus']);
   const isAnalytics = activeTab && isNativeTab(activeTab) && analyticsKinds.has(activeTab.kind);
   const isSimulator = activeTab && isNativeTab(activeTab) && (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator');
   const homeRepositoryContext = activeTab && isNativeTab(activeTab) && activeTab.kind === 'home' && !selectedItem ? flowState.selectedAnalyticsEntity : undefined;
