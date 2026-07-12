@@ -122,18 +122,20 @@ button, input, select, textarea, [tabindex] {
 .badge-checks.badge-pending { background: var(--status-warning-bg) !important; color: var(--status-warning-fg) !important; }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02) 2px, transparent 2px, transparent 4px);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-hover);
+  border-color: var(--border-standard);
 }
 .fresh-launch { display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; box-sizing: border-box; padding: 24px; animation: fresh-fade-in 300ms ease-out; }
 .fresh-launch__card { max-width: 580px; width: 100%; padding: 48px; border: 1px solid var(--border-strong, var(--border)); border-radius: 16px; background: linear-gradient(145deg, rgba(34,62,99,0.3), rgba(14,31,53,0.4)); backdrop-filter: blur(8px); box-shadow: 0 16px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05); text-align: center; }

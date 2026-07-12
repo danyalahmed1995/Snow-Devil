@@ -48,7 +48,7 @@
   border-top-left-radius: var(--radius-md);
   border-top-right-radius: var(--radius-md);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-subtle);
   border-bottom: none;
   margin-bottom: -1px;
   gap: 6px;
@@ -141,7 +141,7 @@
   border-top-left-radius: var(--radius-md);
   border-top-right-radius: var(--radius-md);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-subtle);
   border-bottom: none;
   margin-bottom: -1px;
 }
@@ -246,7 +246,7 @@
 .workspace{background:var(--surface-content);border-color:var(--border-subtle);border-radius:var(--radius-card);box-shadow:var(--inner-highlight)}
 .workspace-tab-strip{height:43px;align-items:center;padding:0 7px;gap:5px;background:linear-gradient(180deg,rgba(25,49,81,.56),rgba(10,24,42,.72)),var(--surface-tabstrip);border-bottom:1px solid var(--divider)}
 .workspace-tab-scroll{align-items:center;gap:5px}
-.workspace-tab{height:32px;min-width:92px;max-width:190px;margin:0;padding:0 5px 0 10px;border:1px solid transparent;border-radius:8px;font-size:11px;transition:background var(--motion-tab),border-color var(--motion-tab),color var(--motion-tab),box-shadow var(--motion-tab)}
+.workspace-tab{height:32px;min-width:92px;max-width:190px;margin:0;padding:0 5px 0 10px;border:1px solid rgba(116,157,218,.1);border-radius:8px;font-size:11px;transition:background var(--motion-tab),border-color var(--motion-tab),color var(--motion-tab),box-shadow var(--motion-tab)}
 .workspace-tab--active{color:var(--text-primary);background:linear-gradient(145deg,rgba(50,89,145,.48),rgba(18,39,67,.9));border-color:rgba(116,157,218,.2);box-shadow:var(--inner-highlight),0 6px 16px rgba(0,8,25,.2)}
 .workspace-tab__close{width:23px;height:23px;margin-left:2px;border-radius:6px}.workspace-tab__close svg{width:13px;height:13px}
 .workspace-tab-add,.workspace-tab-overflow{width:30px;height:30px;display:grid;place-items:center;flex:0 0 auto;margin:0;border-radius:7px;color:var(--text-muted)}
@@ -258,26 +258,26 @@
 .workspace-tab--state-running {
   border-color: rgba(234, 179, 8, 0.4) !important;
   background-color: rgba(234, 179, 8, 0.08) !important;
-  box-shadow: 0 0 10px rgba(234, 179, 8, 0.25) !important;
+  box-shadow: inset 0 0 10px rgba(234, 179, 8, 0.25) !important;
 }
 
 .workspace-tab--state-success {
   border-color: rgba(16, 185, 129, 0.4) !important;
   background-color: rgba(16, 185, 129, 0.08) !important;
-  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25) !important;
+  box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.25) !important;
   animation: branch-pulse-green 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .workspace-tab--state-failure {
   border-color: rgba(239, 68, 68, 0.4) !important;
   background-color: rgba(239, 68, 68, 0.08) !important;
-  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25) !important;
+  box-shadow: inset 0 0 12px rgba(239, 68, 68, 0.25) !important;
   animation: branch-pulse-red 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .workspace-tab--state-skipped {
   border-color: rgba(107, 114, 128, 0.4) !important;
   background-color: rgba(107, 114, 128, 0.08) !important;
-  box-shadow: 0 0 8px rgba(107, 114, 128, 0.15) !important;
+  box-shadow: inset 0 0 8px rgba(107, 114, 128, 0.15) !important;
   animation: branch-pulse-grey 0.55s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
