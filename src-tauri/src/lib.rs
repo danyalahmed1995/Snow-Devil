@@ -50,6 +50,7 @@ pub fn run() {
             commands::repo::get_repo_prs,
             commands::repo::get_repo_issues,
             commands::repo::get_commit_details,
+            commands::repo::get_compare_diff,
             commands::repo::get_pr_details,
             commands::repo::get_issue_details,
             commands::repo::get_viewer_repositories,

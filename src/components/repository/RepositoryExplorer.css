@@ -14,3 +14,48 @@
 @media(max-width:1350px){.repo-explorer__body{grid-template-columns:220px minmax(0,1fr)}.repo-explorer__header{padding:10px 12px}.repo-explorer__header p{display:none}.repo-explorer__actions button:last-child{font-size:0}.repo-explorer__actions button:last-child svg{margin:0}.file-preview>header span{display:none}}
 .repo-tree__full-search{min-height:28px;display:flex;align-items:center;gap:6px;margin:0 8px 8px;padding:0 8px;border:1px solid var(--border-subtle);border-radius:5px;color:var(--text-secondary);font-size:9px}.repo-tree__full-search:hover{border-color:var(--border-strong);background:var(--surface-hover);color:var(--text-primary)}
 .repo-tree__virtual-canvas{position:relative;min-width:100%}.repo-tree__virtual-canvas>.repo-tree__row{height:28px;margin:0}.repo-tree__virtual-canvas .repo-tree__connector{top:-14px}
+
+.repository-architecture-state {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px;
+  background: var(--surface-nested);
+}
+.repository-architecture-state svg {
+  color: var(--accent-hover);
+}
+.repository-architecture-state strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.repository-architecture-state span {
+  font-size: 12px;
+  max-width: 400px;
+  line-height: 1.5;
+}
+.repository-architecture-state--error strong {
+  color: var(--danger);
+}
+.repository-architecture-state .tree-animation {
+  animation: treePulse 2s infinite ease-in-out;
+}
+@keyframes treePulse {
+  0% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.7; }
+}
+
+.is-spinning {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

@@ -437,6 +437,36 @@ pub async fn fetch_pr_details(
     Ok(pr_data)
 }
 
+pub async fn fetch_compare_diff(
+    owner: &str,
+    name: &str,
+    base: &str,
+    head: &str,
+) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let token = get_token()?.ok_or("No token")?;
+    let client = Client::new();
+
+    let rest_url = format!("{}/repos/{}/{}/compare/{}...{}", REST_URL, owner, name, base, head);
+    let diff_res = client
+        .get(&rest_url)
+        .bearer_auth(&token)
+        .header("User-Agent", "github-graph-browser")
+        .header("Accept", "application/vnd.github.v3.diff")
+        .send()
+        .await?;
+
+    if diff_res.status().is_success() {
+        if let Ok(diff_text) = diff_res.text().await {
+            return Ok(json!(diff_text));
+        }
+    } else {
+        let err_text = diff_res.text().await.unwrap_or_default();
+        return Err(format!("Failed to fetch compare diff: {}", err_text).into());
+    }
+
+    Ok(json!(""))
+}
+
 pub async fn fetch_issue_details(
     owner: &str,
     name: &str,
