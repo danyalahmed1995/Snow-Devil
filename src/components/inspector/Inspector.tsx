@@ -252,6 +252,21 @@ export function Inspector() {
   const resolvedItem = useResolvedFlowItem(flowState.selectedItemId);
   const selectedItem = flowState.selectedFlowItem ?? resolvedItem;
   const simulatorEntity = flowState.selectedSimulatorEntity;
+  const mockFlowItemFromSimulator = simulatorEntity ? {
+    id: simulatorEntity.id,
+    type: simulatorEntity.subjectType,
+    repositoryId: simulatorEntity.repositoryId,
+    repositoryName: simulatorEntity.repositoryId,
+    owner: simulatorEntity.repositoryId.split('/')[0] || '',
+    number: simulatorEntity.number,
+    title: simulatorEntity.title,
+    stage: simulatorEntity.stage,
+    status: simulatorEntity.status,
+    createdAt: simulatorEntity.createdAt,
+    updatedAt: simulatorEntity.updatedAt,
+    inclusionReason: 'Opened from Inspector',
+    _preservedStage: simulatorEntity.stage,
+  } as any : undefined;
   const simulatorCurrentEntity = flowState.selectedSimulatorCurrentEntity;
   const simulatorEvent = flowState.selectedSimulatorEvent;
   const analyticsKinds = new Set(['ciHealth', 'inventory', ...(ENABLE_FLOW_ANALYTICS ? ['flowAnalytics'] : []), 'personalFocus']);
@@ -262,8 +277,8 @@ export function Inspector() {
   const target = resolveEntityTabTarget(targetSource, appMode);
   const analyticsEntity = flowState.selectedAnalyticsEntity;
   const workItemTarget: WorkItemOpenTarget | undefined = (() => {
-    if (selectedItem && (selectedItem.type === 'pull_request' || selectedItem.type === 'issue')) return { id: selectedItem.id, kind: selectedItem.type, title: selectedItem.title, repository: selectedItem.repositoryName || selectedItem.repositoryId, number: selectedItem.number, url: target?.url };
-    if (simulatorEntity && (simulatorEntity.subjectType === 'pull_request' || simulatorEntity.subjectType === 'issue')) return { id: simulatorEntity.id, kind: simulatorEntity.subjectType, title: simulatorEntity.title, repository: simulatorEntity.repositoryId, number: simulatorEntity.number, url: target?.url };
+    if (selectedItem && (selectedItem.type === 'pull_request' || selectedItem.type === 'issue')) return { id: selectedItem.id, kind: selectedItem.type, title: selectedItem.title, repository: selectedItem.repositoryName || selectedItem.repositoryId, number: selectedItem.number, url: target?.url, stage: selectedItem.stage };
+    if (simulatorEntity && (simulatorEntity.subjectType === 'pull_request' || simulatorEntity.subjectType === 'issue')) return { id: simulatorEntity.id, kind: simulatorEntity.subjectType, title: simulatorEntity.title, repository: simulatorEntity.repositoryId, number: simulatorEntity.number, url: target?.url, stage: simulatorEntity.stage };
     if (analyticsEntity?.runId && analyticsEntity.repositoryId) return { id: analyticsEntity.id, kind: 'ci_run', title: analyticsEntity.title, repository: analyticsEntity.repositoryId, runId: String(analyticsEntity.runId), runNumber: Number(analyticsEntity.metadata?.runNumber) || undefined, url: target?.url };
     const analyticsKind = analyticsEntity?.entityType === 'pull_request' || analyticsEntity?.entityType === 'issue' ? analyticsEntity.entityType : analyticsEntity?.kind === 'pull_request' || analyticsEntity?.kind === 'issue' ? analyticsEntity.kind : undefined;
     if (analyticsKind && analyticsEntity) return { id: analyticsEntity.id, kind: analyticsKind, title: analyticsEntity.title, repository: analyticsEntity.repositoryId, number: analyticsEntity.number, url: target?.url };
@@ -322,11 +337,11 @@ export function Inspector() {
           <button className="inspector-open-flow" type="button" onClick={() => { const selected = flowState.selectedAnalyticsEntity!; const muted = analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === selected.id.toLowerCase()); const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[selected.id]; else deliveryRiskMuteMetadata[selected.id] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskItems: muted ? analyticsSettings.mutedDeliveryRiskItems.filter(id => id.toLowerCase() !== selected.id.toLowerCase()) : [...analyticsSettings.mutedDeliveryRiskItems, selected.id], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.id.toLowerCase()) ? 'Restore Item' : 'Mute Item'}</button>
           <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; const repositoryKey = repository.toLowerCase(); const muted = analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === repositoryKey); const metadataKey = `repository:${repositoryKey}`; const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[metadataKey]; else deliveryRiskMuteMetadata[metadataKey] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskRepositories: muted ? analyticsSettings.mutedDeliveryRiskRepositories.filter(id => id.toLowerCase() !== repositoryKey) : [...analyticsSettings.mutedDeliveryRiskRepositories, repositoryKey], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.repositoryId!.toLowerCase()) ? 'Restore Repository' : 'Mute Repository'}</button>
         </> : !workItemTarget ? <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button> : null}
-        {flowState.selectedAnalyticsEntity.kind === 'ci_health' && (
-          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
+        {flowState.selectedAnalyticsEntity?.repositoryId && (
+          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository }, selectedItemId: simulatorEntity?.id, selectedSimulatorEntity: simulatorEntity }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
         )}
       </div>}
-      {workItemTarget && <WorkItemOpenActions item={workItemTarget} surface={workSurface} flowItem={selectedItem} onStatus={setCopyStatus} compact />}
+      {workItemTarget && <WorkItemOpenActions item={workItemTarget} surface={workSurface} flowItem={selectedItem ?? mockFlowItemFromSimulator} onStatus={setCopyStatus} compact />}
       {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open action unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
     </footer>}
   </div>;

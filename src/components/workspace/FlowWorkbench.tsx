@@ -88,6 +88,7 @@ export function FlowWorkbench() {
   const mode = flowState.mode;
   const selectedRepository = flowState.selectedRepository;
   const selectedItemId = flowState.selectedItemId;
+  const selectedFlowItem = flowState.selectedFlowItem;
   
   const timeRange = flowState.timeRange;
   const rangeStart = flowState.rangeStart;
@@ -192,10 +193,14 @@ export function FlowWorkbench() {
     }
 
     const map = new Map<string, FlowItem>();
+    if (selectedFlowItem) {
+      if (!selectedFlowItem.inclusionReason) selectedFlowItem.inclusionReason = 'Opened from Inspector';
+      map.set(selectedFlowItem.id, selectedFlowItem);
+    }
     for (const item of all) map.set(item.id, item);
     return Array.from(map.values());
   }, [
-    appMode, demoPipeline, selectedRepository, isRepo, isAccount,
+    selectedFlowItem, appMode, demoPipeline, selectedRepository, isRepo, isAccount,
     rawRepoOpenPrs, rawRepoOpenIssues, rawRepoMergedPrs, rawRepoReleases,
     rawAccAuthoredPrs, rawAccReviewReqPrs, rawAccReviewedPrs, rawAccAuthoredIssues, rawAccAssignedIssues, rawAccMergedPrs
   ]);

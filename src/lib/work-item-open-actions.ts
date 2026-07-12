@@ -28,6 +28,7 @@ export interface WorkItemOpenTarget {
   runId?: string;
   runNumber?: number;
   url?: string;
+  stage?: string;
 }
 
 export interface WorkItemOpenAction {

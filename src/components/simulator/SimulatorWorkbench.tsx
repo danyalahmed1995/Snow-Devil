@@ -83,6 +83,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const view = savedView ?? defaultHistoryView(mode);
   const updateView = useCallback((value: Parameters<typeof patchView>[2]) => patchView(activeTabId, mode, value), [activeTabId, mode, patchView]);
   const requestedRepository = useFlowStore(state => state.getTabState(activeTabId).selectedRepository);
+  const requestedEntityId = useFlowStore(state => state.getTabState(activeTabId).selectedItemId);
   const setTabState = useFlowStore(state => state.setTabState);
   const login = appMode === 'demo' ? demoManifest?.identity.login || 'snowdevil-demo' : session.status === 'connected' ? session.account.login : 'unknown';
   const defaultDemoRepo = appMode === 'demo' && mode === 'repository' && demoManifest?.repositories[0]
@@ -167,7 +168,12 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     if (mode === 'repository' && requestedRepository && requestedRepository.id !== selectedRepoState?.id) setSelectedRepo(requestedRepository);
   }, [mode, requestedRepository, selectedRepoState?.id, setSelectedRepo]);
 
-
+  useEffect(() => {
+    if (requestedEntityId && requestedEntityId !== selectedEntityId) {
+      updateView({ selectedEntityId: requestedEntityId });
+      setTabState(activeTabId, { selectedItemId: undefined });
+    }
+  }, [activeTabId, requestedEntityId, selectedEntityId, setTabState, updateView]);
 
   useEffect(() => {
     if (!showCoverage) return;

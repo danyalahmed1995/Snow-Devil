@@ -58,17 +58,17 @@ export function WorkItemOpenActions({ item, surface, flowItem, onStatus, compact
         await copyCanonicalLink(item.url!);
         onStatus?.('Link copied');
       } else if (destination === 'flow') {
-        const stage = flowItem?.stage;
+        const stage = flowItem?.stage || item.stage;
         useFlowStore.getState().setTabState('native:flow', {
-          scope: 'account', filterStage: stage, statusFilter: 'all',
+          scope: 'account', filterStage: stage as any, statusFilter: 'all',
           search: item.number ? `repo:${item.repository} #${item.number}` : '',
           selectedItemId: flowItem?.id ?? item.id, selectedFlowItem: flowItem,
           pendingScrollItemId: flowItem?.id ?? item.id,
           sourceContext: `Opened from Inspector: ${item.title}`,
-          ...(!flowItem && { timeRange: '30d' })
-        });
+          ...(!flowItem && { timeRange: 'all' })
+        } as any);
         tabs.openNativeTab('native:flow', 'flow', 'Flow', false, true);
-        if (!flowItem) onStatus?.('Flow opened and time range expanded to 30 days. Refresh or broaden filters if this item is still not in the current snapshot.');
+        if (!flowItem) onStatus?.('Flow opened and time range expanded to all history. Refresh or broaden filters if this item is still not in the current snapshot.');
       }
     } catch (error) {
       onStatus?.(error instanceof Error ? error.message : 'Action unavailable');

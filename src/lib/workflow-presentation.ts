@@ -79,7 +79,7 @@ export function normalizeWorkflowItem(item: FlowItem, mode: 'live' | 'demo' = it
   const inclusionLabels: Record<string, string> = { assigned: 'Assigned to you', assigned_to_you: 'Assigned to you', authored: 'Authored by you', authored_by_you: 'Authored by you', review_requested_from_you: 'Review requested', reviewed_by_you: 'You participated', commented_on_by_you: 'You participated', merged_contribution: 'Authored by you · Recently merged', release_published_by_you: 'Published by you', deployment_triggered_by_you: 'Triggered by you' };
   return {
     ...item,
-    stage: classified.stage,
+    stage: (item as any)._preservedStage ?? classified.stage,
     status: classified.status,
     stageReason: item.stageReason ?? classified.reason,
     stageEnteredAt: item.stageEnteredAt ?? stageEntryTimestamp(history, classified.stage) ?? item.updatedAt,
