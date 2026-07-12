@@ -2,17 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
-import {
-  Menu,
-  PanelRightClose,
-  PanelRightOpen,
-  LogOut,
-  Copy,
-  ExternalLink,
-  RotateCcw,
-  GitBranch, GitMerge, GitPullRequest,
-  Bell,
-} from 'lucide-react';
+import { Bell, Copy, ExternalLink, GitBranch, GitMerge, GitPullRequest, LogOut, Menu, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
 import { useModeStore } from '../../stores/mode-store';
 import { BrowserToolbar } from '../../browser/BrowserToolbar';
@@ -101,11 +91,11 @@ export function TopBar() {
           )}
 
           <div className="topbar-actions">
-            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>}
+            {import.meta.env.DEV && <button className="icon-button reset-action-btn" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RefreshCw size={16} className={isResetting ? "icon-spin-cw" : ""} /></button>}
             {mode === 'demo' ? (
               <>
                 <span className="demo-mode-badge">Demo Mode</span>
-                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>
+                <button className="icon-button reset-action-btn" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RefreshCw size={16} className={isResetting ? "icon-spin-cw" : ""} /></button>
                 <button className="icon-button" aria-label="Exit demo" onClick={exitDemo} data-tooltip="Exit Demo\nReturn to the authenticated live workspace."><LogOut size={16} /></button>
               </>
             ) : isAuthenticated && session.status === 'connected' ? (

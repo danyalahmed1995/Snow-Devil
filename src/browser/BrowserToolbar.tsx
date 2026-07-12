@@ -3,7 +3,7 @@
  */
 
 import { useCallback, useState } from 'react';
-import { ArrowLeft, ArrowRight, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RefreshCw, X } from 'lucide-react';
 import { browserBack, browserForward, browserReload, browserStop } from './browser-commands';
 import { useTabsStore } from '../stores/tabs-store';
 import type { BrowserTab } from './browser-tabs';
@@ -65,13 +65,13 @@ export function BrowserToolbar({ activeTab }: BrowserToolbarProps) {
         <ArrowRight size={16} />
       </button>
       <button
-        className="icon-button"
+        className="icon-button reset-action-btn"
         disabled={disabled}
         onClick={activeTab?.isLoading ? handleStop : handleReload}
         data-tooltip={activeTab?.isLoading ? 'Stop loading\nCancel the active embedded page navigation.' : 'Reload\nRefresh the active embedded GitHub page.'}
         aria-label={activeTab?.isLoading ? 'Stop loading' : 'Reload page'}
       >
-        {activeTab?.isLoading && !isReloading ? <X size={16}/> : <RotateCw size={16} className={isReloading ? "icon-spin-cw" : ""} />}
+        {activeTab?.isLoading && !isReloading ? <X size={16} /> : <RefreshCw size={16} className={isReloading ? "icon-spin-cw" : ""} />}
       </button>
       {activeTab?.error && <span className="browser-toolbar__error" role="alert" data-tooltip={activeTab.error}>{activeTab.error}</span>}
     </div>
