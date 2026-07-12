@@ -27,10 +27,10 @@ pub fn is_allowed_github_domain(url: &Url) -> bool {
     match url.host_str() {
         Some(host) => {
             let host_lower = host.to_ascii_lowercase();
-            host_lower == "github.com"
-                || host_lower == "www.github.com"
-                || host_lower == "gist.github.com"
-                || host_lower.ends_with(".github.com")
+            matches!(
+                host_lower.as_str(),
+                "github.com" | "www.github.com" | "gist.github.com"
+            )
         }
         None => false,
     }
@@ -106,9 +106,9 @@ mod tests {
     }
 
     #[test]
-    fn allows_subdomain_github_com() {
+    fn rejects_unlisted_github_subdomain() {
         let url = Url::parse("https://docs.github.com/en/get-started").unwrap();
-        assert!(is_allowed_github_domain(&url));
+        assert!(!is_allowed_github_domain(&url));
     }
 
     #[test]

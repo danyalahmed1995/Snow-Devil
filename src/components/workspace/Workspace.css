@@ -253,6 +253,12 @@
 .workspace-tab-add:hover,.workspace-tab-overflow:hover{background:var(--surface-hover);color:var(--text-primary)}
 .workspace-tab-menu{border-radius:var(--radius-popover);background:var(--surface-popover);box-shadow:var(--popover-shadow)}
 .workspace-loading{height:100%;display:grid;place-items:center;color:var(--text-muted);font-size:var(--type-body)}
+.workspace-loading-state{display:flex;flex:1;min-height:0;height:100%;align-items:center;justify-content:center;flex-direction:column;gap:24px;text-align:center;padding:24px}
+.workspace-loading-state__copy h1{margin:0;color:var(--text-primary);font-size:24px;font-weight:600;animation:fresh-fade-in .3s ease-out}
+.workspace-loading-state__copy p{margin:12px 0 0;color:var(--text-muted);font-size:15px;animation:fresh-fade-in .45s ease-out backwards}
+.workspace-loading-state__copy progress{display:block;width:min(320px,60vw);margin:16px auto 0}
+html[data-reduced-motion="true"] .workspace-loading-state__copy h1,html[data-reduced-motion="true"] .workspace-loading-state__copy p{animation:none}
+@media (prefers-reduced-motion:reduce){.workspace-loading-state__copy h1,.workspace-loading-state__copy p{animation:none}}
 
 /* CI Status Glows for Tabs */
 .workspace-tab--state-running {

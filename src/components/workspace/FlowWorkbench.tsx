@@ -194,8 +194,10 @@ export function FlowWorkbench() {
 
     const map = new Map<string, FlowItem>();
     if (selectedFlowItem) {
-      if (!selectedFlowItem.inclusionReason) selectedFlowItem.inclusionReason = 'Opened from Inspector';
-      map.set(selectedFlowItem.id, selectedFlowItem);
+      const selected = selectedFlowItem.inclusionReason
+        ? selectedFlowItem
+        : { ...selectedFlowItem, inclusionReason: 'Opened from Inspector' };
+      map.set(selected.id, selected);
     }
     for (const item of all) map.set(item.id, item);
     return Array.from(map.values());

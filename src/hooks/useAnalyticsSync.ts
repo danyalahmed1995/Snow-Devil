@@ -8,6 +8,16 @@ const syncStateCache = new Map<string, AnalyticsSyncState | null>();
 const syncStateCacheTime = new Map<string, number>();
 const syncStateRequests = new Map<string, Promise<AnalyticsSyncState | null>>();
 const SYNC_STATE_CACHE_FRESH_MS = 2000;
+const MAX_SYNC_ACCOUNTS = 8;
+
+function retainSyncAccount(account: string, state: AnalyticsSyncState | null) {
+  if (!syncStateCache.has(account) && syncStateCache.size >= MAX_SYNC_ACCOUNTS) {
+    const oldest = syncStateCache.keys().next().value;
+    if (oldest !== undefined) { syncStateCache.delete(oldest); syncStateCacheTime.delete(oldest); syncStateRequests.delete(oldest); }
+  }
+  syncStateCache.set(account, state);
+  syncStateCacheTime.set(account, Date.now());
+}
 
 function readAnalyticsSyncState(account: string, force = false): Promise<AnalyticsSyncState | null> {
   const pending = syncStateRequests.get(account);
@@ -17,8 +27,7 @@ function readAnalyticsSyncState(account: string, force = false): Promise<Analyti
   }
   const request = getAnalyticsSyncState(account)
     .then(state => {
-      syncStateCache.set(account, state);
-      syncStateCacheTime.set(account, Date.now());
+      retainSyncAccount(account, state);
       return state;
     })
     .finally(() => syncStateRequests.delete(account));

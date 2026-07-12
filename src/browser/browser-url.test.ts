@@ -125,6 +125,11 @@ describe('isGithubUrl', () => {
   it('returns false for non-GitHub URLs', () => {
     expect(isGithubUrl('https://gitlab.com')).toBe(false);
   });
+
+  it('rejects GitHub lookalike and unlisted subdomain hosts', () => {
+    expect(isGithubUrl('https://github.com.evil.example/owner/repo')).toBe(false);
+    expect(isGithubUrl('https://evil.github.com/owner/repo')).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

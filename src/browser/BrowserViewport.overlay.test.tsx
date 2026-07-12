@@ -8,6 +8,7 @@ vi.mock('./browser-commands', () => ({
   browserCreate: vi.fn().mockResolvedValue(undefined),
   browserResize: vi.fn().mockResolvedValue(undefined),
   browserActivate: vi.fn().mockResolvedValue(undefined),
+  browserClose: vi.fn().mockResolvedValue(undefined),
   browserHideAll: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -29,5 +30,18 @@ describe('webview-aware overlay coordination', () => {
     useOverlayStore.getState().closeOverlay('command-palette');
     await waitFor(() => expect(commands.browserActivate).toHaveBeenCalledTimes(2));
     expect(commands.browserCreate).toHaveBeenLastCalledWith('browser-1', 'https://github.com/octo/app/issues/1', expect.any(Object));
+  });
+
+  it('disposes a native webview when creation completes after its React owner closes', async () => {
+    const commands = await import('./browser-commands');
+    let finishCreate!: () => void;
+    vi.mocked(commands.browserCreate).mockImplementationOnce(() => new Promise<void>(resolve => { finishCreate = resolve; }));
+    const view = render(<BrowserViewport />);
+    await waitFor(() => expect(commands.browserCreate).toHaveBeenCalled());
+    useTabsStore.setState({ tabs: [], activeTabId: 'native:home' });
+    view.unmount();
+    finishCreate();
+    await waitFor(() => expect(commands.browserClose).toHaveBeenCalledWith('browser-1'));
+    expect(commands.browserActivate).not.toHaveBeenCalled();
   });
 });

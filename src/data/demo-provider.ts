@@ -3,6 +3,7 @@ import type { SimulatorEvent } from '../simulator/simulator-types';
 import type { FlowItem } from '../types/flow';
 import { canonicalizeSimulatorEvents } from '../simulator/canonical-event';
 import { canonicalPullRequestIdentity } from '../lib/canonical-identity';
+import { setBoundedMap } from '../lib/bounded-cache';
 
 export interface DemoRepository { id: string; nameWithOwner: string; description?: string | null; archived: boolean; fork: boolean; stars: number; language?: string | null }
 export interface DemoManifest { schemaVersion: number; referenceDate: string; identity: ConnectedAccount; repositories: DemoRepository[]; coverage: string[]; fixtures: Record<string, string> }
@@ -19,7 +20,7 @@ async function fixture<T>(path: string, validate: (value: unknown) => value is T
   if (!response.ok) throw new Error(`Demo fixture ${path} could not be loaded (${response.status})`);
   const value: unknown = await response.json();
   if (!validate(value)) throw new Error(`Malformed demo fixture: ${path}`);
-  cache.set(path, value);
+  setBoundedMap(cache, path, value, 32);
   return value;
 }
 

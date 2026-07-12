@@ -11,11 +11,14 @@ import { Dashboard } from './Dashboard';
 import { FlowWorkbench } from './FlowWorkbench';
 import { BrowserViewport } from '../../browser/BrowserViewport';
 import { browserHideAll } from '../../browser/browser-commands';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { useModeStore } from '../../stores/mode-store';
 import { ListView } from './ListView';
 import { TabInstanceProvider } from './TabInstanceContext';
 import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
+import { DeferredSurface } from './DeferredSurface';
+import { WorkspaceLoadingState } from './WorkspaceLoadingState';
+import { acquireFrontendResource } from '../../diagnostics/leak-diagnostics';
 
 const CIActivityPage = lazy(() => import('../analytics/CIActivityPage').then(module => ({ default: module.CIActivityPage })));
 const InventoryPage = lazy(() => import('../analytics/InventoryPage').then(module => ({ default: module.InventoryPage })));
@@ -30,7 +33,24 @@ const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
 
-function SurfaceLoading() { return <div className="workspace-loading" role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}><div className="global-spinner" /><div style={{ textAlign: 'center' }}><h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workspace surface…</h1></div></div>; }
+function SurfaceLoading() { return <WorkspaceLoadingState title="Loading workspace surface" detail="Restoring the selected view…" />; }
+
+const LOADING_COPY: Partial<Record<NativeTab['kind'], { title: string; detail: string }>> = {
+  inventory: { title: 'Loading Delivery Risks', detail: 'Analyzing repository, pull request, and CI evidence…' },
+  ciHealth: { title: 'Loading CI Activity', detail: 'Restoring recent runs and checks…' },
+  pullRequestDiff: { title: 'Loading pull request', detail: 'Preparing changes and architecture evidence…' },
+  ciRun: { title: 'Loading CI run', detail: 'Restoring recent jobs, checks, and logs…' },
+  flow: { title: 'Loading Flow', detail: 'Restoring the current delivery snapshot…' },
+  accountSimulator: { title: 'Loading Account History', detail: 'Restoring cached history…' },
+  repositorySimulator: { title: 'Loading Repository History', detail: 'Restoring cached history…' },
+  repositoryExplorer: { title: 'Loading repository', detail: 'Preparing the repository workspace…' },
+  evidenceGraph: { title: 'Loading Architecture Context', detail: 'Preparing the component map…' },
+};
+
+function TrackedHeavySurface({ children }: { children: ReactNode }) {
+  useEffect(() => acquireFrontendResource('mountedHeavyViews'), []);
+  return children;
+}
 
 function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
   const closeTab = useTabsStore(state => state.closeTab);
@@ -49,7 +69,7 @@ function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
 }
 
 function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: number }) {
-  return <TabInstanceProvider tabId={tab.id}>
+  const content = <TabInstanceProvider tabId={tab.id}>
     <Suspense fallback={<SurfaceLoading />}>
       {tab.kind === 'home' && <Dashboard />}
       {tab.kind === 'flow' && <FlowWorkbench />}
@@ -70,6 +90,10 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'evidenceGraph' && <EvidenceGraphPage rootId={tab.context?.type === 'evidenceGraph' ? tab.context.rootId : undefined} />}
     </Suspense>
   </TabInstanceProvider>;
+  const loading = LOADING_COPY[tab.kind];
+  return loading
+    ? <TrackedHeavySurface><DeferredSurface identity={tab.id} title={loading.title} detail={loading.detail}>{content}</DeferredSurface></TrackedHeavySurface>
+    : content;
 }
 
 export function WorkspaceContent() {
@@ -78,6 +102,7 @@ export function WorkspaceContent() {
   const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
+  const homeTab = tabs.find((tab): tab is NativeTab => isNativeTab(tab) && tab.kind === 'home');
 
   // Sync with Tauri backend for native tabs
   useEffect(() => {
@@ -94,13 +119,13 @@ export function WorkspaceContent() {
     );
   }
 
-  const nativeTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab));
   return <div className="workspace-content">
-    {nativeTabs.map(tab => (
-      <div className="workspace-native-surface" key={tab.id} hidden={activeTabId !== tab.id} aria-hidden={activeTabId !== tab.id}>
-        <NativeSurface tab={tab} demoRevision={demoRevision} />
-      </div>
-    ))}
+    {homeTab && <div className="workspace-native-surface" hidden={activeTab.id !== homeTab.id} aria-hidden={activeTab.id !== homeTab.id}>
+      <NativeSurface tab={homeTab} demoRevision={demoRevision} />
+    </div>}
+    {isNativeTab(activeTab) && activeTab.kind !== 'home' && <div className="workspace-native-surface" key={activeTab.id}>
+      <NativeSurface tab={activeTab} demoRevision={demoRevision} />
+    </div>}
     {isBrowserTab(activeTab) && <BrowserViewport />}
   </div>;
 }

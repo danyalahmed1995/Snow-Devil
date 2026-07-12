@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react';
-import { browserCreate, browserResize, browserActivate, browserHideAll, type BrowserBounds } from './browser-commands';
+import { browserCreate, browserResize, browserActivate, browserClose, browserHideAll, type BrowserBounds } from './browser-commands';
 import { useTabsStore, isBrowserTab } from '../stores/tabs-store';
 import { useOverlayStore } from '../stores/overlay-store';
 
@@ -75,11 +75,13 @@ export function BrowserViewport() {
         // 1. Create or Resize
         browserCreate(activeTab.id, currentUrl, bounds)
           .then(() => {
+            if (!useTabsStore.getState().tabs.some(tab => tab.id === activeTab.id)) return browserClose(activeTab.id);
             if (needsResize) {
               return browserResize(activeTab.id, bounds);
             }
           })
           .then(() => {
+            if (useTabsStore.getState().activeTabId !== activeTab.id) return;
             // Enforce limits via React state, but Rust already enforces it internally on creation
             store.updateBrowserTabLifecycle(activeTab.id, 'activating');
 
@@ -90,6 +92,7 @@ export function BrowserViewport() {
             }
           })
           .then(() => {
+             if (useTabsStore.getState().activeTabId !== activeTab.id) return;
              store.updateBrowserTabLifecycle(activeTab.id, 'resident');
              const evicted = store.enforcePoolLimits();
              // The rust backend already closed the webview if it hit the limit, but we also manually sync
@@ -99,6 +102,7 @@ export function BrowserViewport() {
              });
           })
           .catch((err) => {
+            if (!useTabsStore.getState().tabs.some(tab => tab.id === activeTab.id)) return;
             console.error("Failed to sync shared browser tab", err);
             store.updateBrowserTabLifecycle(activeTab.id, 'error');
             lastSyncRef.current = null;

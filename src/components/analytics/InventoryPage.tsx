@@ -1,6 +1,7 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Ban, Bot, Copy, GitFork, GitPullRequest, MessageSquareText, Pencil, Pin, RotateCcw, Save, Trash2, Volume2, VolumeX } from 'lucide-react';
-import { compareDeliveryRiskPriority, deliveryRiskInventoryAnalysis, includedRepositories, inventoryInspectable } from '../../analytics/selectors';
+import { compareDeliveryRiskPriority, inventoryInspectable } from '../../analytics/selectors';
+import { getDeliveryRiskModel, useDeliveryRiskModel } from '../../analytics/delivery-risk-cache';
 import { BUILT_IN_DELIVERY_RISK_VIEWS, DEFAULT_DELIVERY_RISK_VIEW, deliveryRiskViewById } from '../../analytics/delivery-risk-views';
 import { DELIVERY_RISK_HIDDEN_REASON_LABELS, deliveryRiskHiddenBreakdown, deliveryRiskHiddenReason } from '../../analytics/delivery-risk-scope';
 import type { DeliveryRiskCategory, DeliveryRiskSavedView, DeliveryRiskSort, DeliveryRiskViewState, InventoryItem } from '../../analytics/types';
@@ -61,10 +62,14 @@ export function InventoryPage() {
   const deferredSearch = useDeferredValue(view.search);
   const setView = (update: Partial<DeliveryRiskViewState>) => { setViewState(current => ({ ...current, ...update })); setLimit(100); };
 
-  const effectiveSettings = useMemo(() => ({ ...settings, includeArchived: true, includeForks: true, includeBots: true, includeDependabot: true, includeRenovate: true, includeOtherBots: true }), [settings]);
-  const analysis = useMemo(() => analytics.data ? deliveryRiskInventoryAnalysis(analytics.data, effectiveSettings) : { items: [], canonicalEntityCount: 0, classifiedRiskCount: 0, terminalEntityCount: 0, activeWithoutRiskCount: 0, policyExcludedCount: 0 }, [analytics.data, effectiveSettings]);
+  // Demo data is intentionally tiny and deterministic; live snapshots use the worker.
+  const demoModel = analytics.mode === 'demo' && analytics.data ? getDeliveryRiskModel(analytics.data, settings) : undefined;
+  const derivedWorker = useDeliveryRiskModel(analytics.mode === 'demo' ? undefined : analytics.data, settings);
+  const derived = demoModel ? { data: demoModel, isLoading: false, error: undefined } : derivedWorker;
+  const model = derived.data;
+  const analysis = model?.analysis ?? { items: [], canonicalEntityCount: 0, classifiedRiskCount: 0, terminalEntityCount: 0, activeWithoutRiskCount: 0, policyExcludedCount: 0 };
   const items = analysis.items;
-  const repositories = analytics.data ? includedRepositories(analytics.data, effectiveSettings) : [];
+  const repositories = model?.repositories ?? [];
   const mutedItemKeys = useMemo(() => new Set(settings.mutedDeliveryRiskItems.map(value => value.toLowerCase())), [settings.mutedDeliveryRiskItems]);
   const mutedRepoKeys = useMemo(() => new Set(settings.mutedDeliveryRiskRepositories.map(value => value.toLowerCase())), [settings.mutedDeliveryRiskRepositories]);
   const mutedReasonKeys = useMemo(() => new Set(settings.mutedDeliveryRiskReasons.map(value => value.toLowerCase())), [settings.mutedDeliveryRiskReasons]);
@@ -112,9 +117,9 @@ export function InventoryPage() {
     <label>Repository<Select ariaLabel="Delivery Risks repository" searchable value={view.repositoryId} onChange={repositoryId => setView({ repositoryId })} options={[{ value: 'all', label: 'All repositories' }, ...repositories.map(repository => ({ value: repository.id, label: repository.nameWithOwner }))]} /></label>
     <RefreshButton refreshing={refreshing} onClick={() => void refresh()} />
   </>}>
-    <AnalyticsState loading={analytics.isLoading} error={analytics.error} partialReasons={[]} onRetry={() => void refresh()} />
+    <AnalyticsState loading={analytics.isLoading || derived.isLoading} error={analytics.error ?? derived.error} partialReasons={[]} onRetry={() => void refresh()} />
     <span className="sr-only" aria-live="polite">{announcement}</span>
-    {analytics.data && <>
+    {analytics.data && model && <>
       {analytics.data.partial && <div className="delivery-risk-notice">Some repositories have partial history. Risk results may be incomplete. <button type="button" onClick={() => useTabsStore.getState().openNativeTab('native:settings', 'settings', 'Settings', false, true)}>Source details</button></div>}
       <MetricGrid>{CATEGORY_META.filter(meta => meta.value !== 'delivery_blocked' || counts.delivery_blocked > 0).map(meta => <MetricCard key={meta.value} label={meta.label} value={counts[meta.value]} detail={meta.detail} tone={meta.tone} title={meta.tooltip} active={view.category === meta.value} onClick={() => setView({ category: view.category === meta.value ? 'all' : meta.value })} />)}</MetricGrid>
       {defaultHidden > 0 && <div className="delivery-risk-disclosure">{defaultHidden} classified item{defaultHidden === 1 ? '' : 's'} hidden by the current view. <details><summary>Breakdown</summary>{Object.entries(hiddenBreakdown).filter(([, count]) => count).map(([reason, count]) => <span key={reason}>{DELIVERY_RISK_HIDDEN_REASON_LABELS[reason as keyof typeof DELIVERY_RISK_HIDDEN_REASON_LABELS]}: <strong>{count}</strong></span>)}</details>{view.backlog === 'active' && <><button onClick={() => applySavedView('builtin:legacy')}>Legacy Backlog</button><button onClick={() => applySavedView('builtin:bot-backlog')}>Bot Backlog</button></>}</div>}

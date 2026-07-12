@@ -10,6 +10,10 @@ coverage/
 
 # Report Docs & Miscellaneous
 docs/
+!docs/
+docs/*
+!docs/final-performance-memory-security-report.md
+!docs/final-memory-leak-qualification-report.md
 screenshots/
 assets/icon-concepts
 

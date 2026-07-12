@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Clock3, FileSearch, Search, X } from 'lucide
 import { invoke } from '@tauri-apps/api/core';
 import { demoAllEntries } from '../../repository/demo-repository';
 import { classifyRepositorySearchError, matchesRepositorySearch, toGitHubCodeQuery, type RepositorySearchResult } from '../../repository/repository-search';
+import { setBoundedMap } from '../../lib/bounded-cache';
 
 interface SearchResponse { total_count?: number; incomplete_results?: boolean; items?: Array<{ name?:string;path?:string;html_url?:string;score?:number;repository?:{full_name?:string} }> }
 const cache = new Map<string, { total:number; incomplete:boolean; results:RepositorySearchResult[] }>();
@@ -31,7 +32,7 @@ export function RepositorySearchPanel({ repository, reference, demo, onClose, on
         if(!value){
           if(demo){const all=demoAllEntries().filter(entry=>entry.type==='blob'&&matchesRepositorySearch(entry.path,query));const start=(page-1)*30;value={total:all.length,incomplete:false,results:all.slice(start,start+30).map(entry=>({name:entry.name,path:entry.path,repository}))};}
           else {const response=await invoke<SearchResponse>('search_repository',{owner:repository.split('/')[0],name:repository.split('/')[1],query:githubQuery,page,perPage:30});value={total:response.total_count??0,incomplete:!!response.incomplete_results,results:(response.items??[]).flatMap(item=>item.path?[{path:item.path,name:item.name??item.path.split('/').pop()??item.path,htmlUrl:item.html_url,score:item.score,repository:item.repository?.full_name}]:[])}}
-          cache.set(key,value);
+          setBoundedMap(cache,key,value,100);
         }
         if(id!==generation.current)return;
         setResults(value.results);setTotal(value.total);setIncomplete(value.incomplete);

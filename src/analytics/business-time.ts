@@ -1,4 +1,5 @@
 import type { AgeBand, AnalyticsSettings, InventoryThresholds } from './types';
+import { setBoundedMap } from '../lib/bounded-cache';
 
 export interface BusinessCalendar {
   timeZone: string;
@@ -14,7 +15,9 @@ function weekdayAt(value: Date, timeZone: string): number {
   if (cached !== undefined) return cached;
   const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(value);
   const result = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(short);
-  weekdayCache.set(cacheKey, result);
+  // Covers more than two years of hourly buckets without eviction churn during
+  // one large historical analysis while still imposing a deterministic cap.
+  setBoundedMap(weekdayCache, cacheKey, result, 20_000);
   return result;
 }
 

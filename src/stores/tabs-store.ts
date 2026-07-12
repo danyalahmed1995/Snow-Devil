@@ -17,6 +17,8 @@ import type { BrowserTabKind } from '../browser/browser-url';
 import { isNativeTab, isBrowserTab } from '../browser/browser-tabs';
 import { normalizeGithubUrl, tabIdForUrl, titleForGithubUrl } from '../browser/browser-url';
 import { ENABLE_FLOW_ANALYTICS } from '../config/features';
+import { useFlowStore } from './flow-store';
+import { useHistoryViewStore } from './history-view-store';
 
 // Re-export type guards for convenience
 export { isNativeTab, isBrowserTab };
@@ -531,7 +533,11 @@ export const useTabsStore = create<TabsState>()(
         }
 
         if (isBrowserTab(tabToClose)) void import('../browser/browser-commands').then(({ browserClose }) => browserClose(id).catch(console.error));
-        if (isNativeTab(tabToClose)) void import('../architecture/architecture-store').then(({ useArchitectureStore }) => useArchitectureStore.getState().clearTab(id));
+        if (isNativeTab(tabToClose)) {
+          useFlowStore.getState().clearTab(id);
+          useHistoryViewStore.getState().clear(id);
+          void import('../architecture/architecture-store').then(({ useArchitectureStore }) => useArchitectureStore.getState().clearTab(id));
+        }
         set({ tabs: newTabs, activeTabId: newActiveId, closedTabs: [tabToClose, ...closedTabs].slice(0, 20) });
       },
       closeOthers: id => {
@@ -785,12 +791,13 @@ export const useTabsStore = create<TabsState>()(
         if (!persisted || typeof persisted !== 'object') return current;
         const state = persisted as Partial<TabsState>;
         const tabs = normalizeRestoredTabs(state.tabs);
-        const canonicalActiveId = normalizeRestoredActiveTabId(state.tabs, state.activeTabId, tabs);
         return {
           ...current,
           ...state,
           tabs,
-          activeTabId: tabs.some(tab => tab.id === canonicalActiveId) ? canonicalActiveId! : 'native:home',
+          // Restored heavy tabs stay metadata-only until explicitly activated.
+          // Startup always renders the lightweight Home singleton first.
+          activeTabId: 'native:home',
           closedTabs: normalizeRestoredTabs(state.closedTabs ?? []).filter(tab => tab.id !== 'native:home'),
           navigationGeneration: typeof state.navigationGeneration === 'number' ? state.navigationGeneration : current.navigationGeneration,
         };
