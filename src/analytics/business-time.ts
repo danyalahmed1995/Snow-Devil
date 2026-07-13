@@ -29,8 +29,15 @@ export function businessHoursBetween(startValue: string | Date, endValue: string
   let total = 0;
   let cursor = start;
   const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
   while (cursor < end) {
-    const boundary = Math.min(end, Math.floor(cursor / hour) * hour + hour);
+    // Preserve hourly precision around partial-day edges, but process complete
+    // UTC-day spans in one step. Historical repositories can cover 15+ years;
+    // walking every hour made Delivery Risks spend tens of seconds in its worker.
+    const atUtcDayBoundary = cursor % day === 0;
+    const boundary = atUtcDayBoundary && end - cursor >= day
+      ? cursor + day
+      : Math.min(end, Math.floor(cursor / hour) * hour + hour);
     const midpoint = new Date(cursor + (boundary - cursor) / 2);
     if (calendar.businessDays.includes(weekdayAt(midpoint, calendar.timeZone))) {
       total += boundary - cursor;

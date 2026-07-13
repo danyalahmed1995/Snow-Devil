@@ -29,4 +29,10 @@ describe('personal focus reconciliation', () => {
   it('deduplicates repeated relationship and action phrasing', () => {
     expect(distinctReason(['Assigned to you. Assigned to you.', 'Current response required'])).toBe('Assigned to you · Current response required');
   });
+
+  it('keeps healthy active direct work visible instead of dropping it from every section', () => {
+    const result = partitionCanonicalResponsibilities([item('healthy-active')], 'viewer', false);
+    expect(result.doNow.map(value => value.entity.id)).toEqual(['healthy-active']);
+    expect(result.canonical).toHaveLength(1);
+  });
 });

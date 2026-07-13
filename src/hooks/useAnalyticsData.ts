@@ -33,6 +33,10 @@ interface DbSimulatorEvent {
 interface RepositoryRow { id: string; databaseId?: string | number; name: string; url?: string; viewerPermission?: string; ownerLogin?: string; fork?: boolean; archived?: boolean; private?: boolean; template?: boolean; empty?: boolean }
 interface AnalyticsRecordRow { repository_id: string; source_type: string; source_id: string; updated_at: string; payload_json: string }
 
+export function hasCanonicalAnalyticsRepositories(rows: AnalyticsRecordRow[]): boolean {
+  return rows.some(row => row.source_type === 'repository');
+}
+
 function parseJsonObject(value: string | null): Record<string, unknown> {
   if (!value) return {};
   try {
@@ -149,11 +153,17 @@ export function useAnalyticsData(options: { enabled?: boolean } = {}) {
     enabled: enabled && mode === 'live' && Boolean(login),
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<AnalyticsDataset> => {
-      const [rows, repositories, analyticsRows] = await Promise.all([
-        invoke<DbSimulatorEvent[]>('get_simulator_events', { repositoryId: null }),
-        invoke<RepositoryRow[]>('get_all_repositories'),
-        invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! }),
-      ]);
+      // Canonical analytics records supersede the legacy simulator/node tables.
+      // Reading all three through one SQLite mutex during synchronization could
+      // starve this initial query until the complete repository sync ended.
+      const analyticsRows = await invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! });
+      const hasCanonicalRepositories = hasCanonicalAnalyticsRepositories(analyticsRows);
+      const [rows, repositories] = hasCanonicalRepositories
+        ? [[], []] as [DbSimulatorEvent[], RepositoryRow[]]
+        : await Promise.all([
+            invoke<DbSimulatorEvent[]>('get_simulator_events', { repositoryId: null }),
+            invoke<RepositoryRow[]>('get_all_repositories'),
+          ]);
       const syncedEvents = analyticsRows.flatMap(analyticsRecordEvents).map(event => normalizeSimulatorEventProvenance(event));
       const syncedRepositories = analyticsRows.filter(row => row.source_type === 'repository').map(row => { const value = parseJsonObject(row.payload_json); const permissions = value.permissions as Record<string, unknown> | undefined; const viewerPermission = permissions?.admin ? 'ADMIN' : permissions?.maintain ? 'MAINTAIN' : permissions?.push ? 'WRITE' : permissions?.triage ? 'TRIAGE' : permissions?.pull ? 'READ' : 'UNKNOWN'; const owner = value.owner as Record<string, unknown> | undefined; return { id: row.repository_id, databaseId: typeof value.id === 'number' || typeof value.id === 'string' ? value.id : undefined, name: typeof value.full_name === 'string' ? value.full_name : row.repository_id, url: typeof value.html_url === 'string' ? value.html_url : undefined, viewerPermission, ownerLogin: typeof owner?.login === 'string' ? owner.login : row.repository_id.split('/')[0], fork: value.fork === true, archived: value.archived === true, private: value.private === true, template: value.is_template === true, empty: value.size === 0 }; });
       const eventMap = new Map<string, SimulatorEvent>();
