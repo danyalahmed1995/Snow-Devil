@@ -102,8 +102,8 @@ export function WorkspaceContent() {
   const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
-  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && ['home', 'accountSimulator', 'repositorySimulator'].includes(tab.kind));
-  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !['home', 'accountSimulator', 'repositorySimulator'].includes(activeTab.kind);
+  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && ['home', 'accountSimulator', 'repositorySimulator', 'ciRun'].includes(tab.kind));
+  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !['home', 'accountSimulator', 'repositorySimulator', 'ciRun'].includes(activeTab.kind);
 
   // Sync with Tauri backend for native tabs
   useEffect(() => {

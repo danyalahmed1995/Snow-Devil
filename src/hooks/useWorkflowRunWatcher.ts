@@ -52,14 +52,13 @@ export function isRunTerminal(status: string, conclusion: string | null): boolea
   return false;
 }
 
-export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean, canFetch = true) {
+export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, canFetch = true) {
   const [owner, repo] = repositoryId.split('/');
   const hasCanonicalIdentity = Boolean(owner && repo && runId);
   return useQuery({
     queryKey: ['ciRunWatcher', repositoryId, runId, attemptNumber],
     enabled: canFetch && hasCanonicalIdentity,
     refetchInterval: (query) => {
-      if (isTabActive === false) return false;
       const data = query.state.data;
       if (data && isRunTerminal(data.run.status, data.run.conclusion)) {
         return false;

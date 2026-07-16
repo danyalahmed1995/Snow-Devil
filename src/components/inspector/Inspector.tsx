@@ -122,7 +122,6 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
     runId,
     metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
     true,
-    true,
     loadJobs
   );
 
