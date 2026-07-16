@@ -1,4 +1,5 @@
 .contextual-tooltip{position:fixed;z-index:10000;max-width:min(340px,calc(100vw - 16px));padding:7px 9px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--border-standard));border-radius:7px;background:color-mix(in srgb,var(--surface-inspector) 96%,#000);box-shadow:0 10px 28px rgba(0,4,14,.4);color:var(--text-primary);font-size:10px;line-height:1.45;white-space:pre-line;pointer-events:none;animation:contextual-tooltip-in 110ms var(--ease-standard)}
 @keyframes contextual-tooltip-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 html[data-reduced-motion="true"] .contextual-tooltip{animation:none}
-
+.contextual-tooltip.is-closing { animation: contextual-tooltip-out 100ms var(--ease-standard) forwards; }
+@keyframes contextual-tooltip-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(2px); } }

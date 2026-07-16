@@ -102,7 +102,8 @@ export function WorkspaceContent() {
   const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
-  const homeTab = tabs.find((tab): tab is NativeTab => isNativeTab(tab) && tab.kind === 'home');
+  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && ['home', 'accountSimulator', 'repositorySimulator'].includes(tab.kind));
+  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !['home', 'accountSimulator', 'repositorySimulator'].includes(activeTab.kind);
 
   // Sync with Tauri backend for native tabs
   useEffect(() => {
@@ -120,10 +121,12 @@ export function WorkspaceContent() {
   }
 
   return <div className="workspace-content">
-    {homeTab && <div className="workspace-native-surface" hidden={activeTab.id !== homeTab.id} aria-hidden={activeTab.id !== homeTab.id}>
-      <NativeSurface tab={homeTab} demoRevision={demoRevision} />
-    </div>}
-    {isNativeTab(activeTab) && activeTab.kind !== 'home' && <div className="workspace-native-surface" key={activeTab.id}>
+    {persistentTabs.map(tab => (
+      <div className="workspace-native-surface" key={tab.id} hidden={activeTab.id !== tab.id} aria-hidden={activeTab.id !== tab.id}>
+        <NativeSurface tab={tab} demoRevision={demoRevision} />
+      </div>
+    ))}
+    {activeIsTransientNative && <div className="workspace-native-surface" key={activeTab.id}>
       <NativeSurface tab={activeTab} demoRevision={demoRevision} />
     </div>}
     {isBrowserTab(activeTab) && <BrowserViewport />}
