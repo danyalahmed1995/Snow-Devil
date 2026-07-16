@@ -66,9 +66,9 @@ describe('workflow Inspector', () => {
 
     render(<QueryClientProvider client={new QueryClient()}><Inspector /></QueryClientProvider>);
     expect(screen.getByText('Load jobs')).toBeInTheDocument();
-    expect(useWorkflowRunWatcher).toHaveBeenLastCalledWith('octo/app', '123', undefined, true, true, false);
+    expect(useWorkflowRunWatcher).toHaveBeenLastCalledWith('octo/app', '123', undefined, true, false);
 
     fireEvent.click(screen.getByRole('button', { name: 'Load jobs' }));
-    expect(useWorkflowRunWatcher).toHaveBeenLastCalledWith('octo/app', '123', undefined, true, true, true);
+    expect(useWorkflowRunWatcher).toHaveBeenLastCalledWith('octo/app', '123', undefined, true, true);
   });
 });

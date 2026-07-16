@@ -4,8 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CIRunRow } from './CIRunRow';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
-vi.mock('../../hooks/useWorkflowJobs', () => ({
-  useWorkflowJobs: () => ({ data: undefined, isLoading: false, error: null }),
+vi.mock('../../hooks/useWorkflowRunWatcher', () => ({
+  useWorkflowRunWatcher: () => ({ data: undefined, isLoading: false, error: null }),
 }));
 
 function run(id: string): SimulatorEvent {

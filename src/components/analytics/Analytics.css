@@ -191,9 +191,9 @@
 .ci-activity-row__jobs { padding: 20px; background: color-mix(in srgb, var(--bg-primary) 40%, transparent); border-top: 1px solid var(--border-subtle); }
 .ci-jobs-loading, .ci-jobs-error, .ci-jobs-empty { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .ci-jobs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
-.ci-job-item { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; }
-
-/* Job item status highlights */
+.ci-job-item { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; }
+.ci-job-item-header { display: flex; align-items: center; gap: 8px; }
+.ci-job-item-footer { display: flex; align-items: center; justify-content: space-between; margin-left: 22px; }
 .ci-job-item.state-success { border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)); }
 .ci-job-item.state-success:hover { border-color: var(--success); }
 .ci-job-item.state-failure { border-color: color-mix(in srgb, var(--danger) 20%, var(--border-subtle)); }

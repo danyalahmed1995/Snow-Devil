@@ -200,20 +200,24 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
                 );
               }}
             >
-              <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
-              <span className="ci-job-name" title={job.name}>{job.name}</span>
-              {job.status === 'in_progress' && job.steps?.length > 0 && (
-                <span className="ci-job-steps">{job.steps.filter(s => s.status === 'completed').length} / {job.steps.length}</span>
-              )}
-              <span className="ci-job-duration">
-                {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
-                {job.started_at && !job.completed_at ? 'Running...' : ''}
-              </span>
-              {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
-                <span className="ci-job-failed-step" style={{ display: 'block', width: '100%', fontSize: '10px', color: 'var(--danger)', marginTop: '4px' }}>
-                  Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+              <div className="ci-job-item-header">
+                <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
+                <span className="ci-job-name" title={job.name}>{job.name}</span>
+              </div>
+              <div className="ci-job-item-footer">
+                {job.status === 'in_progress' && job.steps?.length > 0 && (
+                  <span className="ci-job-steps">{job.steps.filter(s => s.status === 'completed').length} / {job.steps.length}</span>
+                )}
+                <span className="ci-job-duration">
+                  {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
+                  {job.started_at && !job.completed_at ? 'Running...' : ''}
                 </span>
-              )}
+                {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
+                  <span className="ci-job-failed-step" style={{ display: 'block', width: '100%', fontSize: '10px', color: 'var(--danger)', marginTop: '4px' }}>
+                    Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>
