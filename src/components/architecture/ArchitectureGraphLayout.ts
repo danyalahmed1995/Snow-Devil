@@ -16,8 +16,8 @@ export interface LayoutResult {
   height: number;
 }
 
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 50;
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 64;
 const X_SPACING = 100; // Space between columns
 const Y_SPACING = 30;  // Space between rows
 const GROUP_PADDING = 30; // Padding inside a group container

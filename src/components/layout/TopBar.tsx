@@ -16,6 +16,7 @@ export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
   const { isAuthenticated, checkAuthStatus, session, showAuthModal, openAuthModal, closeAuthModal } = useAuthStore();
   const [isResetting, setIsResetting] = useState(false);
+  const [isIconSpinning, setIsIconSpinning] = useState(false);
   const { mode, exitDemo, resetDemo } = useModeStore();
   const notificationRecords=useNotificationStore(state=>state.records);const notificationRead=useNotificationStore(state=>state.localRead);const notificationSnoozed=useNotificationStore(state=>state.snoozedUntil);const unreadNotifications=activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
   const notificationArrivalCount = useNotificationStore(state => state.arrivalCount);
@@ -52,7 +53,14 @@ export function TopBar() {
             <Menu size={18} />
           </button>
           <div className="app-title">
-            <span className="app-mark-trio" data-tooltip="Git Trinity">
+            <span 
+              className={`app-mark-trio ${isIconSpinning ? 'is-spinning' : ''}`} 
+              data-tooltip="Touch grass"
+              onClick={() => { if (!isIconSpinning) setIsIconSpinning(true); }}
+              onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget) setIsIconSpinning(false);
+              }}
+            >
               <div className="attr branch"><GitBranch size={9} strokeWidth={3} /></div>
               <div className="attr merge"><GitMerge size={9} strokeWidth={3} /></div>
               <div className="attr pr"><GitPullRequest size={9} strokeWidth={3} /></div>

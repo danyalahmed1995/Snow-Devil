@@ -45,14 +45,22 @@ function BranchArchitectureSurface({repository,baseRef,baseSha,headRef,headSha,t
   const architecture=useRepositoryArchitecture(repository,baseSha,true,true);
   const diffQuery=useCompareDiff(repository,baseRef??'',headRef??'',Boolean(baseRef&&headRef&&!architecture.isLoading));
   
-  useEffect(()=>{useArchitectureStore.getState().setSnapshot(tabId,architecture.data);return()=>useArchitectureStore.getState().setSnapshot(tabId,undefined)},[architecture.data,tabId]);
-  
+  useEffect(()=>{
+    useArchitectureStore.getState().setSnapshot(tabId,architecture.data);
+    return()=>useArchitectureStore.getState().setSnapshot(tabId,undefined)
+  },[architecture.data,tabId]);
+
   const files=useMemo(()=>parseUnifiedDiff(diffQuery.data??''),[diffQuery.data]);
   
   const impact=useMemo(()=>{
     if(!architecture.data||!baseSha||!headSha||diffQuery.isLoading)return undefined;
     return analyzePullRequestArchitecture({repositoryId:repository,pullRequestNumber:0,baseSha,headSha,snapshot:architecture.data,files:files.map(file=>({oldPath:file.oldPath,newPath:file.newPath,status:file.status==='added'||file.status==='deleted'||file.status==='renamed'?file.status:'modified',additions:file.additions,deletions:file.deletions,lines:file.lines.map(line=>({type:line.kind,text:line.text}))}))});
   },[architecture.data,baseSha,headSha,diffQuery.isLoading,repository,files]);
+
+  useEffect(()=>{
+    useArchitectureStore.getState().setImpact(tabId,impact);
+    return()=>useArchitectureStore.getState().setImpact(tabId,undefined)
+  },[impact,tabId]);
 
   if(architecture.isLoading||diffQuery.isLoading)return <div className="repository-architecture-state"><Workflow size={24}/><strong>Analyzing branch impact</strong><span>Comparing {headRef} against {baseRef} to determine architectural changes.</span></div>;
   if(architecture.error||diffQuery.error)return <div className="repository-architecture-state repository-architecture-state--error"><AlertTriangle size={24}/><strong>Architecture analysis unavailable</strong><span>{readableError(architecture.error||diffQuery.error)}</span><button onClick={()=>{onRefresh();void diffQuery.refetch()}}><RefreshCw size={13}/>Retry</button></div>;
