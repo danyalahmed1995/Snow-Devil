@@ -446,7 +446,10 @@ pub async fn fetch_compare_diff(
     let token = get_token()?.ok_or("No token")?;
     let client = Client::new();
 
-    let rest_url = format!("{}/repos/{}/{}/compare/{}...{}", REST_URL, owner, name, base, head);
+    let rest_url = format!(
+        "{}/repos/{}/{}/compare/{}...{}",
+        REST_URL, owner, name, base, head
+    );
     let diff_res = client
         .get(&rest_url)
         .bearer_auth(&token)
