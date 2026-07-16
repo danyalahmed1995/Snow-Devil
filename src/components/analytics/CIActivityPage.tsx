@@ -156,6 +156,9 @@ export function CIActivityPage() {
     }
   }, [branches, branchFilter]);
 
+  const allRunsRef = useRef(allRuns);
+  useEffect(() => { allRunsRef.current = allRuns; }, [allRuns]);
+
   // Auto-refresh the CI run list when the tab is active/focused to show new CI runs quickly
   useEffect(() => {
     if (!isActive) return;
@@ -164,7 +167,7 @@ export function CIActivityPage() {
       if (repositoryId !== 'all') {
         void syncActionRef.current({ singleRepository: repositoryId });
       } else {
-        const recentRepos = Array.from(new Set(allRuns.slice(0, 3).map(r => r.repositoryId)));
+        const recentRepos = Array.from(new Set(allRunsRef.current.slice(0, 3).map(r => r.repositoryId)));
         void syncActionRef.current({ priorityRepositories: recentRepos });
       }
       void refetchAnalyticsRef.current();
@@ -172,7 +175,7 @@ export function CIActivityPage() {
     
     const interval = setInterval(triggerRefresh, 10000);
     return () => clearInterval(interval);
-  }, [isActive, repositoryId, allRuns]);
+  }, [isActive, repositoryId]);
 
   const selectRow = useCallback((id: string) => {
     const run = allRuns.find(r => r.id === id);

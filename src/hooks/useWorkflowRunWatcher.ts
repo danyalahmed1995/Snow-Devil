@@ -5,6 +5,8 @@ import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics
 import { useAuthStore } from '../stores/auth-store';
 import { fetchPullRequestRiskSnapshot } from '../simulator/simulator-github-api';
 import { saveSimulatorEventsToDb } from '../simulator/simulator-cache';
+import { useCIWatcherStore } from '../stores/ci-watcher-store';
+import { normalizeWorkflowRuns } from '../ci/ci-watcher';
 
 interface ApiResponse {
   status: number;
@@ -74,6 +76,27 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
       
       if (runRes.status >= 400) throw new Error('github_error_' + runRes.status);
       const runData = runRes.body as WorkflowRunDetails;
+      
+      const store = useCIWatcherStore.getState();
+      const repoKey = repositoryId.toLowerCase();
+      const existing = store.runsByRepository[repoKey] ?? [];
+      const normalizedRun = normalizeWorkflowRuns(repositoryId, { workflow_runs: [runData] })[0];
+      if (normalizedRun) {
+        let found = false;
+        const updatedRuns = existing.map(r => {
+          if (r.runId.toString() === runData.id.toString()) {
+            found = true;
+            return normalizedRun;
+          }
+          return r;
+        });
+        if (!found) updatedRuns.unshift(normalizedRun);
+        store.setRuns(repositoryId, updatedRuns);
+      }
+
+      if (isRunTerminal(runData.status, runData.conclusion)) {
+        window.dispatchEvent(new CustomEvent('snow-devil:ci-refresh'));
+      }
       
       // Save the updated run status to local DB so dashboard CI Activity is updated in real-time
       const session = useAuthStore.getState().session;

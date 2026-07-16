@@ -151,7 +151,7 @@ export function useAnalyticsData(options: { enabled?: boolean } = {}) {
   const liveQuery = useQuery({
     queryKey: getAnalyticsQueryKey(login),
     enabled: enabled && mode === 'live' && Boolean(login),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15_000,
     queryFn: async (): Promise<AnalyticsDataset> => {
       // Canonical analytics records supersede the legacy simulator/node tables.
       // Reading all three through one SQLite mutex during synchronization could
