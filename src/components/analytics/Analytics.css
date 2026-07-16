@@ -191,7 +191,7 @@
 .ci-activity-row__jobs { padding: 20px; background: color-mix(in srgb, var(--bg-primary) 40%, transparent); border-top: 1px solid var(--border-subtle); }
 .ci-jobs-loading, .ci-jobs-error, .ci-jobs-empty { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .ci-jobs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; align-items: start; }
-.ci-job-item { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 10px 14px; height: 58px; box-sizing: border-box; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; overflow: hidden; }
+.ci-job-item { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 12px 14px; height: 66px; box-sizing: border-box; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; overflow: hidden; }
 .ci-job-item-header { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; flex-shrink: 0; }
 .ci-job-item-footer { display: flex; align-items: center; justify-content: space-between; padding-left: 22px; min-width: 0; flex-shrink: 0; overflow: hidden; }
 .ci-job-item.state-success { border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)); }
@@ -206,7 +206,7 @@
 .ci-job-item.state-skipped:hover { border-color: var(--border-strong); }
 .ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ci-job-steps { color: var(--text-muted); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-.ci-job-duration { color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; flex-shrink: 0; }
+.ci-job-duration { color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
 /* Diagnostics Panel - GitHub Primer Style */
 .ci-diagnostics-panel { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
 .ci-diag-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-subtle); padding: 4px 12px; border-radius: 100px; background: var(--surface-panel); }

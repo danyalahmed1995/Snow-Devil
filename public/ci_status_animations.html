@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CI Status Animations & Designs</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap');
+
+    :root {
+      --bg-primary: #07101d;
+      --bg-secondary: #0a1626;
+      --bg-panel: #0d1b2e;
+      --text-primary: #ffffff;
+      --text-secondary: #9dbfeB;
+      --text-muted: #5b7b9e;
+      --border-subtle: rgba(157,190,235,0.1);
+      --accent: #3978ff;
+      --accent-glow: rgba(57, 120, 255, 0.4);
+      --success: #2ea043;
+      --warning: #d29922;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    .design-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .design-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin: 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .preview-box {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 16px;
+      height: 66px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end; /* Simulating the footer position */
+    }
+
+    /* Common Footer Layout */
+    .ci-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    /* =========================================
+       DESIGN 1: Glowing Pulse Dot
+       ========================================= */
+    .d1 .steps { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-muted); }
+    .d1 .running { 
+      font-family: 'Inter', sans-serif; 
+      font-size: 12px; 
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .d1 .pulse-dot {
+      width: 6px; height: 6px;
+      background: var(--warning);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.7);
+      animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(210, 153, 34, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(210, 153, 34, 0); }
+    }
+
+    /* =========================================
+       DESIGN 2: Gradient Flow & Outfit Font
+       ========================================= */
+    .d2 .steps { font-family: 'Outfit', sans-serif; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .d2 .running {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(90deg, #9dbfeB, #3978ff, #9dbfeB);
+      background-size: 200% auto;
+      color: transparent;
+      -webkit-background-clip: text;
+      animation: gradient-flow 2s linear infinite;
+    }
+    @keyframes gradient-flow {
+      to { background-position: 200% center; }
+    }
+
+    /* =========================================
+       DESIGN 3: Bouncing Ellipsis
+       ========================================= */
+    .d3 .steps { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-muted); }
+    .d3 .running { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-secondary); display: flex; }
+    .d3 .dot { animation: bounce 1.4s infinite ease-in-out both; }
+    .d3 .dot:nth-child(1) { animation-delay: -0.32s; }
+    .d3 .dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes bounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-3px); opacity: 1; }
+    }
+
+    /* =========================================
+       DESIGN 4: Cyberpunk Tech
+       ========================================= */
+    .d4 .steps { font-family: 'Fira Code', monospace; font-size: 11px; color: #0ff; opacity: 0.7; letter-spacing: 0.5px; }
+    .d4 .running {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      color: #f0f;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      animation: glitch 3s infinite;
+    }
+    @keyframes glitch {
+      0%, 96%, 100% { opacity: 1; transform: translateX(0); text-shadow: none; }
+      97% { opacity: 0.8; transform: translateX(-2px); text-shadow: 2px 0 #0ff; }
+      98% { opacity: 0.9; transform: translateX(2px); text-shadow: -2px 0 #f00; }
+      99% { opacity: 1; transform: translateX(0); text-shadow: none; }
+    }
+
+    /* =========================================
+       DESIGN 5: Glassmorphism Pill
+       ========================================= */
+    .d5 .steps {
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+      background: rgba(157, 190, 235, 0.1);
+      padding: 2px 8px;
+      border-radius: 100px;
+      color: var(--text-secondary);
+      border: 1px solid rgba(157, 190, 235, 0.2);
+    }
+    .d5 .running {
+      font-family: 'Inter', sans-serif; font-size: 12px; color: var(--accent); font-weight: 500;
+      animation: soft-pulse 2s infinite;
+    }
+    @keyframes soft-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* =========================================
+       DESIGN 6: Shimmer Sweep
+       ========================================= */
+    .d6 .steps { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted); }
+    .d6 .running {
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      color: rgba(255, 255, 255, 0.3);
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      animation: shimmer-sweep 2s infinite;
+    }
+    @keyframes shimmer-sweep {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    /* =========================================
+       DESIGN 7: Typing Cursor
+       ========================================= */
+    .d7 .steps { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+    .d7 .running {
+      font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--warning);
+      display: flex; align-items: center;
+    }
+    .d7 .cursor {
+      display: inline-block;
+      width: 6px; height: 12px;
+      background: var(--warning);
+      margin-left: 4px;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* =========================================
+       DESIGN 8: Minimal Animated Underline
+       ========================================= */
+    .d8 .steps { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text-muted); }
+    .d8 .running {
+      font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-secondary);
+      position: relative;
+    }
+    .d8 .running::after {
+      content: '';
+      position: absolute; left: 0; bottom: -2px; height: 1px;
+      background: var(--accent);
+      animation: underline-grow 1.5s infinite;
+    }
+    @keyframes underline-grow {
+      0% { width: 0; opacity: 1; left: 0; }
+      50% { width: 100%; opacity: 1; left: 0; }
+      100% { width: 100%; opacity: 0; left: 100%; transform: translateX(-100%); }
+    }
+
+    /* =========================================
+       DESIGN 9: Rotating Dash Array
+       ========================================= */
+    .d9 .steps { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-muted); }
+    .d9 .running {
+      font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .d9 .spinner {
+      width: 10px; height: 10px;
+      border: 2px solid var(--text-muted);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    /* =========================================
+       DESIGN 10: Elegant Fade Up Loop
+       ========================================= */
+    .d10 .steps { font-family: 'Outfit', sans-serif; font-size: 12px; color: var(--text-muted); }
+    .d10 .wrapper { position: relative; height: 16px; overflow: hidden; width: 60px; }
+    .d10 .running {
+      font-family: 'Outfit', sans-serif; font-size: 12px; color: var(--accent);
+      position: absolute;
+      width: 100%;
+      animation: fade-up 3s infinite;
+    }
+    .d10 .running:nth-child(2) {
+      animation-delay: 1.5s;
+    }
+    @keyframes fade-up {
+      0%, 10% { transform: translateY(100%); opacity: 0; }
+      20%, 40% { transform: translateY(0); opacity: 1; }
+      50%, 100% { transform: translateY(-100%); opacity: 0; }
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>CI Status Design Concepts</h1>
+  <p style="color: var(--text-muted); margin-bottom: 40px;">10 premium concepts for the <code>3 / 5 steps</code> and <code>Running...</code> text.</p>
+
+  <div class="container">
+    
+    <!-- Design 1 -->
+    <div class="design-card">
+      <h3 class="design-title">1. Glowing Pulse Indicator</h3>
+      <div class="preview-box d1">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <div class="running"><div class="pulse-dot"></div> Running...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 2 -->
+    <div class="design-card">
+      <h3 class="design-title">2. Gradient Flow (Outfit Font)</h3>
+      <div class="preview-box d2">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <span class="running">Running...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 3 -->
+    <div class="design-card">
+      <h3 class="design-title">3. Bouncing Ellipsis</h3>
+      <div class="preview-box d3">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <div class="running">Running<span class="dot">.</span><span class="dot">.</span><span class="dot">.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 4 -->
+    <div class="design-card">
+      <h3 class="design-title">4. Cyberpunk Tech (Fira Code)</h3>
+      <div class="preview-box d4">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <span class="running">Running...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 5 -->
+    <div class="design-card">
+      <h3 class="design-title">5. Glassmorphism Pill</h3>
+      <div class="preview-box d5">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <span class="running">Running...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 6 -->
+    <div class="design-card">
+      <h3 class="design-title">6. Shimmer Sweep</h3>
+      <div class="preview-box d6">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <span class="running">Running...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 7 -->
+    <div class="design-card">
+      <h3 class="design-title">7. Typing Cursor</h3>
+      <div class="preview-box d7">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <div class="running">Running<span class="cursor"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 8 -->
+    <div class="design-card">
+      <h3 class="design-title">8. Animated Underline</h3>
+      <div class="preview-box d8">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <span class="running">Running...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 9 -->
+    <div class="design-card">
+      <h3 class="design-title">9. Minimal Spinner Ring</h3>
+      <div class="preview-box d9">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <div class="running"><div class="spinner"></div> Running</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Design 10 -->
+    <div class="design-card">
+      <h3 class="design-title">10. Elegant Fade Swap</h3>
+      <div class="preview-box d10">
+        <div class="ci-footer">
+          <span class="steps">3 / 5 steps</span>
+          <div class="wrapper">
+            <div class="running">Running...</div>
+            <div class="running">Building...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
