@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(async (cmd, _args) => {
+  invoke: vi.fn(async (cmd) => {
     if (cmd === 'get_auth_status') {
       return {
         isAuthenticated: true,
