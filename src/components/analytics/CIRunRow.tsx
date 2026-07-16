@@ -290,7 +290,11 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
                       )}
                       <span className="ci-job-duration">
                         {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
-                        {job.started_at && !job.completed_at ? 'Running...' : ''}
+                        {job.started_at && !job.completed_at ? (
+                          <span className="ci-job-running-text">
+                            Running<span className="ci-job-cursor" />
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   </li>

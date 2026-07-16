@@ -205,8 +205,11 @@
 .ci-job-item.state-skipped { border-color: var(--border-subtle); }
 .ci-job-item.state-skipped:hover { border-color: var(--border-strong); }
 .ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ci-job-steps { color: var(--text-muted); font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-.ci-job-duration { color: var(--text-secondary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
+.ci-job-steps { color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
+.ci-job-duration { color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; white-space: nowrap; flex-shrink: 0; margin-left: auto; display: flex; align-items: center; }
+.ci-job-running-text { color: var(--warning); display: flex; align-items: center; }
+.ci-job-cursor { display: inline-block; width: 6px; height: 12px; background: var(--warning); margin-left: 4px; animation: ci-blink 1s step-end infinite; }
+@keyframes ci-blink { 50% { opacity: 0; } }
 /* Diagnostics Panel - GitHub Primer Style */
 .ci-diagnostics-panel { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
 .ci-diag-item { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-subtle); padding: 4px 12px; border-radius: 100px; background: var(--surface-panel); }
