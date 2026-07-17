@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { activeNotifications, DEFAULT_NOTIFICATION_PREFERENCES, effectiveUnread, formatNotificationCount, normalizeNotifications, notificationDestination, notificationTabTitle, useNotificationStore, type NativeNotification } from './notification-store';
+import { activeNotifications, DEFAULT_NOTIFICATION_PREFERENCES, effectiveUnread, formatNotificationCount, migrateNotificationState, normalizeNotifications, notificationDestination, notificationTabTitle, useNotificationStore, type NativeNotification } from './notification-store';
 
 const record = (overrides: Partial<NativeNotification> = {}): NativeNotification => ({ id: '1', unread: true, reason: 'mention', updatedAt: '2026-01-01T00:00:00Z', subject: { title: 'Mention', type: 'Issue', apiUrl: 'https://api.github.com/repos/owner/repo/issues/2' }, repository: { fullName: 'owner/repo' }, ...overrides });
 
@@ -18,6 +18,23 @@ describe('native notification state', () => {
 });
 
 describe('notification synchronization', () => {
+  it('forces one unconditional fetch when upgrading stale notification validators', () => {
+    const migrated = migrateNotificationState({
+      records: [],
+      syncByAccount: { octo: { initialized: true, seen: { old: '2026-01-01T00:00:00Z|read' }, etag: '""', lastModified: 'Thu, 02 Jan 2026 00:00:00 GMT', pollIntervalMs: 60_000 } },
+    }, 5) as { syncByAccount: Record<string, { etag?: string; lastModified?: string; seen: Record<string, string> }> };
+    expect(migrated.syncByAccount.octo.etag).toBeUndefined();
+    expect(migrated.syncByAccount.octo.lastModified).toBeUndefined();
+    expect(migrated.syncByAccount.octo.seen.old).toBe('2026-01-01T00:00:00Z|read');
+  });
+  it('clears a persisted empty ETag after a recovery response', () => {
+    useNotificationStore.setState({
+      syncByAccount: { octo: { initialized: true, seen: {}, etag: '""', lastModified: 'Wed, 01 Jan 2026 00:00:00 GMT', pollIntervalMs: 60_000 } },
+    });
+    useNotificationStore.getState().applySync('octo', [record()], { etag: null, lastModified: 'Thu, 02 Jan 2026 00:00:00 GMT' });
+    expect(useNotificationStore.getState().syncByAccount.octo.etag).toBeUndefined();
+    expect(useNotificationStore.getState().syncByAccount.octo.lastModified).toBe('Thu, 02 Jan 2026 00:00:00 GMT');
+  });
   it('makes baseline sync silent, then emits one arrival without replaying duplicates', () => {
     const store = useNotificationStore.getState();
     expect(store.applySync('octo', [record()])).toEqual([]);
@@ -25,6 +42,28 @@ describe('notification synchronization', () => {
     expect(useNotificationStore.getState().applySync('octo', [next, record()])).toEqual([expect.objectContaining({ id: next.id, updatedAt: next.updatedAt })]);
     expect(useNotificationStore.getState().arrivalCount).toBe(1);
     expect(useNotificationStore.getState().applySync('octo', [next, record()])).toEqual([]);
+  });
+  it('alerts when an unread issue thread receives a newer mention', () => {
+    useNotificationStore.getState().applySync('octo', [record({ reason: 'subscribed' })]);
+    useNotificationStore.getState().setRead('1', true);
+    expect(effectiveUnread(useNotificationStore.getState().records[0], useNotificationStore.getState().localRead)).toBe(false);
+    const mention = record({ reason: 'mention', updatedAt: '2026-01-01T00:01:00Z' });
+    expect(useNotificationStore.getState().applySync('octo', [mention])).toEqual([
+      expect.objectContaining({ id: '1', reason: 'mention' }),
+    ]);
+    expect(useNotificationStore.getState().localRead['1']).toBeUndefined();
+    expect(effectiveUnread(useNotificationStore.getState().records[0], useNotificationStore.getState().localRead)).toBe(true);
+    expect(useNotificationStore.getState().toast).toMatchObject({ title: 'mention', recordIds: ['1'] });
+    expect(useNotificationStore.getState().applySync('octo', [mention])).toEqual([]);
+  });
+  it('repairs an already-seen unread thread whose local read override is stale', () => {
+    const mention = record({ updatedAt: '2026-01-01T00:01:00Z', lastReadAt: '2026-01-01T00:00:30Z' });
+    useNotificationStore.getState().applySync('octo', [mention]);
+    useNotificationStore.getState().setRead('1', true);
+    expect(effectiveUnread(mention, useNotificationStore.getState().localRead)).toBe(false);
+    expect(useNotificationStore.getState().applySync('octo', [mention])).toEqual([]);
+    expect(useNotificationStore.getState().localRead['1']).toBeUndefined();
+    expect(effectiveUnread(useNotificationStore.getState().records[0], useNotificationStore.getState().localRead)).toBe(true);
   });
   it('aggregates arrivals from adjacent polling batches into one toast', () => {
     useNotificationStore.getState().applySync('octo', [record()]);

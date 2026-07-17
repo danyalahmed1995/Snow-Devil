@@ -226,15 +226,15 @@ const FLOW_STAGE_PREVIEW_LIMIT = 5;
 
 function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, source, countDisplay, onScroll, expansionKey, pendingScrollItemId, onConsumeScroll, isSurfaceActive, onFocusSettled, usesPipelineScroller }: { stage: { id: FlowStage; label: string }; items: FlowItem[]; selectedItemId?: string; onSelectItem?: (item: FlowItem) => void; onOpenItem?: (item: FlowItem) => void; source: SourceControls[keyof SourceControls]; countDisplay: string | number; onScroll: () => void; expansionKey: string; pendingScrollItemId?: string; onConsumeScroll?: () => void; isSurfaceActive: boolean; onFocusSettled: () => void; usesPipelineScroller: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const dismissedFocusTargetRef = useRef<string | null>(null);
+  const [dismissedFocusTarget, setDismissedFocusTarget] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(() => expandedStageCache.get(expansionKey) ?? false);
   React.useEffect(() => {
-    if (!pendingScrollItemId) dismissedFocusTargetRef.current = null;
+    if (!pendingScrollItemId) setDismissedFocusTarget(null);
   }, [pendingScrollItemId]);
   const hiddenWhenCollapsed = Math.max(0, items.length - FLOW_STAGE_PREVIEW_LIMIT);
   const shouldExpandForFocus = Boolean(
     pendingScrollItemId
-    && dismissedFocusTargetRef.current !== pendingScrollItemId
+    && dismissedFocusTarget !== pendingScrollItemId
     && items.slice(FLOW_STAGE_PREVIEW_LIMIT).some(item => item.id === pendingScrollItemId)
   );
   const isShowingAll = expanded || shouldExpandForFocus;
@@ -318,7 +318,7 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
   const toggleExpanded = () => {
     if (isShowingAll && hiddenWhenCollapsed > 0) {
       if (shouldExpandForFocus && pendingScrollItemId) {
-        dismissedFocusTargetRef.current = pendingScrollItemId;
+        setDismissedFocusTarget(pendingScrollItemId);
         requestAnimationFrame(() => onConsumeScroll?.());
       }
       expandedStageCache.set(expansionKey, false);

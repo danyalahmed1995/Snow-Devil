@@ -24,6 +24,13 @@ export function isNotificationApiPage(value: unknown): value is unknown[] {
   return Array.isArray(value);
 }
 
+/** GitHub's notifications endpoint sometimes emits a constant empty ETag. */
+export function normalizeNotificationEtag(value?: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  return !trimmed || trimmed === '""' ? null : trimmed;
+}
+
 export function normalizeApiNotifications(value: unknown): NativeNotification[] {
   if (!Array.isArray(value)) return [];
   return value.slice(0, 500).flatMap((item: ApiNotification) => item?.id && item.subject?.title && item.repository?.full_name ? [{

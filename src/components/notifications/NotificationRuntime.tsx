@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Bell, X } from 'lucide-react';
 import { useEffect } from 'react';
-import { isNotificationApiPage, normalizeApiNotifications, notificationRetryDelay, type NotificationPollResponse } from '../../services/notification-api';
+import { isNotificationApiPage, normalizeApiNotifications, normalizeNotificationEtag, notificationRetryDelay, type NotificationPollResponse } from '../../services/notification-api';
 import { notificationNavigationTarget } from '../../services/notification-navigation';
 import { playNotificationSound, releaseNotificationSound } from '../../services/notification-sound';
 import { useAuthStore } from '../../stores/auth-store';
@@ -97,7 +97,7 @@ export function NotificationRuntime() {
       try {
         const response = await invoke<NotificationPollResponse>('poll_github_notifications', { etag: metadata?.etag ?? null, lastModified: metadata?.lastModified ?? null });
         if (disposed || currentGeneration !== generation || useNotificationStore.getState().activeAccount !== account.toLowerCase()) return;
-        const validators = { etag: response.etag, lastModified: response.lastModified, pollIntervalMs: Math.max(60_000, (response.pollIntervalSeconds || 60) * 1000), checkedAt: new Date().toISOString() };
+        const validators = { etag: normalizeNotificationEtag(response.etag), lastModified: response.lastModified, pollIntervalMs: Math.max(60_000, (response.pollIntervalSeconds || 60) * 1000), checkedAt: new Date().toISOString() };
         if (response.status === 304) useNotificationStore.getState().markPollSuccess(account, validators);
         else if (response.status >= 200 && response.status < 300) {
           if (!isNotificationApiPage(response.body)) throw new Error('notification_response_invalid');
