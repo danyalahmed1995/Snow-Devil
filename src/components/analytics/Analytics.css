@@ -159,9 +159,9 @@
 .ci-activity-row__status .status-icon--failure { color: var(--danger) !important; }
 .ci-activity-row__status .status-icon--queued { color: var(--warning) !important; }
 
-.ci-activity-row__primary { display: flex; flex-direction: column; justify-content: center; gap: 4px; overflow: hidden; }
+.ci-activity-row__primary { min-width: 0; display: flex; flex-direction: column; align-self: center; justify-content: center; gap: 4px; overflow: hidden; }
 .ci-title { color: var(--text-primary); font-size: 13px; font-weight: 500; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
-.ci-commit-msg { color: var(--text-secondary); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-commit-msg { color: var(--text-secondary); font-size: 12px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ci-activity-row__tags { display: flex; align-items: flex-start; gap: 8px; flex-wrap: nowrap; overflow: hidden; }
 .ci-activity-row__git-tags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; }
@@ -191,9 +191,9 @@
 .ci-activity-row__jobs { padding: 20px; background: color-mix(in srgb, var(--bg-primary) 40%, transparent); border-top: 1px solid var(--border-subtle); }
 .ci-jobs-loading, .ci-jobs-error, .ci-jobs-empty { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .ci-jobs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; align-items: start; }
-.ci-job-item { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 12px 14px; height: 66px; box-sizing: border-box; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; overflow: hidden; }
-.ci-job-item-header { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; flex-shrink: 0; }
-.ci-job-item-footer { display: flex; align-items: baseline; justify-content: space-between; padding-left: 22px; width: 100%; box-sizing: border-box; min-width: 0; flex-shrink: 0; overflow: hidden; }
+.ci-job-item { display: grid; grid-template-rows: 16px 12px; align-content: center; gap: 6px; padding: 12px 14px; height: 66px; box-sizing: border-box; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; overflow: hidden; }
+.ci-job-item-header { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.ci-job-item-footer { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; overflow: hidden; }
 .ci-job-item.state-success { border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)); }
 .ci-job-item.state-success:hover { border-color: var(--success); }
 .ci-job-item.state-failure { border-color: color-mix(in srgb, var(--danger) 20%, var(--border-subtle)); }
@@ -204,11 +204,11 @@
 .ci-job-item.state-queued:hover { border-color: var(--warning); }
 .ci-job-item.state-skipped { border-color: var(--border-subtle); }
 .ci-job-item.state-skipped:hover { border-color: var(--border-strong); }
-.ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ci-job-steps { color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; white-space: nowrap; flex-shrink: 0; }
-.ci-job-duration { color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; white-space: nowrap; flex-shrink: 0; margin-left: auto; display: flex; align-items: baseline; }
-.ci-job-running-text { color: var(--warning); display: flex; align-items: baseline; text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
-.ci-job-cursor { display: inline-block; width: 5px; height: 10px; background: var(--warning); margin-left: 5px; animation: ci-blink 1s step-end infinite; }
+.ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-job-steps { min-width: 0; justify-self: start; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-job-duration { justify-self: end; color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; }
+.ci-job-running-text { color: var(--warning); display: inline-flex; align-items: center; line-height: 1; text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
+.ci-job-cursor { width: 3px; height: 7px; flex: 0 0 auto; background: var(--warning); margin-left: 3px; animation: ci-blink 1s step-end infinite; }
 @keyframes ci-blink { 50% { opacity: 0; } }
 /* Diagnostics Panel - GitHub Primer Style */
 .ci-diagnostics-panel { background: var(--bg-primary); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 16px; display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
