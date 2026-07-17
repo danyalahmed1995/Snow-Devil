@@ -85,6 +85,7 @@ pub fn run() {
             commands::diagnostics::get_leak_diagnostics,
             commands::notifications::poll_github_notifications,
             commands::notifications::mark_github_notification_read,
+            commands::screenshot::capture_region_to_clipboard,
             // Browser commands
             browser::commands::browser_create,
             browser::commands::browser_activate,

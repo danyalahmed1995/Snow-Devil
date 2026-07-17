@@ -1,0 +1,10 @@
+.screenshot-selection-layer{position:fixed;inset:0;z-index:9500;pointer-events:none;cursor:crosshair;background:rgba(1,7,18,.2)}
+.screenshot-selection{position:absolute;box-sizing:border-box;border:1px solid color-mix(in srgb,var(--accent) 85%,white);background:rgba(38,111,255,.08);box-shadow:0 0 0 1px rgba(255,255,255,.24),0 0 20px rgba(38,111,255,.32)}
+.screenshot-selection::before{content:"";position:absolute;inset:-1px;box-shadow:0 0 0 9999px rgba(1,7,18,.42)}
+.screenshot-selection span{position:absolute;right:0;bottom:-24px;padding:3px 6px;border:1px solid var(--border-standard);border-radius:4px;background:var(--surface-inspector);color:var(--text-primary);font-size:9px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.screenshot-toast{z-index:9600}
+.screenshot-toast .notification-arrival-main{cursor:default}
+.screenshot-toast--success .notification-arrival-main>svg{color:var(--success)}
+.screenshot-toast--error{border-color:color-mix(in srgb,var(--danger) 45%,var(--border-standard))}
+.screenshot-toast--error .notification-arrival-main>svg{color:var(--danger)}
+html[data-reduced-motion="true"] .screenshot-selection{box-shadow:0 0 0 1px rgba(255,255,255,.24)}

@@ -14,6 +14,7 @@ import { TooltipProvider } from '../components/ui/Tooltip';
 import { NotificationRuntime } from '../components/notifications/NotificationRuntime';
 import { CIWatcherRuntime } from '../components/ci/CIWatcherRuntime';
 import { OpenPullRequestRuntime } from '../components/workspace/OpenPullRequestRuntime';
+import { ScreenshotRuntime } from '../components/screenshot/ScreenshotRuntime';
 
 function BrowserEventOrchestrator() {
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function App() {
       <AppErrorBoundary>
         <TooltipProvider>
           <NotificationRuntime />
+          <ScreenshotRuntime />
           <CIWatcherRuntime />
           <OpenPullRequestRuntime />
           <Layout />

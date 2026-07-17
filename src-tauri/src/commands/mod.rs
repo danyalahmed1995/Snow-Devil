@@ -7,5 +7,6 @@ pub mod flow;
 pub mod notifications;
 pub mod repo;
 pub mod reset;
+pub mod screenshot;
 pub mod simulator;
 pub mod sync;
