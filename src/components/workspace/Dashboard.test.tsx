@@ -69,7 +69,22 @@ describe('Dashboard (Home)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Pull request #186/ }));
     expect(useFlowStore.getState().getTabState('native:home').selectedFlowItem?.id).toBe('demo-pr-186');
     fireEvent.click(screen.getByRole('button', { name: /Failing Checks:/ }));
-    expect(useFlowStore.getState().getTabState('native:flow').statusFilter).toBe('failing');
+    expect(useFlowStore.getState().getTabState('native:flow')).toMatchObject({
+      statusFilter: 'failing',
+      filterStage: 'checks',
+      hideEmptyStages: false,
+      sourceContext: 'Opened from Home: Failing checks',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Reviews Requested:/ }));
+    expect(useFlowStore.getState().getTabState('native:flow')).toMatchObject({ statusFilter: 'waiting_review', filterStage: 'review' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Recently Merged/ }));
+    expect(useFlowStore.getState().getTabState('native:flow')).toMatchObject({ statusFilter: 'merged', filterStage: 'merged' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Needs Attention:/ }));
+    expect(useFlowStore.getState().getTabState('native:flow')).toMatchObject({ statusFilter: 'attention', hideEmptyStages: true });
+    expect(useFlowStore.getState().getTabState('native:flow').filterStage).toBeUndefined();
   });
 
   it('reveals the matching pipeline card when an item is selected from a bottom panel', async () => {

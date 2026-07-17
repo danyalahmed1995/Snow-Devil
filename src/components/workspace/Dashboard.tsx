@@ -24,6 +24,13 @@ interface RepoCard { id: string; name: string; description: string | null; updat
 type MetricFilter = 'attention' | 'waiting_review' | 'failing' | 'merged';
 let homeScrollTop = 0;
 
+export function homeMetricFlowStage(filter: MetricFilter): FlowStage | undefined {
+  if (filter === 'waiting_review') return 'review';
+  if (filter === 'failing') return 'checks';
+  if (filter === 'merged') return 'merged';
+  return undefined;
+}
+
 function relativeTime(timestamp: string, reference: number): string {
   if (!timestamp) return 'Activity unavailable';
   const hours = Math.max(0, Math.floor((reference - new Date(timestamp).getTime()) / 3600000));
@@ -194,9 +201,18 @@ export function Dashboard() {
   );
 
   const openFlow = (stage?: FlowStage, statusFilter: MetricFilter | 'all' = 'all') => {
-    const stageLabel = stage ? WORKFLOW_STAGES.find(value => value.id === stage)?.label : undefined;
+    const focusedStage = stage ?? (statusFilter === 'all' ? undefined : homeMetricFlowStage(statusFilter));
+    const stageLabel = focusedStage ? WORKFLOW_STAGES.find(value => value.id === focusedStage)?.label : undefined;
     const statusLabel = statusFilter === 'attention' ? 'Needs attention' : statusFilter === 'waiting_review' ? 'Reviews requested' : statusFilter === 'failing' ? 'Failing checks' : statusFilter === 'merged' ? 'Recently merged' : undefined;
-    setTabState('native:flow', { scope: 'account', filterStage: stage, statusFilter, search: '', sourceContext: stageLabel ?? statusLabel ? `Opened from Home: ${stageLabel ?? statusLabel}` : undefined });
+    const sourceLabel = statusLabel ?? stageLabel;
+    setTabState('native:flow', {
+      scope: 'account',
+      filterStage: focusedStage,
+      hideEmptyStages: statusFilter === 'attention',
+      statusFilter,
+      search: '',
+      sourceContext: sourceLabel ? `Opened from Home: ${sourceLabel}` : undefined,
+    });
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
   const openFlowForItem = (item: FlowItem) => {

@@ -6,6 +6,7 @@ import './ScreenshotRuntime.css';
 interface Point { x: number; y: number }
 interface Selection { x: number; y: number; width: number; height: number }
 type Toast = { kind: 'success' | 'error'; title: string; body: string };
+export const SCREENSHOT_HOLD_DELAY_MS = 350;
 
 export function selectionFromPoints(start: Point, end: Point): Selection {
   return {
@@ -25,7 +26,26 @@ export function ScreenshotRuntime() {
 
   useEffect(() => {
     let toastTimer: number | undefined;
+    let holdTimer: number | undefined;
+    let contextTimer: number | undefined;
     let capturing = false;
+    let gestureActive = false;
+    let pressStart: Point | null = null;
+    let latestPoint: Point | null = null;
+    let suppressNextContextMenu = false;
+
+    const clearHold = () => {
+      if (holdTimer !== undefined) window.clearTimeout(holdTimer);
+      holdTimer = undefined;
+    };
+    const resetGesture = () => {
+      clearHold();
+      gestureActive = false;
+      pressStart = null;
+      latestPoint = null;
+      start.current = null;
+      setSelection(null);
+    };
 
     const dismissLater = () => {
       if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -33,21 +53,36 @@ export function ScreenshotRuntime() {
     };
     const down = (event: PointerEvent) => {
       if (event.button !== 2 || capturing) return;
-      event.preventDefault();
-      start.current = { x: event.clientX, y: event.clientY };
-      setSelection({ x: event.clientX, y: event.clientY, width: 0, height: 0 });
+      resetGesture();
+      pressStart = { x: event.clientX, y: event.clientY };
+      latestPoint = pressStart;
+      holdTimer = window.setTimeout(() => {
+        if (!pressStart || !latestPoint) return;
+        gestureActive = true;
+        start.current = pressStart;
+        setSelection(selectionFromPoints(pressStart, latestPoint));
+      }, SCREENSHOT_HOLD_DELAY_MS);
     };
     const move = (event: PointerEvent) => {
-      if (!start.current || (event.buttons & 2) === 0) return;
+      if (!pressStart || (event.buttons & 2) === 0) return;
+      latestPoint = { x: event.clientX, y: event.clientY };
+      if (!gestureActive || !start.current) return;
       event.preventDefault();
-      setSelection(selectionFromPoints(start.current, { x: event.clientX, y: event.clientY }));
+      setSelection(selectionFromPoints(start.current, latestPoint));
     };
     const finish = async (event: PointerEvent) => {
-      if (event.button !== 2 || !start.current || capturing) return;
+      if (event.button !== 2 || !pressStart || capturing) return;
+      clearHold();
+      if (!gestureActive || !start.current) {
+        resetGesture();
+        return;
+      }
       event.preventDefault();
       const area = selectionFromPoints(start.current, { x: event.clientX, y: event.clientY });
-      start.current = null;
-      setSelection(null);
+      suppressNextContextMenu = true;
+      if (contextTimer !== undefined) window.clearTimeout(contextTimer);
+      contextTimer = window.setTimeout(() => { suppressNextContextMenu = false; }, 250);
+      resetGesture();
       if (area.width < 4 || area.height < 4) return;
 
       capturing = true;
@@ -65,15 +100,19 @@ export function ScreenshotRuntime() {
       }
     };
     const cancel = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !start.current) return;
+      if (event.key !== 'Escape' || !pressStart) return;
       event.preventDefault();
-      start.current = null;
-      setSelection(null);
+      resetGesture();
     };
     const cancelLostPointer = () => {
-      if (!start.current) return;
-      start.current = null;
-      setSelection(null);
+      if (!pressStart) return;
+      resetGesture();
+    };
+    const contextMenu = (event: MouseEvent) => {
+      if (!gestureActive && !suppressNextContextMenu) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      suppressNextContextMenu = false;
     };
 
     window.addEventListener('pointerdown', down, true);
@@ -82,14 +121,18 @@ export function ScreenshotRuntime() {
     window.addEventListener('pointercancel', cancelLostPointer, true);
     window.addEventListener('blur', cancelLostPointer);
     window.addEventListener('keydown', cancel, true);
+    window.addEventListener('contextmenu', contextMenu, true);
     return () => {
       if (toastTimer !== undefined) window.clearTimeout(toastTimer);
+      clearHold();
+      if (contextTimer !== undefined) window.clearTimeout(contextTimer);
       window.removeEventListener('pointerdown', down, true);
       window.removeEventListener('pointermove', move, true);
       window.removeEventListener('pointerup', finish, true);
       window.removeEventListener('pointercancel', cancelLostPointer, true);
       window.removeEventListener('blur', cancelLostPointer);
       window.removeEventListener('keydown', cancel, true);
+      window.removeEventListener('contextmenu', contextMenu, true);
     };
   }, []);
 
