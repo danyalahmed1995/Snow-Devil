@@ -288,7 +288,12 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
                           {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
                         </span>
                       )}
-                      <span className="ci-job-duration">
+                      {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
+                        <span className="ci-job-failed-step" title={`Failed: ${job.steps.find(s => s.conclusion === 'failure')?.name}`}>
+                          Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+                        </span>
+                      )}
+                      <span className={`ci-job-duration${job.started_at && job.completed_at ? ' ci-job-duration--finished' : ''}`}>
                         {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
                         {job.started_at && !job.completed_at ? (
                           <span className="ci-job-running-text">
@@ -309,4 +314,3 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
 }
 
 export const CIRunRow = memo(CIRunRowComponent);
-

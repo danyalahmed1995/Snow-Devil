@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, FolderSearch, Pause, Play, RotateCcw, X } from 'lucide-react';
 import { useAccountSimulator } from '../../hooks/useAccountSimulator';
 import { useRepositorySimulator } from '../../hooks/useRepositorySimulator';
 import { useSimulatorPlayback } from '../../hooks/useSimulatorPlayback';
@@ -420,7 +420,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     : historyStatus.headline;
 
   const renderHistory = () => {
-    if (mode === 'repository' && !selectedRepo) return <div className="simulator-load-state"><div><h3>Select a repository</h3><p>Choose a repository to explore what existed, what was active, and what had completed by a date.</p></div></div>;
+    if (mode === 'repository' && !selectedRepo) return <div className="simulator-load-state simulator-load-state--centered"><div><FolderSearch className="simulator-empty-icon" size={48} /><h3>Select a repository</h3><p>Choose a repository to explore what existed, what was active, and what had completed by a date.</p></div></div>;
     if (loadState === 'error') {
       const failure = details.refreshError ?? details.sourceFailures[0];
       const category = failure?.category ?? 'unknown';
