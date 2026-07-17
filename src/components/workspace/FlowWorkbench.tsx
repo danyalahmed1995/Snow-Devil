@@ -22,6 +22,7 @@ import '../saved-views/SavedViewsMenu.css';
 import { useAuthStore } from '../../stores/auth-store';
 import { queryClient } from '../../app/providers';
 import { useCurrentTabId } from './TabInstanceContext';
+import { WorkspaceLoadingState } from './WorkspaceLoadingState';
 
 function flattenSourcePages(
   data: any, 
@@ -472,9 +473,7 @@ export function FlowWorkbench() {
             <p>Use the dropdown above to select a repository and view its flow.</p>
           </div>
         ) : isLoading ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-            Loading {scope} flow...
-          </div>
+          <WorkspaceLoadingState title={`Loading ${scope} flow…`} detail="Fetching items and pipeline status from cache." />
         ) : error && items.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
             Error loading flow: {(error as Error).message}

@@ -69,7 +69,18 @@ describe('FlowPipeline', () => {
     expect(screen.getAllByRole('button', { name: /issue #/i })).toHaveLength(8);
     fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }));
     expect(screen.getAllByRole('button', { name: /issue #/i })).toHaveLength(5);
+    expect(screen.getByRole('button', { name: 'Show 3 more' })).toBeInTheDocument();
     expect(document.querySelector('[data-stage-id="issues"]')).toHaveClass('flow-stage-content');
+  });
+
+  it('keeps the expansion control stable when a pending focus temporarily reveals a hidden card', () => {
+    const onConsumeScroll = vi.fn();
+    render(<FlowPipeline items={Array.from({ length: 8 }, (_, index) => flowItem(index + 1))} sourceControls={sources} pendingScrollItemId="item-8" onConsumeScroll={onConsumeScroll} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }));
+
+    expect(screen.getAllByRole('button', { name: /issue #/i })).toHaveLength(5);
+    expect(screen.getByRole('button', { name: 'Show 3 more' })).toBeInTheDocument();
   });
 
   it('selects on click and opens on Enter or double click', () => {
