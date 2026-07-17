@@ -5,7 +5,7 @@ import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store
 import { useFlowStore } from '../../stores/flow-store';
 import { useFocusPreferencesStore } from '../../stores/focus-preferences-store';
 import { useModeStore } from '../../stores/mode-store';
-import { CIActivityPage } from './CIActivityPage';
+import { CIActivityPage, recentDistinctCIRepositories, repositoriesWithWorkflowRuns } from './CIActivityPage';
 import { FlowAnalyticsPage } from './FlowAnalyticsPage';
 import { InventoryPage } from './InventoryPage';
 import { PersonalFocusPage } from './PersonalFocusPage';
@@ -30,6 +30,23 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(screen.getByText('Passed')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Status filter'));
     fireEvent.click(screen.getByRole('option', { name: 'Failed' }));
+  });
+
+  it('matches mixed-case workflow repositories and selects recent repositories distinctly', () => {
+    const repositories = [
+      { id: 'danyalahmed1995/snow-devil', nameWithOwner: 'danyalahmed1995/Snow-Devil' },
+      { id: 'danyalahmed1995/vulkan-hpp', nameWithOwner: 'danyalahmed1995/Vulkan-Hpp' },
+    ];
+    const runs = [
+      { repositoryId: 'danyalahmed1995/Snow-Devil' },
+      { repositoryId: 'danyalahmed1995/snow-devil' },
+      { repositoryId: 'danyalahmed1995/Vulkan-Hpp' },
+    ];
+    expect(repositoriesWithWorkflowRuns(repositories, runs)).toEqual(repositories);
+    expect(recentDistinctCIRepositories(runs)).toEqual([
+      'danyalahmed1995/Snow-Devil',
+      'danyalahmed1995/Vulkan-Hpp',
+    ]);
   });
 
   it('switches among all historical analytics tabs', () => {

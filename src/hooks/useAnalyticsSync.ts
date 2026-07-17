@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { cancelAnalyticsSync, coverageFor, getAnalyticsSyncState, isAnalyticsSyncActive, startAnalyticsSync, subscribeAnalyticsSync, syncTargetedRepository, getCIFreshness, isCIRefreshInFlight, type AnalyticsSyncState } from '../analytics/sync';
+import { cancelAnalyticsSync, coverageFor, getAnalyticsSyncState, isAnalyticsSyncActive, startAnalyticsSync, subscribeAnalyticsSync, syncTargetedRepository, syncPriorityCIRepositories, getCIFreshness, isCIRefreshInFlight, type AnalyticsSyncState } from '../analytics/sync';
 import { useAnalyticsSettingsStore } from '../stores/analytics-settings-store';
 import { useAuthStore } from '../stores/auth-store';
 import { useModeStore } from '../stores/mode-store';
@@ -59,14 +59,18 @@ export function useAnalyticsSync(options: { enabled?: boolean } = {}) {
     return () => { window.clearTimeout(timer); unsubscribe(); };
   }, [account, enabled, refresh]);
   const isTargetSyncing = useCallback((repo: string) => account ? isCIRefreshInFlight(repo) : false, [account]);
-  const sync = useCallback(async (options?: { priorityRepositories?: string[], singleRepository?: string }) => {
+  const sync = useCallback(async (options?: { priorityRepositories?: string[], singleRepository?: string, ciOnly?: boolean }) => {
     if (!account) return;
     if (options?.singleRepository) {
-      await syncTargetedRepository(account, options.singleRepository);
+      if (options.ciOnly) await syncPriorityCIRepositories(account, [options.singleRepository]);
+      else await syncTargetedRepository(account, options.singleRepository);
     } else if (options?.priorityRepositories && options.priorityRepositories.length > 0) {
-      await Promise.all(
-        options.priorityRepositories.map(repo => syncTargetedRepository(account, repo).catch(() => {}))
-      );
+      if (options.ciOnly) await syncPriorityCIRepositories(account, options.priorityRepositories);
+      else {
+        await Promise.all(
+          options.priorityRepositories.map(repo => syncTargetedRepository(account, repo).catch(() => {}))
+        );
+      }
     } else {
       await startAnalyticsSync(account, settings);
     }

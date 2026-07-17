@@ -225,11 +225,13 @@ export function coverageFor(state: AnalyticsSyncState | null, settings: Analytic
 }
 
 const inFlightCIRefreshes = new Map<string, Promise<void>>();
-export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(repoName); }
+function ciRefreshKey(repoName: string) { return repoName.trim().toLowerCase(); }
+export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(ciRefreshKey(repoName)); }
 export function getCIFreshness(repoName: string) { return localStorage.getItem(`ci-freshness-${repoName}`); }
 
 export async function syncTargetedRepository(account: string, repo: string) {
-  if (inFlightCIRefreshes.has(repo)) return inFlightCIRefreshes.get(repo);
+  const refreshKey = ciRefreshKey(repo);
+  if (inFlightCIRefreshes.has(refreshKey)) return inFlightCIRefreshes.get(refreshKey);
   const promise = (async () => {
     try {
       const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -253,9 +255,41 @@ export async function syncTargetedRepository(account: string, repo: string) {
         // Query invalidation is best-effort after a targeted CI refresh.
       }
     } finally {
-      inFlightCIRefreshes.delete(repo);
+      inFlightCIRefreshes.delete(refreshKey);
     }
   })();
-  inFlightCIRefreshes.set(repo, promise);
+  inFlightCIRefreshes.set(refreshKey, promise);
   return promise;
+}
+
+/**
+ * Refreshes only the newest Actions page for a small set of repositories.
+ * This is safe to run beside the historical account sync: it avoids PR/issue
+ * reads, caps repository fan-out, and publishes the resulting records once.
+ */
+export async function syncPriorityCIRepositories(account: string, repositories: string[]) {
+  const uniqueRepositories = Array.from(
+    new Map(repositories.filter(Boolean).map(repo => [ciRefreshKey(repo), repo] as const)).values(),
+  ).slice(0, 3);
+  if (uniqueRepositories.length === 0) return;
+
+  await Promise.allSettled(uniqueRepositories.map(repo => {
+    const refreshKey = ciRefreshKey(repo);
+    const existing = inFlightCIRefreshes.get(refreshKey);
+    if (existing) return existing;
+    const promise = (async () => {
+      try {
+        const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
+        const [owner, name] = repo.split('/').map(encodeURIComponent);
+        await paged(account, repo, 'workflow_run', page => `/repos/${owner}/${name}/actions/runs?per_page=100&page=${page}`, boundary, 1, false);
+        localStorage.setItem(`ci-freshness-${repo}`, new Date().toISOString());
+      } finally {
+        inFlightCIRefreshes.delete(refreshKey);
+      }
+    })();
+    inFlightCIRefreshes.set(refreshKey, promise);
+    return promise;
+  }));
+
+  await publishAnalyticsRecords(account);
 }

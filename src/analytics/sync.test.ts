@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_ANALYTICS_SETTINGS } from '../stores/analytics-settings-store';
-import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, shouldPublishAnalyticsBatch, startAnalyticsSync, type AnalyticsSyncState } from './sync';
+import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, shouldPublishAnalyticsBatch, startAnalyticsSync, syncPriorityCIRepositories, type AnalyticsSyncState } from './sync';
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
@@ -21,6 +21,20 @@ describe('connected analytics synchronization', () => {
     expect(shouldPublishAnalyticsBatch(5, 94)).toBe(true);
     expect(shouldPublishAnalyticsBatch(93, 94)).toBe(false);
     expect(shouldPublishAnalyticsBatch(94, 94)).toBe(true);
+  });
+
+  it('priority-refreshes one Actions page for at most three distinct repositories', async () => {
+    invoke.mockImplementation(async (command: string) => {
+      if (command === 'analytics_fetch_rest') return api([]);
+      return undefined;
+    });
+    await syncPriorityCIRepositories('octo', ['octo/app', 'OCTO/APP', 'octo/api', 'octo/web', 'octo/ignored']);
+    const endpoints = invoke.mock.calls
+      .filter(([command]) => command === 'analytics_fetch_rest')
+      .map(([, args]) => String(args.endpoint));
+    expect(endpoints).toHaveLength(3);
+    expect(endpoints.every(endpoint => endpoint.includes('/actions/runs?per_page=100&page=1'))).toBe(true);
+    expect(endpoints.every(endpoint => !endpoint.includes('/issues') && !endpoint.includes('/pulls'))).toBe(true);
   });
 
   it('runs staged first sync, paginates, chunks records, and completes idempotently', async () => {
