@@ -1,0 +1,204 @@
+.about-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  animation: about-modal-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.about-modal {
+  position: relative;
+  width: 640px;
+  max-width: 90vw;
+  background: var(--surface-glass);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px inset rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  animation: about-modal-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.about-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 140px;
+  background: linear-gradient(135deg, rgba(0, 191, 255, 0.25), rgba(214, 168, 75, 0.15));
+  z-index: 0;
+  mask-image: linear-gradient(to bottom, black, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+  pointer-events: none;
+}
+
+.about-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.about-modal-close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+.about-modal-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  z-index: 1;
+}
+
+.about-modal-icon-wrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: var(--surface-panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: var(--accent);
+  border: 1px solid var(--border-subtle);
+  animation: about-icon-pulse 2.5s infinite alternate ease-in-out;
+}
+
+.about-modal-icon-wrapper img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.about-modal-header h2 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.about-modal-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.about-modal-content {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  z-index: 1;
+}
+
+.about-link-card {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.about-link-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.about-link-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.about-link-card:hover::after {
+  transform: translateX(100%);
+}
+
+.about-link-card svg, .about-link-card img {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  color: var(--text-primary);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.about-link-card:hover svg, .about-link-card:hover img {
+  color: var(--accent);
+}
+
+.about-link-card.snow-devil-card:hover img {
+  filter: drop-shadow(0 0 8px var(--accent));
+}
+
+.about-link-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about-link-text h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.about-link-text span {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+@keyframes about-modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes about-modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes about-icon-pulse {
+  from { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(0, 191, 255, 0.3); }
+  to { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 12px rgba(0, 191, 255, 0); }
+}

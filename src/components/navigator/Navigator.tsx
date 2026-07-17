@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
-import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
+import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
 import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
 import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';
 import { useAccountRepositories } from '../../hooks/useAccountContext';
+import { AboutModal } from './AboutModal';
 
 export function Navigator() {
+  const [showAbout, setShowAbout] = useState(false);
   const { session, disconnect } = useAuthStore();
   const { openNativeTab, openBrowserTab, activeTabId, tabs } = useTabsStore();
   const savedViews = useSavedViewsStore(state => state.views);
@@ -111,7 +114,9 @@ export function Navigator() {
       if (unavailableOrganizations) displayCount = '!';
       if (partialOrganizations) displayCount = `${counts.organizations ?? 0}+`;
       return <li key={shortcut.tabId}><button className={`nav-item ${isActive ? 'active' : ''}`} data-tooltip={unavailableOrganizations || partialOrganizations ? session.status === 'connected' ? session.account.organizations?.message : undefined : countKey ? countSemantics[countKey] : `${shortcut.label}\nOpen or activate this Snow Devil workspace.`} onClick={() => handleSelect(shortcut)} aria-current={isActive ? 'page' : undefined}><span className="nav-item__label">{icons[shortcut.tabId]}<span>{shortcut.label}</span></span>{displayCount !== null && <span className="badge">{displayCount}</span>}</button></li>;
-    })}</ul>
+    })}
+    {label === 'Navigation' && <li><button className="nav-item" onClick={() => setShowAbout(true)}><span className="nav-item__label"><Info size={15}/><span>About</span></span></button></li>}
+    </ul>
   </section>;
 
   return (
@@ -129,6 +134,7 @@ export function Navigator() {
           <button className="navigator-account__action" aria-label="Sign out" data-tooltip="Sign out\nDisconnect GitHub and clear account-scoped runtime state." onClick={() => void disconnect()}><LogOut size={14} /></button>
         </> : <div className="navigator-account__disconnected"><CircleUserRound size={24} /><span><strong>GitHub account</strong><small>{session.status === 'checking' ? 'Checking connection…' : 'Not connected'}</small></span></div>}
       </footer>
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </div>
   );
 }
