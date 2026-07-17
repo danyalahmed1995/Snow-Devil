@@ -15,7 +15,7 @@ import type { FlowItem } from '../../types/flow';
 import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-presentation';
 import type { WorkItemOpenTarget, WorkSurface } from '../../lib/work-item-open-actions';
 import { WorkItemOpenActions } from '../work-items/WorkItemOpenActions';
-import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
+import { StatusIcon, formatDurationCompact, shouldUseDenseCIJobRendering } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useArchitectureStore } from '../../architecture/architecture-store';
@@ -178,7 +178,7 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
       {error && <div className="ci-jobs-error">{error.message === 'missing_workflow_scope' ? 'Missing workflow permission. Please reconnect GitHub in Settings.' : 'Failed to load jobs'}</div>}
       {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
       {jobs && jobs.length > 0 && (
-        <ul className="ci-jobs-list">
+        <ul className={`ci-jobs-list${shouldUseDenseCIJobRendering(jobs.length) ? ' ci-jobs-list--dense' : ''}`}>
           {jobs.map(job => (
             <li 
               key={job.id} 

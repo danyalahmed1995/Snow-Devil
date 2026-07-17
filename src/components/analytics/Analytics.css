@@ -192,6 +192,11 @@
 .ci-jobs-loading, .ci-jobs-error, .ci-jobs-empty { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
 .ci-jobs-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; align-items: start; }
 .ci-job-item { display: grid; grid-template-rows: 16px 12px; align-content: center; gap: 6px; padding: 12px 14px; height: 66px; box-sizing: border-box; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--surface-nested); font-size: 12px; transition: all 0.2s ease; cursor: pointer; overflow: hidden; }
+.ci-jobs-list--dense .ci-job-item { contain: layout paint style; transition: border-color 0.15s ease; }
+/* Large matrices keep their motion, but drop the costly per-spinner glow and
+   easing. Transform/opacity-only animations stay on the compositor path. */
+.ci-jobs-list--dense .status-icon-wrapper.state-running .spinner-ring { animation: spin 1.1s linear infinite; filter: none; transition: none; }
+.ci-jobs-list--dense .ci-job-cursor { animation: ci-blink 1.35s step-end infinite; }
 .ci-job-item-header { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
 .ci-job-item-footer { width: 100%; min-width: 0; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding-left: 22px; overflow: hidden; }
 .ci-job-item.state-success { border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)); }

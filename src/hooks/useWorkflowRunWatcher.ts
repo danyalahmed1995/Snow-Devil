@@ -46,6 +46,32 @@ export interface RunWatcherState {
   jobs: WorkflowJob[];
 }
 
+// A run watcher polls frequently while CI is active. GitHub commonly returns the
+// exact same run payload between job updates, so avoid rewriting SQLite and
+// invalidating the full analytics dataset until the run itself has changed.
+const persistedRunMarkers = new Map<string, string>();
+const MAX_PERSISTED_RUN_MARKERS = 200;
+
+export function workflowRunPersistenceMarker(run: WorkflowRunDetails): string {
+  return [run.updated_at, run.status, run.conclusion ?? '', run.run_attempt].join('|');
+}
+
+export function shouldPersistWorkflowRun(repositoryId: string, run: WorkflowRunDetails): boolean {
+  const key = `${repositoryId.toLowerCase()}:${run.id}`;
+  const marker = workflowRunPersistenceMarker(run);
+  if (persistedRunMarkers.get(key) === marker) return false;
+  if (!persistedRunMarkers.has(key) && persistedRunMarkers.size >= MAX_PERSISTED_RUN_MARKERS) {
+    const oldest = persistedRunMarkers.keys().next().value;
+    if (oldest !== undefined) persistedRunMarkers.delete(oldest);
+  }
+  persistedRunMarkers.set(key, marker);
+  return true;
+}
+
+export function clearWorkflowRunPersistenceMarkersForTests() {
+  persistedRunMarkers.clear();
+}
+
 export function isRunTerminal(status: string, conclusion: string | null): boolean {
   if (status === 'completed') return true;
   if (conclusion && conclusion !== 'neutral') return true;
@@ -81,32 +107,35 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
         throw new Error('github_error_' + runRes.status);
       }
       const runData = runRes.body as WorkflowRunDetails;
-      
-      const store = useCIWatcherStore.getState();
-      const repoKey = repositoryId.toLowerCase();
-      const existing = store.runsByRepository[repoKey] ?? [];
-      const normalizedRun = normalizeWorkflowRuns(repositoryId, { workflow_runs: [runData] })[0];
-      if (normalizedRun) {
-        let found = false;
-        const updatedRuns = existing.map(r => {
-          if (r.runId.toString() === runData.id.toString()) {
-            found = true;
-            return normalizedRun;
-          }
-          return r;
-        });
-        if (!found) updatedRuns.unshift(normalizedRun);
-        store.setRuns(repositoryId, updatedRuns);
-      }
+      const runChanged = shouldPersistWorkflowRun(repositoryId, runData);
 
-      if (isRunTerminal(runData.status, runData.conclusion)) {
-        window.dispatchEvent(new CustomEvent('snow-devil:ci-refresh'));
+      if (runChanged) {
+        const store = useCIWatcherStore.getState();
+        const repoKey = repositoryId.toLowerCase();
+        const existing = store.runsByRepository[repoKey] ?? [];
+        const normalizedRun = normalizeWorkflowRuns(repositoryId, { workflow_runs: [runData] })[0];
+        if (normalizedRun) {
+          let found = false;
+          const updatedRuns = existing.map(r => {
+            if (r.runId.toString() === runData.id.toString()) {
+              found = true;
+              return normalizedRun;
+            }
+            return r;
+          });
+          if (!found) updatedRuns.unshift(normalizedRun);
+          store.setRuns(repositoryId, updatedRuns);
+        }
+
+        if (isRunTerminal(runData.status, runData.conclusion)) {
+          window.dispatchEvent(new CustomEvent('snow-devil:ci-refresh'));
+        }
       }
       
       // Save the updated run status to local DB so dashboard CI Activity is updated in real-time
       const session = useAuthStore.getState().session;
       const login = session.status === 'connected' ? session.account.login : null;
-      if (login) {
+      if (login && runChanged) {
         const repoNumericId = runData.repository?.id;
         const canonicalId = getCanonicalWorkflowRunId(repoNumericId, repositoryId, runData.id);
         const updated_at = getWorkflowRunTimestamp(runData);

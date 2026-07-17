@@ -17,6 +17,7 @@ export function CIActivityPage() {
   const sync = useAnalyticsSync({ enabled: isActive });
   const syncActionRef = useRef(sync.sync);
   const refetchAnalyticsRef = useRef(analytics.refetch);
+  const syncingRef = useRef(sync.syncing);
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
 
@@ -144,6 +145,7 @@ export function CIActivityPage() {
 
   useEffect(() => { syncActionRef.current = sync.sync; }, [sync.sync]);
   useEffect(() => { refetchAnalyticsRef.current = analytics.refetch; }, [analytics.refetch]);
+  useEffect(() => { syncingRef.current = sync.syncing; }, [sync.syncing]);
 
   // Auto-reset dependent filters when repository changes or branches are updated
   useEffect(() => {
@@ -164,6 +166,10 @@ export function CIActivityPage() {
     if (!isActive) return;
     
     const triggerRefresh = () => {
+      // The repository sync already publishes fresh analytics as it progresses.
+      // Starting more targeted reads and a full SQLite reload at the same time
+      // causes avoidable contention and rerenders on large accounts.
+      if (syncingRef.current) return;
       if (repositoryId !== 'all') {
         void syncActionRef.current({ singleRepository: repositoryId });
       } else {

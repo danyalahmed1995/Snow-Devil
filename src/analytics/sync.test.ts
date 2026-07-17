@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_ANALYTICS_SETTINGS } from '../stores/analytics-settings-store';
-import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, startAnalyticsSync, type AnalyticsSyncState } from './sync';
+import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, shouldPublishAnalyticsBatch, startAnalyticsSync, type AnalyticsSyncState } from './sync';
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
@@ -15,6 +15,13 @@ function state(status: AnalyticsSyncState['status'], update: Partial<AnalyticsSy
 
 describe('connected analytics synchronization', () => {
   beforeEach(() => { invoke.mockReset(); });
+
+  it('publishes large repository syncs in batches and always publishes the final batch', () => {
+    expect(shouldPublishAnalyticsBatch(1, 94)).toBe(false);
+    expect(shouldPublishAnalyticsBatch(5, 94)).toBe(true);
+    expect(shouldPublishAnalyticsBatch(93, 94)).toBe(false);
+    expect(shouldPublishAnalyticsBatch(94, 94)).toBe(true);
+  });
 
   it('runs staged first sync, paginates, chunks records, and completes idempotently', async () => {
     const savedStates: AnalyticsSyncState[] = [];

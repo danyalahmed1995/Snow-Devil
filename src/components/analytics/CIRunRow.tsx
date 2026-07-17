@@ -27,6 +27,12 @@ function timeAgo(dateString?: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+export const MAX_FULL_EFFECT_CI_JOBS = 12;
+
+export function shouldUseDenseCIJobRendering(jobCount: number): boolean {
+  return jobCount > MAX_FULL_EFFECT_CI_JOBS;
+}
+
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
   let stateClass: string;
   let icon: ReactNode;
@@ -260,7 +266,7 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
           {error && <div className="ci-jobs-error">{error.message === 'missing_workflow_scope' ? 'Missing workflow permission. Please reconnect GitHub in Settings.' : 'Failed to load jobs'}</div>}
           {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
           {jobs && jobs.length > 0 && (
-            <ul className="ci-jobs-list">
+            <ul className={`ci-jobs-list${shouldUseDenseCIJobRendering(jobs.length) ? ' ci-jobs-list--dense' : ''}`}>
               {jobs.map(job => {
                 const statusStr = job.status as string;
                 const conclusionStr = job.conclusion as string | null;
