@@ -1,0 +1,17 @@
+.diff-file {
+  background: #121212 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.3) !important;
+  --syntax-keyword: #CE93D8 !important;
+  --syntax-string: #C5E1A5 !important;
+  --syntax-number: #90CAF9 !important;
+  --text-muted: #757575 !important;
+  color: #E0E0E0 !important;
+}
+.diff-file table { font-family: "Roboto Mono", monospace !important; font-size: 11px !important; }
+.diff-file>header { background: #1e1e1e !important; border-bottom: 2px solid #272727 !important; }
+.diff-split td { border-right: 2px solid #272727 !important; }
+.diff-split td span { color: #9e9e9e !important; border-right: 2px solid #272727 !important; }
+.diff-file tr.is-add, .diff-split td.is-add { background: rgba(76, 175, 80, 0.1) !important; border-left: 3px solid #4CAF50 !important; }
+.diff-file tr.is-remove, .diff-split td.is-remove { background: rgba(244, 67, 54, 0.1) !important; border-left: 3px solid #F44336 !important; }

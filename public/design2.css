@@ -1,0 +1,23 @@
+.diff-file {
+  background: #000000 !important;
+  border: 1px solid #333333 !important;
+  border-radius: 0 !important;
+  --syntax-keyword: #ffffff !important;
+  --syntax-string: #aaaaaa !important;
+  --syntax-number: #ffffff !important;
+  --text-muted: #555555 !important;
+  color: #eeeeee !important;
+}
+.diff-file>header {
+  background: #111111 !important;
+  border-bottom: 1px solid #333333 !important;
+}
+.diff-file table {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 11px !important;
+  text-transform: lowercase !important;
+}
+.diff-split td { border-right: 1px solid #333333 !important; }
+.diff-split td span { border-right: 1px solid #333333 !important; color: #444 !important; }
+.diff-file tr.is-add, .diff-split td.is-add { background: #002d0b !important; color: #00ff00 !important; }
+.diff-file tr.is-remove, .diff-split td.is-remove { background: #3a0000 !important; color: #ff0000 !important; }

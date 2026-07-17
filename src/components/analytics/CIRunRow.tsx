@@ -257,7 +257,7 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
       {expanded && (
         <div className="ci-activity-row__jobs">
           {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
-          {error && <div className="ci-jobs-error">Failed to load jobs</div>}
+          {error && <div className="ci-jobs-error">{error.message === 'missing_workflow_scope' ? 'Missing workflow permission. Please reconnect GitHub in Settings.' : 'Failed to load jobs'}</div>}
           {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
           {jobs && jobs.length > 0 && (
             <ul className="ci-jobs-list">

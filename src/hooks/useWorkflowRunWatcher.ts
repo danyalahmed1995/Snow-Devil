@@ -73,7 +73,13 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
       const runEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId);
       const runRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: runEndpoint });
       
-      if (runRes.status >= 400) throw new Error('github_error_' + runRes.status);
+      if (runRes.status >= 400) {
+        const msg = String((runRes.body as any)?.message || '').toLowerCase();
+        if (runRes.status === 403 && !msg.includes('rate limit')) {
+          throw new Error('missing_workflow_scope');
+        }
+        throw new Error('github_error_' + runRes.status);
+      }
       const runData = runRes.body as WorkflowRunDetails;
       
       const store = useCIWatcherStore.getState();
@@ -127,7 +133,13 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
         : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}/jobs?filter=latest`;
       
       const jobsRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: jobsEndpoint });
-      if (jobsRes.status >= 400) throw new Error('github_error_' + jobsRes.status);
+      if (jobsRes.status >= 400) {
+        const msg = String((jobsRes.body as any)?.message || '').toLowerCase();
+        if (jobsRes.status === 403 && !msg.includes('rate limit')) {
+          throw new Error('missing_workflow_scope');
+        }
+        throw new Error('github_error_' + jobsRes.status);
+      }
       
       const jobsData = (jobsRes.body as any).jobs as WorkflowJob[];
       
