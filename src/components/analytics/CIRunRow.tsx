@@ -284,7 +284,7 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
                     </div>
                     <div className="ci-job-item-footer">
                       {job.status === 'in_progress' && job.steps?.length > 0 && (
-                        <span className="ci-job-steps">
+                        <span className="ci-job-step-count">
                           {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
                         </span>
                       )}
@@ -309,5 +309,4 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
 }
 
 export const CIRunRow = memo(CIRunRowComponent);
-
 
