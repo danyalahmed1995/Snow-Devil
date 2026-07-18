@@ -7,7 +7,8 @@ import { useFocusPreferencesStore } from '../../stores/focus-preferences-store';
 import { useModeStore } from '../../stores/mode-store';
 import { CIActivityPage, recentDistinctCIRepositories, repositoriesWithWorkflowRuns } from './CIActivityPage';
 import { FlowAnalyticsPage } from './FlowAnalyticsPage';
-import { InventoryPage } from './InventoryPage';
+import { deliveryRiskViewIsModified, InventoryPage } from './InventoryPage';
+import { BUILT_IN_DELIVERY_RISK_VIEWS, DEFAULT_DELIVERY_RISK_VIEW } from '../../analytics/delivery-risk-views';
 import { PersonalFocusPage } from './PersonalFocusPage';
 import { AnalyticsSettingsPage } from './AnalyticsSettingsPage';
 
@@ -71,6 +72,28 @@ describe('individual analytics pages in Demo Mode', () => {
     expect(row).not.toBeNull();
     fireEvent.click(row!);
     expect(Object.values(useFlowStore.getState().states).some(state => state.selectedAnalyticsEntity?.kind === 'inventory')).toBe(true);
+  });
+
+  it('marks a saved Delivery Risks view as modified when a filter diverges', () => {
+    const active = BUILT_IN_DELIVERY_RISK_VIEWS.find(view => view.id === 'builtin:active');
+    expect(deliveryRiskViewIsModified(DEFAULT_DELIVERY_RISK_VIEW, active)).toBe(false);
+    expect(deliveryRiskViewIsModified({ ...DEFAULT_DELIVERY_RISK_VIEW, age: 'over_180' }, active)).toBe(true);
+
+    renderPage(<InventoryPage />);
+    expect(screen.queryByText('Modified filters')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Risk age'));
+    fireEvent.click(screen.getByRole('option', { name: 'Over 180 days' }));
+    expect(screen.getByText('Modified filters')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset Active Risks' }));
+    expect(screen.queryByText('Modified filters')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Delivery Risks backlog'));
+    fireEvent.click(screen.getByRole('option', { name: 'Legacy backlog' }));
+    expect(screen.getByRole('heading', { name: 'Legacy Backlog' })).toBeInTheDocument();
+    expect(screen.getByText('Modified filters')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Delivery Risks backlog'));
+    fireEvent.click(screen.getByRole('option', { name: 'Active backlog' }));
+    expect(screen.getByRole('heading', { name: 'Active Risks' })).toBeInTheDocument();
   });
 
   it('defaults focus to current direct human responsibility', () => {

@@ -66,6 +66,7 @@ pub fn run() {
             commands::simulator::save_simulator_entities,
             commands::simulator::save_simulator_events,
             commands::simulator::get_simulator_events,
+            commands::simulator::get_delivery_risk_events,
             commands::simulator::get_simulator_entities,
             commands::simulator::get_simulator_sync_state,
             commands::simulator::save_simulator_sync_state,

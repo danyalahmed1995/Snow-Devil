@@ -5,6 +5,10 @@ import { pullRequestDetailsQueryKey, pullRequestDetailsQueryRoot, type PullReque
 import { isNativeTab, useTabsStore } from '../../stores/tabs-store';
 import type { NativeTab, NativeTabContext } from '../../browser/browser-tabs';
 import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
+import { fetchPullRequestRiskSnapshot } from '../../simulator/simulator-github-api';
+import { saveAnalyticsRiskEventsToDb } from '../../simulator/simulator-cache';
+import { useAuthStore } from '../../stores/auth-store';
+import { getAnalyticsQueryKey } from '../../hooks/useAnalyticsData';
 
 type PullRequestContext = Extract<NativeTabContext, { type: 'pullRequest' }>;
 type PullRequestTab = NativeTab & { context: PullRequestContext };
@@ -17,6 +21,8 @@ export function OpenPullRequestRuntime() {
   ), [tabs]);
   const queryClient = useQueryClient();
   const setRefreshState = useArchitectureRefreshStore(state => state.set);
+  const session = useAuthStore(state => state.session);
+  const accountLogin = session.status === 'connected' ? session.account.login : undefined;
 
   useEffect(() => {
     if (openPullRequests.length === 0) return;
@@ -30,7 +36,19 @@ export function OpenPullRequestRuntime() {
         await Promise.all(openPullRequests.map(async tab => {
           const [owner, name] = tab.context.repository.split('/');
           try {
-            const latest = await invoke<PullRequestData>('get_pr_details', { owner, name, number: tab.context.number });
+            const evidenceRefresh = accountLogin
+              ? fetchPullRequestRiskSnapshot(tab.context.repository, tab.context.number)
+                  .then(async events => {
+                    if (disposed || events.length === 0) return;
+                    await saveAnalyticsRiskEventsToDb(accountLogin, events);
+                    if (!disposed) await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(accountLogin) });
+                  })
+                  .catch(() => undefined)
+              : Promise.resolve();
+            const [latest] = await Promise.all([
+              invoke<PullRequestData>('get_pr_details', { owner, name, number: tab.context.number }),
+              evidenceRefresh,
+            ]);
             const current = useTabsStore.getState().tabs.find(candidate => candidate.id === tab.id);
             if (disposed || !current || !isNativeTab(current) || current.context?.type !== 'pullRequest' || !latest.headRefOid || latest.headRefOid === current.context.headSha) return;
             const isInitialHead = !current.context.headSha;
@@ -64,7 +82,7 @@ export function OpenPullRequestRuntime() {
       settleTimers.forEach(settleTimer => window.clearTimeout(settleTimer));
       settleTimers.clear();
     };
-  }, [openPullRequests, queryClient, setRefreshState, updateNativeTabContext]);
+  }, [accountLogin, openPullRequests, queryClient, setRefreshState, updateNativeTabContext]);
 
   return null;
 }

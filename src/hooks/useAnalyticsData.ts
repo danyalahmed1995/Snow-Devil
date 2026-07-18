@@ -72,6 +72,32 @@ export function normalizeEvent(row: DbSimulatorEvent): SimulatorEvent | null {
 
 export function analyticsRecordEvents(row: AnalyticsRecordRow): SimulatorEvent[] {
   const data = parseJsonObject(row.payload_json);
+  if (row.source_type === 'risk_event') {
+    const validSubjectTypes = new Set<SimulatorEvent['subjectType']>(['issue', 'pull_request', 'branch', 'commit', 'workflow_run', 'check_suite', 'release', 'deployment']);
+    const subjectType = typeof data.subjectType === 'string' && validSubjectTypes.has(data.subjectType as SimulatorEvent['subjectType']) ? data.subjectType as SimulatorEvent['subjectType'] : undefined;
+    if (!subjectType || typeof data.id !== 'string' || typeof data.repositoryId !== 'string' || typeof data.subjectId !== 'string' || typeof data.subjectTitle !== 'string' || typeof data.occurredAt !== 'string' || typeof data.eventType !== 'string') return [];
+    return [{
+      id: data.id,
+      repositoryId: data.repositoryId,
+      repositoryName: typeof data.repositoryName === 'string' ? data.repositoryName : data.repositoryId.split('/')[1] ?? data.repositoryId,
+      repositoryOwner: typeof data.repositoryOwner === 'string' ? data.repositoryOwner : data.repositoryId.split('/')[0] ?? '',
+      subjectId: data.subjectId,
+      subjectType,
+      subjectNumber: typeof data.subjectNumber === 'number' ? data.subjectNumber : undefined,
+      subjectTitle: data.subjectTitle,
+      occurredAt: data.occurredAt,
+      sourceOccurredAt: typeof data.sourceOccurredAt === 'string' ? data.sourceOccurredAt : undefined,
+      observedAt: typeof data.observedAt === 'string' ? data.observedAt : undefined,
+      persistedAt: typeof data.persistedAt === 'string' ? data.persistedAt : undefined,
+      observationOnly: data.observationOnly === true,
+      eventType: data.eventType as SimulatorEvent['eventType'],
+      actor: data.actor && typeof data.actor === 'object' ? data.actor as SimulatorEvent['actor'] : undefined,
+      metadata: data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata) ? data.metadata as SimulatorEvent['metadata'] : {},
+      source: typeof data.source === 'string' ? data.source : 'github-current-state',
+      sourceCompleteness: data.sourceCompleteness === 'complete' || data.sourceCompleteness === 'partial' ? data.sourceCompleteness : 'unknown',
+      inclusionReason: data.inclusionReason as SimulatorEvent['inclusionReason'],
+    }];
+  }
   const [owner, name] = row.repository_id.split('/');
   const number = typeof data.number === 'number' ? data.number : undefined;
   const author = data.user ?? data.actor ?? data.author;
@@ -159,7 +185,7 @@ export function useAnalyticsData(options: { enabled?: boolean } = {}) {
       const analyticsRows = await invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! });
       const hasCanonicalRepositories = hasCanonicalAnalyticsRepositories(analyticsRows);
       const [rows, repositories] = hasCanonicalRepositories
-        ? [[], []] as [DbSimulatorEvent[], RepositoryRow[]]
+        ? [await invoke<DbSimulatorEvent[]>('get_delivery_risk_events'), []] as [DbSimulatorEvent[], RepositoryRow[]]
         : await Promise.all([
             invoke<DbSimulatorEvent[]>('get_simulator_events', { repositoryId: null }),
             invoke<RepositoryRow[]>('get_all_repositories'),

@@ -241,4 +241,15 @@ describe('Delivery Risks hardening', () => {
     const ownerCanBypass = data([reviewRequired], [], { viewerPermission: 'ADMIN' });
     expect(inventoryItems(ownerCanBypass, settings)[0]).toMatchObject({ riskReasonCode: 'required_approval_missing' });
   });
+
+  it('does not reset missing-approval age when unrelated PR activity occurs', () => {
+    const reviewRequired = pr('pr-403', { createdAt: '2026-06-10T00:00:00Z', prOpenedAt: '2026-06-12T00:00:00Z', updatedAt: '2026-06-30T00:00:00Z', checkState: 'success', mergeability: 'mergeable', reviewDecision: 'review_required', requiredApprovalCount: 1, qualifyingApprovalCount: 0 });
+    const comment = event(reviewRequired, 'commented', '2026-06-30T00:00:00Z');
+    const item = inventoryItems(data([reviewRequired], [comment]), settings)[0];
+    expect(item).toMatchObject({ riskReasonCode: 'required_approval_missing', riskSince: '2026-06-12T00:00:00.000Z', lastActivityAt: '2026-06-30T00:00:00.000Z' });
+    expect(item.ageBusinessDays).toBeGreaterThan(0);
+
+    const requested = event(reviewRequired, 'review_requested', '2026-06-25T00:00:00Z', { sourceOccurredAt: '2026-06-24T12:00:00Z' });
+    expect(inventoryItems(data([reviewRequired], [comment, requested]), settings)[0].riskSince).toBe('2026-06-24T12:00:00.000Z');
+  });
 });
