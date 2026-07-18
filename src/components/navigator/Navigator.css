@@ -30,22 +30,23 @@
 .navigator-account strong{font-size:11px}.navigator-account small{font-size:9px}.navigator-account__identity i{width:8px;height:8px;box-shadow:0 0 0 2px var(--surface-sidebar),0 0 8px rgba(75,209,111,.35)}
 
 /* Idle Animations & Colors */
-.nav-item:not(.active):not(:hover) .icon-home { animation: idle-float 4s ease-in-out infinite; color: rgba(96, 165, 250, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-flow { animation: idle-pulse 3s infinite; color: rgba(168, 85, 247, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-gauge { animation: idle-twitch 6s infinite; color: rgba(250, 204, 21, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-activity { animation: idle-heartbeat 3s infinite; color: rgba(244, 63, 94, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-bell { animation: idle-ring 8s infinite; color: rgba(252, 211, 77, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-sliders { animation: idle-slide-color 6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-.nav-item:not(.active):not(:hover) .icon-settings { animation: idle-spin-color 10s linear infinite; }
-.nav-item:not(.active):not(:hover) .icon-info { animation: idle-bounce 4s ease-in-out infinite; color: rgba(163, 230, 53, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-pr { animation: idle-slide-right 5s infinite; color: rgba(52, 211, 153, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-folder { animation: idle-wobble 6s infinite; color: rgba(56, 189, 248, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-boxes { animation: idle-tilt 5s infinite; color: rgba(192, 132, 252, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-issues { animation: idle-scale-pulse 4s infinite; color: rgba(251, 146, 60, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-building { animation: idle-float 5s ease-in-out infinite; color: rgba(167, 139, 250, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-package { animation: idle-shake 4s infinite; color: rgba(239, 68, 68, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-chart { color: rgba(16, 185, 129, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-user { color: rgba(148, 163, 184, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-home, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-home { animation: idle-float 4s ease-in-out infinite; color: rgba(96, 165, 250, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-flow, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-flow { animation: idle-pulse 3s infinite; color: rgba(168, 85, 247, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-gauge, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-gauge { animation: idle-twitch 6s infinite; color: rgba(250, 204, 21, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-activity, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-activity { animation: idle-heartbeat 3s infinite; color: rgba(244, 63, 94, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-bell, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-bell { animation: idle-ring 8s infinite; color: rgba(252, 211, 77, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-sliders, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-sliders { animation: idle-slide-color 6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.nav-item:not(.active):not(:hover) .icon-settings, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-settings { animation: idle-spin-color 10s linear infinite; }
+.nav-item:not(.active):not(:hover) .icon-info, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-info { animation: idle-bounce 4s ease-in-out infinite; color: rgba(163, 230, 53, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-pr, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-pr { animation: idle-slide-right 5s infinite; color: rgba(52, 211, 153, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-folder, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-folder { animation: idle-wobble 6s infinite; color: rgba(56, 189, 248, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-boxes, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-boxes { animation: idle-tilt 5s infinite; color: rgba(192, 132, 252, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-sketch, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-sketch { animation: idle-draw 4.5s infinite; color: rgba(244, 114, 182, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-issues, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-issues { animation: idle-scale-pulse 4s infinite; color: rgba(251, 146, 60, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-building, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-building { animation: idle-float 5s ease-in-out infinite; color: rgba(167, 139, 250, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-package, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-package { animation: idle-shake 4s infinite; color: rgba(239, 68, 68, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-chart, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-chart { color: rgba(16, 185, 129, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-user, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-user { color: rgba(148, 163, 184, 0.7); }
 
 @keyframes idle-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes idle-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
@@ -58,5 +59,6 @@
 @keyframes idle-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes idle-slide-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
 @keyframes idle-wobble { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+@keyframes idle-draw { 0%, 90%, 100% { transform: translate(0, 0) rotate(0deg); } 92% { transform: translate(2px, -2px) rotate(5deg); } 95% { transform: translate(-1px, 1px) rotate(-2deg); } 98% { transform: translate(1px, -1px) rotate(2deg); } }
 @keyframes idle-tilt { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(6deg); } }
 @keyframes idle-scale-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
