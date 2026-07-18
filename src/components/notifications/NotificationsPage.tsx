@@ -27,7 +27,11 @@ export function NotificationsPage() {
   const open = (record: NativeNotification) => {
     const target = notificationNavigationTarget(record);
     if (!target) return;
-    useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    if (target.family === 'native') {
+      useTabsStore.getState().openNativeTab(target.id, target.kind, target.title, false, true, target.context);
+    } else {
+      useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    }
   };
   const statusLabel = pollingStatus === 'checking' ? 'Checking GitHub…' : pollingStatus === 'ready' ? 'Background polling active' : pollingMessage ?? pollingStatus.replace(/_/g, ' ');
   const markRead = async (record: NativeNotification, unread: boolean) => {
