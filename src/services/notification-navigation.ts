@@ -7,7 +7,7 @@ export type NotificationNavigationTarget =
 
 export function notificationNavigationTarget(record: NativeNotification): NotificationNavigationTarget | null {
   if (record.subject.type === 'PullRequest' && record.subject.apiUrl) {
-    const match = record.subject.apiUrl.match(/repos\/([^\/]+\/[^\/]+)\/pulls\/(\d+)/);
+    const match = record.subject.apiUrl.match(/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)/);
     if (match) {
       const repository = match[1];
       const number = Number(match[2]);

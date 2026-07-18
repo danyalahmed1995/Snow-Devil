@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTabsStore } from '../../stores/tabs-store';
 import { OpenPullRequestRuntime } from './OpenPullRequestRuntime';
@@ -37,5 +37,19 @@ describe('open pull request synchronization', () => {
     render(<QueryClientProvider client={client}><OpenPullRequestRuntime /></QueryClientProvider>);
     await waitFor(() => expect(invoke).toHaveBeenCalledWith('get_pr_details', { owner: 'Acme', name: 'Repo', number: 42 }));
     expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it('drops an in-flight response after its runtime owner unmounts', async () => {
+    let resolveRequest: (value: { headRefOid: string; diff: string }) => void = () => undefined;
+    invoke.mockReturnValue(new Promise(resolve => { resolveRequest = resolve; }));
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const view = render(<QueryClientProvider client={client}><OpenPullRequestRuntime /></QueryClientProvider>);
+    await waitFor(() => expect(invoke).toHaveBeenCalled());
+    view.unmount();
+    await act(async () => { resolveRequest({ headRefOid: 'late-head', diff: 'late diff' }); });
+    expect(invalidate).not.toHaveBeenCalled();
+    expect((useTabsStore.getState().tabs[0] as NativeTab).context).toMatchObject({ headSha: 'old-head' });
+    expect(useArchitectureRefreshStore.getState().values).toEqual({});
   });
 });

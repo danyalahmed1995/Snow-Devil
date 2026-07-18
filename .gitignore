@@ -8,14 +8,10 @@ dist-ssr/
 coverage/
 *.local
 
-# Report Docs & Miscellaneous
-docs/
-!docs/
-docs/*
-!docs/final-performance-memory-security-report.md
-!docs/final-memory-leak-qualification-report.md
+# Generated reports and local design artifacts
+docs/report/
 screenshots/
-assets/icon-concepts
+assets/icon-concepts/
 
 # Playwright outputs
 playwright-report/

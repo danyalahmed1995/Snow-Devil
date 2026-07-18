@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
-import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, NotebookPen, PackageSearch, PenTool, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
+import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, NotebookPen, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
 import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
 import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';

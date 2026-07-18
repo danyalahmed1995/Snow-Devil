@@ -19,6 +19,7 @@ import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
 import { DeferredSurface } from './DeferredSurface';
 import { WorkspaceLoadingState } from './WorkspaceLoadingState';
 import { acquireFrontendResource } from '../../diagnostics/leak-diagnostics';
+import { shouldKeepNativeSurfaceMounted } from './native-surface-lifecycle';
 
 const CIActivityPage = lazy(() => import('../analytics/CIActivityPage').then(module => ({ default: module.CIActivityPage })));
 const InventoryPage = lazy(() => import('../analytics/InventoryPage').then(module => ({ default: module.InventoryPage })));
@@ -104,8 +105,11 @@ export function WorkspaceContent() {
   const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
-  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && ['home', 'accountSimulator', 'repositorySimulator', 'ciRun'].includes(tab.kind));
-  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !['home', 'accountSimulator', 'repositorySimulator', 'ciRun'].includes(activeTab.kind);
+  // Home is intentionally cheap and remains warm. Every other native surface
+  // owns its resources only while active so hidden tabs cannot retain polling,
+  // observers, animation frames, workers, or large rendered trees.
+  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && shouldKeepNativeSurfaceMounted(tab.kind));
+  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !shouldKeepNativeSurfaceMounted(activeTab.kind);
 
   // Sync with Tauri backend for native tabs
   useEffect(() => {

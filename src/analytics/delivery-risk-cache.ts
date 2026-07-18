@@ -35,7 +35,7 @@ function effectiveSettings(settings: AnalyticsSettings): AnalyticsSettings {
 export function useDeliveryRiskModel(dataset: AnalyticsDataset | undefined, settings: AnalyticsSettings) {
   const cached = dataset ? datasets.get(dataset)?.get(settings) : undefined;
   const [state, setState] = useState<{ key?: AnalyticsDataset; settings?: AnalyticsSettings; model?: CachedDeliveryRiskModel; error?: Error }>(() => ({ key: dataset, settings, model: cached }));
-  const current = state.key === dataset && state.settings === settings ? state : { key: dataset, settings, model: cached };
+  const current = state.key === dataset && state.settings === settings ? state : { key: dataset, settings, model: cached ?? (state.key === dataset ? state.model : undefined) };
 
   useEffect(() => {
     if (!dataset || cached) return;

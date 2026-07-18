@@ -1,4 +1,4 @@
-import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle, Home, Workflow, Gauge, PackageSearch, ChartNoAxesCombined, Activity, SlidersHorizontal, Boxes, Settings, NotebookPen, CircleUserRound, FolderGit2, GitPullRequest, Bell, Building2 } from 'lucide-react';
+import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle, Home, Workflow, Gauge, PackageSearch, ChartNoAxesCombined, Activity, SlidersHorizontal, Boxes, Settings, NotebookPen, FolderGit2, GitPullRequest, Bell, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';

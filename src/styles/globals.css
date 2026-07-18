@@ -150,6 +150,14 @@ button, input, select, textarea, [tabindex] {
 @media (prefers-reduced-motion: reduce) {
   .fresh-launch { animation: none; }
 }
+
+/* Keep motion available while Snow Devil is in use, but stop compositor and
+   paint work while the desktop window is hidden or unfocused. */
+html[data-window-active="false"] *,
+html[data-window-active="false"] *::before,
+html[data-window-active="false"] *::after {
+  animation-play-state: paused !important;
+}
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

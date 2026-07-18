@@ -1,2 +1,0 @@
-(Get-Content -Path src\analytics\sync.ts) -replace 'const id = String\(item\.node_id \?\? item\.id \?\? item\.sha \?\? item\.ref \?\? `\$\{repo\}:\$\{type\}:\$\{item\.created_at \?\? item\.updated_at\}`\);', 
-'const id = (type === ''workflow_run'' && item.id) ? `\$\{repo\}:\$\{item.id\}` : String(item.node_id ?? item.id ?? item.sha ?? item.ref ?? `\$\{repo\}:\$\{type\}:\$\{item.created_at ?? item.updated_at\}`);' | Set-Content -Path src\analytics\sync.ts

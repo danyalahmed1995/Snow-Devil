@@ -35,8 +35,8 @@
 .nav-item:not(.active):not(:hover) .icon-gauge, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-gauge { animation: idle-twitch 6s infinite; color: rgba(250, 204, 21, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-activity, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-activity { animation: idle-heartbeat 3s infinite; color: rgba(244, 63, 94, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-bell, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-bell { animation: idle-ring 8s infinite; color: rgba(252, 211, 77, 0.7); }
-.nav-item:not(.active):not(:hover) .icon-sliders, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-sliders { animation: idle-slide-color 6s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-.nav-item:not(.active):not(:hover) .icon-settings, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-settings { animation: idle-spin-color 10s linear infinite; }
+.nav-item:not(.active):not(:hover) .icon-sliders, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-sliders { animation: idle-slide-color 6s cubic-bezier(0.4, 0, 0.2, 1) infinite; color: rgba(45, 212, 191, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-settings, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-settings { animation: idle-spin-color 10s linear infinite; color: rgba(148, 163, 184, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-info, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-info { animation: idle-bounce 4s ease-in-out infinite; color: rgba(163, 230, 53, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-pr, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-pr { animation: idle-slide-right 5s infinite; color: rgba(52, 211, 153, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-folder, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-folder { animation: idle-wobble 6s infinite; color: rgba(56, 189, 248, 0.7); }
@@ -53,8 +53,8 @@
 @keyframes idle-twitch { 0%, 90%, 100% { transform: rotate(0deg); } 92% { transform: rotate(15deg); } 95% { transform: rotate(-5deg); } 98% { transform: rotate(5deg); } }
 @keyframes idle-heartbeat { 0%, 20%, 40%, 100% { transform: scale(1); } 10% { transform: scale(1.15); } 30% { transform: scale(1.1); } }
 @keyframes idle-ring { 0%, 90%, 100% { transform: rotate(0deg); } 92% { transform: rotate(15deg); } 94% { transform: rotate(-10deg); } 96% { transform: rotate(5deg); } 98% { transform: rotate(-5deg); } }
-@keyframes idle-spin-color { 0% { transform: rotate(0deg); color: rgba(148, 163, 184, 0.7); } 50% { color: rgba(56, 189, 248, 0.9); } 100% { transform: rotate(360deg); color: rgba(148, 163, 184, 0.7); } }
-@keyframes idle-slide-color { 0%, 100% { transform: translateX(0); color: rgba(45, 212, 191, 0.7); } 25% { transform: translateX(2px); color: rgba(56, 189, 248, 0.7); } 75% { transform: translateX(-2px); color: rgba(251, 146, 60, 0.7); } }
+@keyframes idle-spin-color { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes idle-slide-color { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(2px); } 75% { transform: translateX(-2px); } }
 @keyframes idle-shake { 0%, 90%, 100% { transform: translateX(0); } 92% { transform: translateX(-2px); } 94% { transform: translateX(2px); } 96% { transform: translateX(-2px); } 98% { transform: translateX(2px); } }
 @keyframes idle-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes idle-slide-right { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }

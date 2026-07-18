@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { BrowserHydrator } from './BrowserHydrator';
 import { useTabsStore } from '../stores/tabs-store';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn()
-}));
+const { invoke, browserCreate } = vi.hoisted(() => ({ invoke: vi.fn(), browserCreate: vi.fn() }));
 
-vi.mock('./browser-commands', () => ({
-  browserCreate: vi.fn().mockResolvedValue(true)
-}));
+vi.mock('@tauri-apps/api/core', () => ({ invoke }));
+
+vi.mock('./browser-commands', () => ({ browserCreate }));
 
 describe('BrowserHydrator', () => {
   beforeEach(() => {
@@ -18,9 +16,10 @@ describe('BrowserHydrator', () => {
     useTabsStore.setState({ tabs: [], activeTabId: '' });
   });
 
-  it('waits for persistence hydration and processes queue correctly', async () => {
+  it('waits for persistence and leaves restored background WebViews dormant', async () => {
     const queryClient = new QueryClient();
     let hydrationCallback: () => void = () => {};
+    invoke.mockResolvedValue({});
     
     // Mock the persist object
     (useTabsStore as any).persist = {
@@ -31,16 +30,23 @@ describe('BrowserHydrator', () => {
       }
     };
 
-    const tabs = Array.from({ length: 10 }).map((_, i) => ({
-      id: `tab-${i}`,
+    const home = { id: 'native:home', family: 'native', kind: 'home', title: 'Home', pinned: true, closable: false, createdAt: 1, lastActivatedAt: 1 };
+    const browserTabs = Array.from({ length: 8 }).map((_, index) => ({
+      id: `browser-${index}`,
       family: 'browser',
-      kind: 'pull_request',
+      kind: 'pullRequest',
+      title: `PR ${index}`,
+      canonicalUrl: `https://github.com/acme/repo/pull/${index}`,
+      currentUrl: `https://github.com/acme/repo/pull/${index}`,
+      history: [`https://github.com/acme/repo/pull/${index}`],
+      historyIndex: 0,
       lifecycle: 'uninitialized',
-      lastActivatedAt: i * 1000 // Tab 9 is most recently used
+      pinned: false,
+      closable: true,
+      createdAt: index + 2,
+      lastActivatedAt: index + 2,
     }));
-    
-    // Make tab 5 the active one
-    useTabsStore.setState({ tabs: tabs as any, activeTabId: 'tab-5' });
+    useTabsStore.setState({ tabs: [home, ...browserTabs] as any, activeTabId: 'native:home' });
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -49,21 +55,13 @@ describe('BrowserHydrator', () => {
     );
 
     // Should not start yet because persist hasn't hydrated
-    const { browserCreate } = await import('./browser-commands');
     expect(browserCreate).not.toHaveBeenCalled();
 
     // Trigger hydration
-    hydrationCallback();
+    act(() => hydrationCallback());
 
-    await waitFor(() => {
-      // Active tab (tab-5) should be called first, then top 5 MRU remaining (9, 8, 7, 6, 4)
-      expect(browserCreate).toHaveBeenCalledTimes(6);
-    });
-
-    const calls = (browserCreate as any).mock.calls;
-    expect(calls[0][0]).toBe('tab-5'); // active tab first
-    
-    // Check that we only hydrated 6 tabs
-    expect(useTabsStore.getState().tabs.filter(t => (t as any).lifecycle === 'resident').length).toBe(6);
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('get_account_home_summary'));
+    expect(browserCreate).not.toHaveBeenCalled();
+    expect(useTabsStore.getState().tabs.filter(tab => tab.family === 'browser').every(tab => tab.lifecycle === 'uninitialized')).toBe(true);
   });
 });

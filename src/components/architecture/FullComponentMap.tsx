@@ -48,10 +48,10 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
   const containerRef = useRef<HTMLDivElement>(null);
   const refreshState = useArchitectureRefreshStore(s => s.values[activeTabId]);
 
-  if (!mapState) return null;
-
-  const { groupingMode, filters, zoom, panX, panY, isFullScreen } = mapState;
-  const colorMode: ArchitectureColorMode = mapState.colorMode ?? 'architecture';
+  const defaultMapState = { groupingMode: 'type', filters: {}, zoom: 1, panX: 0, panY: 0, isFullScreen: false } as any;
+  const safeMapState = mapState || defaultMapState;
+  const { groupingMode, filters, zoom, panX, panY, isFullScreen } = safeMapState;
+  const colorMode: ArchitectureColorMode = safeMapState.colorMode ?? 'architecture';
   const decisions = useMemo(() => impact.decisionAnalysis?.length ? impact.decisionAnalysis : analyzeComponentDecisions(impact), [impact]);
   const decisionById = useMemo(() => new Map(decisions.map(item => [item.componentId, item])), [decisions]);
   const modeLabel = colorMode === 'change-impact' ? 'Change Impact' : colorMode === 'fix-strategy' ? 'Fix Strategy' : 'Architecture';
@@ -223,6 +223,8 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
     setMapState(activeTabId, { isFullScreen: !isFullScreen });
     setTimeout(fitToView, 50);
   }, [activeTabId, setMapState, isFullScreen, fitToView]);
+
+  if (!mapState) return null;
 
   return <div className={`full-component-map color-mode-${colorMode} ${isFullScreen ? 'is-full-screen' : ''} ${isCommitRefreshing ? 'is-commit-refreshing' : recentlyUpdated ? 'is-commit-updated' : ''}`}>
     <header className="full-component-map__toolbar">

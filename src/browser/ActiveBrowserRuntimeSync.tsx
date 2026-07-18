@@ -6,7 +6,13 @@ const RUNTIME_SYNC_INTERVAL_MS = 750;
 
 /** Reconciles SPA navigation that WebView navigation callbacks do not report. */
 export function ActiveBrowserRuntimeSync() {
+  const hasActiveResidentBrowser = useTabsStore(state => {
+    const active = state.tabs.find(tab => tab.id === state.activeTabId);
+    return Boolean(active && isBrowserTab(active) && active.lifecycle === 'resident');
+  });
+
   useEffect(() => {
+    if (!hasActiveResidentBrowser) return;
     let disposed = false;
     let inFlight = false;
 
@@ -32,7 +38,7 @@ export function ActiveBrowserRuntimeSync() {
     void sync();
     const timer = window.setInterval(() => void sync(), RUNTIME_SYNC_INTERVAL_MS);
     return () => { disposed = true; window.clearInterval(timer); };
-  }, []);
+  }, [hasActiveResidentBrowser]);
 
   return null;
 }
