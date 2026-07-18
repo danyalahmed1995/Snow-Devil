@@ -38,6 +38,20 @@ GitHub data is not always complete. Snow Devil marks results as partial, inferre
 - Tab context menus, refresh behavior, keyboard navigation, middle-click close, pinned tabs, and safe fallback to Home.
 - Shell-level render recovery so malformed restored state produces a recovery screen instead of a blank window.
 - One canonical Snow Devil dark visual system with responsive desktop layouts, reduced-motion support, visible focus states, and semantic status colors.
+- Premium glassmorphic UI components, unified scalable iconography, and native desktop app icons integrated across Windows, macOS, and Linux.
+- Region screen capture: hold the right mouse button for 350 ms, drag across a visible workspace area, and release to copy the selected pixels as an image to the Windows clipboard.
+- Capture feedback uses the shared notification toast design and reports the copied pixel dimensions; `Escape`, pointer cancellation, or focus loss cancels an active selection.
+- Right-click does not pan the Architecture Overview or Full Component Map, leaving the gesture available for screen capture.
+
+#### Region screen capture
+
+Snow Devil includes a native Windows region capture gesture for quickly sharing a portion of the workspace:
+
+1. Press and hold the right mouse button for at least 350 ms.
+2. While continuing to hold it, drag over the rectangular area to copy.
+3. Release the right mouse button. The selected image is placed on the clipboard and a confirmation toast appears in the lower-right corner.
+
+A normal right-click released before the hold threshold remains a regular right-click. Press `Escape` while selecting to cancel without changing the clipboard.
 
 ### Home and current Flow
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
-import { Bell, Copy, ExternalLink, GitBranch, GitMerge, GitPullRequest, LogOut, Menu, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
+import { Bell, Copy, ExternalLink, LogOut, Menu, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
 import { useModeStore } from '../../stores/mode-store';
 import { BrowserToolbar } from '../../browser/BrowserToolbar';
@@ -53,18 +53,16 @@ export function TopBar() {
             <Menu size={18} />
           </button>
           <div className="app-title">
-            <span 
-              className={`app-mark-trio ${isIconSpinning ? 'is-spinning' : ''}`} 
+            <div 
+              className={`app-logo-wrapper ${isIconSpinning ? 'is-spinning' : ''}`} 
               data-tooltip="Touch grass"
               onClick={() => { if (!isIconSpinning) setIsIconSpinning(true); }}
               onAnimationEnd={(e) => {
                 if (e.target === e.currentTarget) setIsIconSpinning(false);
               }}
             >
-              <div className="attr branch"><GitBranch size={9} strokeWidth={3} /></div>
-              <div className="attr merge"><GitMerge size={9} strokeWidth={3} /></div>
-              <div className="attr pr"><GitPullRequest size={9} strokeWidth={3} /></div>
-            </span>
+              <img src="/icon.svg" alt="Snow Devil Logo" />
+            </div>
             <span className="app-name">Snow Devil</span>
           </div>
           <BrowserToolbar activeTab={activeBrowserTab} />

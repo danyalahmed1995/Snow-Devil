@@ -47,58 +47,41 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
-.app-mark-trio {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+.app-logo-wrapper {
   width: 32px;
   height: 32px;
-  cursor: pointer;
-}
-
-@keyframes sonic-boom-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(720deg); }
-}
-@keyframes sonic-boom-ripple {
-  0% { transform: scale(1); opacity: 0.8; border: 2px solid #38bdf8; }
-  100% { transform: scale(3); opacity: 0; border: 2px solid #38bdf8; }
-}
-
-.app-mark-trio.is-spinning {
-  animation: sonic-boom-spin 0.8s ease-in-out;
-}
-.app-mark-trio.is-spinning::before, .app-mark-trio.is-spinning::after {
-  content: '';
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  opacity: 0;
-  pointer-events: none;
-}
-.app-mark-trio.is-spinning::before { animation: sonic-boom-ripple 0.6s ease-out; }
-.app-mark-trio.is-spinning::after { animation: sonic-boom-ripple 0.6s ease-out 0.2s; }
-
-.app-mark-trio .attr {
-  position: absolute;
+  border-radius: 8px;
+  background: var(--surface-panel);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
-  border-radius: 0;
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: #0f172a;
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
+  margin-right: 2px;
 }
-.app-mark-trio .attr.branch { top: 0; left: 8px; z-index: 3; color: #a855f7; box-shadow: inset 0 0 10px #a855f7; }
-.app-mark-trio .attr.merge { bottom: 1px; left: 0; z-index: 2; color: #eab308; box-shadow: inset 0 0 10px #eab308; }
-.app-mark-trio .attr.pr { bottom: 1px; right: 0; z-index: 1; color: #ef4444; box-shadow: inset 0 0 10px #ef4444; }
 
-.app-title:hover .attr.branch, .app-mark-trio.is-spinning .attr.branch { transform: translateY(-3px) scale(1.1); }
-.app-title:hover .attr.merge, .app-mark-trio.is-spinning .attr.merge { transform: translate(-3px, 2px) scale(1.1); }
-.app-title:hover .attr.pr, .app-mark-trio.is-spinning .attr.pr { transform: translate(3px, 2px) scale(1.1); }
+.app-logo-wrapper:hover {
+  transform: scale(1.05);
+  border-color: var(--border-focus);
+}
+
+.app-logo-wrapper img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.app-logo-wrapper.is-spinning {
+  animation: spin-logo 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes spin-logo {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
 
 .divider {
   width: 1px;
