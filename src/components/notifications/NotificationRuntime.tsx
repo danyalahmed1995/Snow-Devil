@@ -149,8 +149,7 @@ export function NotificationRuntime() {
   const open = () => {
     const record = useNotificationStore.getState().records.find(value => value.id === toast.recordIds[0]);
     const target = record ? notificationNavigationTarget(record) : null;
-    if (target?.family === 'native-pr') useTabsStore.getState().openNativeTab(target.id, 'pullRequestDiff', target.title, false, true, { type: 'pullRequest', repository: target.repository, number: target.number });
-    else if (target) useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    if (target) useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
     dismissToast();
   };
   return <aside className="notification-arrival-toast" role="status" aria-live="polite"><button className="notification-arrival-main" onClick={open}><Bell size={15}/><span><strong>{toast.title}</strong><small>{toast.body}</small></span></button><button aria-label="Dismiss notification alert" onClick={dismissToast}><X size={13}/></button></aside>;
