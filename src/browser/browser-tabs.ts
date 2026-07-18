@@ -21,6 +21,7 @@ export type NativeTabKind =
   | "flowAnalytics"
   | "personalFocus"
   | "settings"
+  | "sketchBoard"
   | "accountSimulator"
   | "repositorySimulator"
   | "repositoryExplorer"

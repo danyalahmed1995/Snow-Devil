@@ -76,6 +76,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     closable: true,
   },
   { label: 'Settings', tabId: 'native:settings', family: 'native', nativeKind: 'settings', pinned: false, closable: true },
+  { label: 'Sketch Board', tabId: 'native:sketch-board', family: 'native', nativeKind: 'sketchBoard', pinned: false, closable: true },
   { label: 'Account', tabId: 'github:profile', family: 'browser', browserKind: 'profile', urlTemplate: (login) => `https://github.com/${login}`, pinned: false, closable: true },
   { label: 'Repositories', tabId: 'github:repositories', family: 'browser', browserKind: 'repositories', urlTemplate: (login) => `https://github.com/${login}?tab=repositories`, pinned: false, closable: true },
   { label: 'Pull requests', tabId: 'github:pull-requests', family: 'browser', browserKind: 'pullRequests', urlTemplate: () => 'https://github.com/pulls', pinned: false, closable: true },

@@ -23,6 +23,7 @@ import { decisionFor, decisionLabel } from '../../architecture/decision-analysis
 import { incrementArchitectureDiagnostic } from '../../architecture/diagnostics';
 import type { ArchitectureSnapshot, PullRequestArchitectureImpact } from '../../architecture/types';
 import './Inspector.css';
+import { SketchInspector } from '../sketch/SketchInspector';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
 
@@ -256,6 +257,7 @@ export function Inspector() {
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
   const architectureState = useArchitectureStore(state => state.states[activeTabId]);
   const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const isSketchBoard = activeTab && isNativeTab(activeTab) && activeTab.kind === 'sketchBoard';
   const resolvedItem = useResolvedFlowItem(flowState.selectedItemId);
   const selectedItem = flowState.selectedFlowItem ?? resolvedItem;
   const simulatorEntity = flowState.selectedSimulatorEntity;
@@ -276,6 +278,7 @@ export function Inspector() {
   } as any : undefined;
   const simulatorCurrentEntity = flowState.selectedSimulatorCurrentEntity;
   const simulatorEvent = flowState.selectedSimulatorEvent;
+  if (isSketchBoard) return <SketchInspector />;
   const analyticsKinds = new Set(['ciHealth', 'inventory', ...(ENABLE_FLOW_ANALYTICS ? ['flowAnalytics'] : []), 'personalFocus']);
   const isAnalytics = activeTab && isNativeTab(activeTab) && analyticsKinds.has(activeTab.kind);
   const isSimulator = activeTab && isNativeTab(activeTab) && (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator');

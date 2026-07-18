@@ -32,6 +32,7 @@ const CommitDiff = lazy(() => import('../diff/CommitDiff').then(module => ({ def
 const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({ default: module.CIRunWatcher })));
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
+const SketchBoard = lazy(() => import('../sketch/SketchBoard').then(module => ({ default: module.SketchBoard })));
 
 function SurfaceLoading() { return <WorkspaceLoadingState title="Loading workspace surface" detail="Restoring the selected view…" />; }
 
@@ -80,6 +81,7 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-history-${demoRevision}`} mode="account" />}
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
       {tab.kind === 'settings' && <AnalyticsSettingsPage />}
+      {tab.kind === 'sketchBoard' && <SketchBoard />}
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
       {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} observedHeadSha={tab.context.headSha} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}

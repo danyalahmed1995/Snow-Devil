@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
-import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
+import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, PackageSearch, PenTool, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
 import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
 import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';
@@ -91,6 +91,7 @@ export function Navigator() {
     'native:inventory': <PackageSearch size={15} className="icon-package" />, 'native:flow-analytics': <ChartNoAxesCombined size={15} className="icon-chart" />,
     'native:personal-focus': <Activity size={15} className="icon-activity" />, 'native:account-simulator': <SlidersHorizontal size={15} className="icon-sliders" />,
     'native:repository-simulator': <Boxes size={15} className="icon-boxes" />, 'native:settings': <Settings size={15} className="icon-settings" />,
+    'native:sketch-board': <PenTool size={15} className="icon-sketch" />,
     'github:profile': <CircleUserRound size={15} className="icon-user" />, 'github:repositories': <FolderGit2 size={15} className="icon-folder" />,
     'github:pull-requests': <GitPullRequest size={15} className="icon-pr" />, 'github:issues': <PackageSearch size={15} className="icon-issues" />,
     'native:notifications': <Bell size={15} className="icon-bell" />, 'native:organizations': <Building2 size={15} className="icon-building" />,

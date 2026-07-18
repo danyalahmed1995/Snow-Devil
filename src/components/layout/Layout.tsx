@@ -23,7 +23,8 @@ export function Layout() {
   const architectureSelection = useArchitectureStore(state => state.states[activeTabId]?.selectedComponentId);
   useEffect(() => {
     const hasSelection = Boolean(selection.selectedFlowItem || selection.selectedAnalyticsEntity || selection.selectedSimulatorEntity || selection.selectedSimulatorEvent || architectureSelection);
-    if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'settings' || (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator') && !hasSelection)) setInspectorOpen(false);
+    if (activeTab && isNativeTab(activeTab) && activeTab.kind === 'sketchBoard') setInspectorOpen(true);
+    else if (activeTab && isNativeTab(activeTab) && (activeTab.kind === 'settings' || (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator') && !hasSelection)) setInspectorOpen(false);
     else if (hasSelection) setInspectorOpen(true);
   }, [activeTab, architectureSelection, selection.selectedAnalyticsEntity, selection.selectedFlowItem, selection.selectedSimulatorEntity, selection.selectedSimulatorEvent, setInspectorOpen]);
   useEffect(() => () => inspectorResizeCleanup.current?.(), []);

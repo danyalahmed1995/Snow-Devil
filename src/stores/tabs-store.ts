@@ -50,6 +50,7 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'flowAnalytics',
   'personalFocus',
   'settings',
+  'sketchBoard',
   'accountSimulator',
   'repositorySimulator',
   'repositoryExplorer',
@@ -71,6 +72,7 @@ export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
   accountSimulator: 'native:account-simulator',
   repositorySimulator: 'native:repository-simulator',
   settings: 'native:settings',
+  sketchBoard: 'native:sketch-board',
   notifications: 'native:notifications',
   organizations: 'native:organizations',
 };
