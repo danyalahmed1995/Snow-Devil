@@ -1,4 +1,4 @@
-import { Info, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import './AboutModal.css';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';

@@ -7,13 +7,21 @@ export interface BusinessCalendar {
 }
 
 const weekdayCache = new Map<string, number>();
+const dtfCache = new Map<string, Intl.DateTimeFormat>();
 
 function weekdayAt(value: Date, timeZone: string): number {
   const hourBucket = Math.floor(value.getTime() / (60 * 60 * 1000));
   const cacheKey = `${timeZone}:${hourBucket}`;
   const cached = weekdayCache.get(cacheKey);
   if (cached !== undefined) return cached;
-  const short = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' }).format(value);
+  
+  let dtf = dtfCache.get(timeZone);
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short' });
+    dtfCache.set(timeZone, dtf);
+  }
+  
+  const short = dtf.format(value);
   const result = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(short);
   // Covers more than two years of hourly buckets without eviction churn during
   // one large historical analysis while still imposing a deterministic cap.
