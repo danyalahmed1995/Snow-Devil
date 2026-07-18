@@ -1,7 +1,7 @@
 # Snow Devil
 
 <p align="center">
-  <img src="public/icon.svg" width="128" height="128" alt="Snow Devil Icon">
+  <img src="public/readme-icon.svg" width="128" height="128" alt="Snow Devil Icon">
 </p>
 
 [![CI](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/danyalahmed1995/Snow-Devil/actions/workflows/ci.yml)
