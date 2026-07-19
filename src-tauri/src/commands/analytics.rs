@@ -229,13 +229,10 @@ pub async fn analytics_fetch_job_log(
         .build()
         .map_err(|e| e.to_string())?;
 
-    let endpoint = format!(
-        "https://api.github.com/repos/{}/actions/jobs/{}/logs",
-        repository, job_id
-    );
+    let target_url = build_job_log_url(&repository, job_id)?;
 
     let response = client
-        .get(&endpoint)
+        .get(target_url)
         .bearer_auth(&token)
         .header("User-Agent", "snow-devil-analytics")
         .header("Accept", "application/vnd.github+json")
@@ -340,5 +337,92 @@ pub async fn save_log_file(content: String, default_filename: String) -> Result<
         Ok(true)
     } else {
         Ok(false)
+    }
+}
+
+pub fn build_job_log_url(repository: &str, job_id: u64) -> Result<url::Url, String> {
+    let parts: Vec<&str> = repository.split('/').collect();
+    if parts.len() != 2 {
+        return Err("Repository must be in owner/name format".into());
+    }
+    let owner = parts[0];
+    let name = parts[1];
+
+    let is_valid = |s: &str| {
+        !s.is_empty()
+            && s != "."
+            && s != ".."
+            && !s.contains('\\')
+            && !s.chars().any(|c| c.is_control())
+    };
+
+    if !is_valid(owner) || !is_valid(name) {
+        return Err("Invalid repository format".into());
+    }
+
+    let mut url = url::Url::parse("https://api.github.com").unwrap();
+    url.path_segments_mut()
+        .map_err(|_| "Invalid base URL")?
+        .extend(&[
+            "repos",
+            owner,
+            name,
+            "actions",
+            "jobs",
+            &job_id.to_string(),
+            "logs",
+        ]);
+
+    Ok(url)
+}
+
+#[cfg(test)]
+mod test_analytics {
+    use super::*;
+
+    #[test]
+    fn test_build_job_log_url_valid() {
+        let url = build_job_log_url("danyalahmed1995/Snow-Devil", 12345).unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.github.com/repos/danyalahmed1995/Snow-Devil/actions/jobs/12345/logs"
+        );
+    }
+
+    #[test]
+    fn test_build_job_log_url_valid_chars() {
+        let url = build_job_log_url("my_user.name/my-repo_12.3", 1).unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.github.com/repos/my_user.name/my-repo_12.3/actions/jobs/1/logs"
+        );
+    }
+
+    #[test]
+    fn test_build_job_log_url_invalid_format() {
+        assert!(build_job_log_url("owner_only", 1).is_err());
+        assert!(build_job_log_url("owner/name/extra", 1).is_err());
+    }
+
+    #[test]
+    fn test_build_job_log_url_path_traversal() {
+        assert!(build_job_log_url("../repo", 1).is_err());
+        assert!(build_job_log_url("owner/..", 1).is_err());
+        assert!(build_job_log_url("owner/.", 1).is_err());
+        assert!(build_job_log_url("owner/repo\\name", 1).is_err());
+    }
+
+    #[test]
+    fn test_build_job_log_url_empty_components() {
+        assert!(build_job_log_url("/repo", 1).is_err());
+        assert!(build_job_log_url("owner/", 1).is_err());
+        assert!(build_job_log_url("/", 1).is_err());
+    }
+
+    #[test]
+    fn test_build_job_log_url_control_chars_and_crlf() {
+        assert!(build_job_log_url("owner\r/name", 1).is_err());
+        assert!(build_job_log_url("owner/name\n", 1).is_err());
+        assert!(build_job_log_url("owner\t/name", 1).is_err());
     }
 }

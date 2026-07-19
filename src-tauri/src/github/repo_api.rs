@@ -7,6 +7,17 @@ use std::error::Error;
 const GRAPHQL_URL: &str = "https://api.github.com/graphql";
 const REST_URL: &str = "https://api.github.com";
 
+pub(crate) fn get_github_client() -> Result<Client, reqwest::Error> {
+    let policy = reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.url().host_str() != Some("api.github.com") {
+            attempt.stop()
+        } else {
+            attempt.follow()
+        }
+    });
+    Client::builder().redirect(policy).build()
+}
+
 pub async fn fetch_repo_overview(
     owner: &str,
     name: &str,
@@ -541,14 +552,36 @@ pub async fn execute_graphql(
     Ok(json_res)
 }
 
+pub fn build_github_api_url(endpoint: &str) -> Result<url::Url, String> {
+    let base_url = url::Url::parse("https://api.github.com").unwrap();
+    let target_url = base_url.join(endpoint).map_err(|e| e.to_string())?;
+
+    if target_url.scheme() != "https" {
+        return Err("URL scheme must be https".into());
+    }
+    if target_url.host_str() != Some("api.github.com") {
+        return Err("Host must be api.github.com".into());
+    }
+    if !target_url.username().is_empty() || target_url.password().is_some() {
+        return Err("Userinfo is not permitted".into());
+    }
+    if let Some(port) = target_url.port() {
+        if port != 443 {
+            return Err("Custom ports are not permitted".into());
+        }
+    }
+    Ok(target_url)
+}
+
 pub async fn execute_rest(
     endpoint: &str,
 ) -> Result<serde_json::Value, Box<dyn Error + Send + Sync>> {
+    let target_url = build_github_api_url(endpoint)?;
     let token = get_token()?.ok_or("No token")?;
-    let client = Client::new();
+    let client = get_github_client()?;
 
     let res = client
-        .get(&format!("{}{}", REST_URL, endpoint))
+        .get(target_url)
         .bearer_auth(&token)
         .header("User-Agent", "github-graph-browser")
         .header("Accept", "application/vnd.github.v3+json")
@@ -593,4 +626,60 @@ pub async fn search_repository(
         return Err(format!("GitHub repository search failed ({}): {}", status, message).into());
     }
     Ok(response.json().await?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_github_api_url_valid() {
+        let url = build_github_api_url("/user/repos").unwrap();
+        assert_eq!(url.as_str(), "https://api.github.com/user/repos");
+
+        let url = build_github_api_url("/repos/owner/name/pulls?state=open").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "https://api.github.com/repos/owner/name/pulls?state=open"
+        );
+    }
+
+    #[test]
+    fn test_build_github_api_url_invalid_host() {
+        assert!(build_github_api_url("https://attacker.example/path").is_err());
+        assert!(build_github_api_url("//attacker.example/path").is_err());
+        assert!(build_github_api_url("http://api.github.com/path").is_err()); // HTTP not allowed
+    }
+
+    #[test]
+    fn test_build_github_api_url_userinfo() {
+        assert!(build_github_api_url("https://attacker:password@api.github.com/path").is_err());
+        assert!(build_github_api_url("@attacker.example/path").is_ok()); // This evaluates to a valid path: https://api.github.com/@attacker.example/path
+    }
+
+    #[test]
+    fn test_build_github_api_url_backslash_and_dots() {
+        // Backslash authority confusion is rejected by url crate or our host check
+        assert!(build_github_api_url("/\\attacker.example/path").is_err());
+        assert!(build_github_api_url("\\/attacker.example/path").is_err());
+        assert!(build_github_api_url("\\\\attacker.example/path").is_err());
+
+        // Dot segments are resolved safely by the url crate
+        let url = build_github_api_url("/repos/owner/name/../../actions").unwrap();
+        assert_eq!(url.as_str(), "https://api.github.com/repos/actions");
+    }
+
+    #[test]
+    fn test_build_github_api_url_fragments_and_crlf() {
+        // Fragments are allowed but safely parsed
+        let url = build_github_api_url("/path#fragment").unwrap();
+        assert_eq!(url.as_str(), "https://api.github.com/path#fragment");
+
+        // Control characters / CRLF will result in URL parsing error or literal encoding by the URL crate.
+        // We ensure they do not result in SSRF to another domain.
+        let url = build_github_api_url("/path\r\n/extra").unwrap();
+        // url crate strips newlines! Wait, WHATWG URL standard strips tabs and newlines during parsing.
+        // So \r\n will be stripped, resulting in "/path/extra".
+        assert_eq!(url.as_str(), "https://api.github.com/path/extra");
+    }
 }
