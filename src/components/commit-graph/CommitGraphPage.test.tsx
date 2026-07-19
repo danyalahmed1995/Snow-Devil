@@ -7,7 +7,7 @@ import { useModeStore } from '../../stores/mode-store';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useHistoryViewStore } from '../../stores/history-view-store';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
-import { CommitGraphPage } from './CommitGraphPage';
+import { CommitGraphPage, patchLineClass } from './CommitGraphPage';
 
 vi.mock('../../data/demo-provider', () => ({ DemoDataProvider: { manifest: async () => ({ schemaVersion: 1, referenceDate: '2026-02-15T00:00:00Z', identity: {}, repositories: [{ id: 'demo-snow-devil', nameWithOwner: 'nova-labs/snow-devil', archived: false, fork: false, stars: 1 }], coverage: [], fixtures: {} }) } }));
 
@@ -35,6 +35,14 @@ describe('Commit Graph workspace', () => {
     expect(screen.getByText('Verified signature')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Open Pull Request' })).toBeInTheDocument();
     expect(screen.getByText('Topology computed from parent SHAs')).toBeInTheDocument();
+    expect(document.querySelector('.commit-diff-line--addition')).toBeInTheDocument();
+  });
+
+  it('classifies diff additions, deletions, and hunk headers', () => {
+    expect(patchLineClass('+added')).toContain('commit-diff-line--addition');
+    expect(patchLineClass('-removed')).toContain('commit-diff-line--deletion');
+    expect(patchLineClass('@@ -1 +1 @@')).toContain('commit-diff-line--hunk');
+    expect(patchLineClass('+++ b/file')).toBe('commit-diff-line');
   });
 
   it('opens a persistent read-only comparison after base and target selection', async () => {
