@@ -51,6 +51,7 @@ describe('Commit Graph workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Repository History' }));
     const repositoryHistory = useHistoryViewStore.getState().states['native:repository-simulator'];
     expect(repositoryHistory?.selectedCalendarDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(repositoryHistory?.selectedRepository).toEqual({ id: 'demo-snow-devil', nameWithOwner: 'nova-labs/snow-devil' });
     expect(repositoryHistory?.filters.entityType).toBe('all');
 
     fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'maya-snow' }));
