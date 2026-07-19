@@ -43,6 +43,24 @@
 .nav-item:not(.active):not(:hover) .icon-boxes, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-boxes { animation: idle-tilt 5s infinite; color: rgba(192, 132, 252, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-sketch, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-sketch { animation: idle-draw 4.5s infinite; color: rgba(244, 114, 182, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-issues, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-issues { animation: idle-scale-pulse 4s infinite; color: rgba(251, 146, 60, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-commit-graph, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-commit-graph { animation: idle-pulse 4s infinite; color: rgba(14, 165, 233, 0.7); }
+.nav-item:hover .icon-commit-graph, .workspace-tab:hover .icon-commit-graph, .workspace-tab--active .icon-commit-graph, .nav-item.active .icon-commit-graph {
+  color: var(--info) !important;
+  filter: drop-shadow(0 0 5px var(--info)) !important;
+  animation: spin-glow 2s linear infinite !important;
+}
+
+.nav-item:not(.active):not(:hover) .icon-commit-diff, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-commit-diff { animation: idle-slide-right 5s infinite; color: rgba(14, 165, 233, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-ci-run, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-ci-run { animation: idle-pulse 3s infinite; color: rgba(234, 179, 8, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-evidence-graph, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-evidence-graph { animation: idle-wobble 6s infinite; color: rgba(45, 212, 191, 0.7); }
+.nav-item:not(.active):not(:hover) .icon-commit-compare, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-commit-compare { animation: idle-slide-right 5s infinite; color: rgba(251, 146, 60, 0.7); }
+
+.nav-item:hover .icon-pr, .workspace-tab:hover .icon-pr, .workspace-tab--active .icon-pr, .nav-item.active .icon-pr { color: rgba(52, 211, 153, 1) !important; filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.8)) !important; }
+.nav-item:hover .icon-commit-diff, .workspace-tab:hover .icon-commit-diff, .workspace-tab--active .icon-commit-diff, .nav-item.active .icon-commit-diff { color: rgba(14, 165, 233, 1) !important; filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.8)) !important; }
+.nav-item:hover .icon-ci-run, .workspace-tab:hover .icon-ci-run, .workspace-tab--active .icon-ci-run, .nav-item.active .icon-ci-run { color: rgba(234, 179, 8, 1) !important; filter: drop-shadow(0 0 5px rgba(234, 179, 8, 0.8)) !important; }
+.nav-item:hover .icon-evidence-graph, .workspace-tab:hover .icon-evidence-graph, .workspace-tab--active .icon-evidence-graph, .nav-item.active .icon-evidence-graph { color: rgba(45, 212, 191, 1) !important; filter: drop-shadow(0 0 5px rgba(45, 212, 191, 0.8)) !important; }
+.nav-item:hover .icon-commit-compare, .workspace-tab:hover .icon-commit-compare, .workspace-tab--active .icon-commit-compare, .nav-item.active .icon-commit-compare { color: rgba(251, 146, 60, 1) !important; filter: drop-shadow(0 0 5px rgba(251, 146, 60, 0.8)) !important; }
+
 .nav-item:not(.active):not(:hover) .icon-building, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-building { animation: idle-float 5s ease-in-out infinite; color: rgba(167, 139, 250, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-package, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-package { animation: idle-shake 4s infinite; color: rgba(239, 68, 68, 0.7); }
 .nav-item:not(.active):not(:hover) .icon-chart, .workspace-tab:not(.workspace-tab--active):not(:hover) .icon-chart { color: rgba(16, 185, 129, 0.7); }
@@ -62,3 +80,4 @@
 @keyframes idle-draw { 0%, 90%, 100% { transform: translate(0, 0) rotate(0deg); } 92% { transform: translate(2px, -2px) rotate(5deg); } 95% { transform: translate(-1px, 1px) rotate(-2deg); } 98% { transform: translate(1px, -1px) rotate(2deg); } }
 @keyframes idle-tilt { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(6deg); } }
 @keyframes idle-scale-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+@keyframes spin-glow { from { transform: scale(1.2) rotate(0deg); } to { transform: scale(1.2) rotate(360deg); } }

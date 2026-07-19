@@ -1,4 +1,4 @@
-import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle, Home, Workflow, Gauge, PackageSearch, ChartNoAxesCombined, Activity, SlidersHorizontal, Boxes, Settings, NotebookPen, FolderGit2, GitPullRequest, Bell, Building2 } from 'lucide-react';
+import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle, Home, Workflow, Gauge, PackageSearch, ChartNoAxesCombined, Activity, SlidersHorizontal, Boxes, Settings, NotebookPen, FolderGit2, GitPullRequest, Bell, Building2, GitCommit, FileCode2, PlayCircle, GitCompareArrows, Network } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -257,6 +257,11 @@ export function WorkspaceTabStrip() {
               case 'organizations': NativeTabIcon = Building2; nativeIconClass = 'icon-building'; break;
               case 'repositoryExplorer': NativeTabIcon = FolderGit2; nativeIconClass = 'icon-folder'; break;
               case 'pullRequestDiff': NativeTabIcon = GitPullRequest; nativeIconClass = 'icon-pr'; break;
+              case 'commitGraph': NativeTabIcon = GitCommit; nativeIconClass = 'icon-commit-graph'; break;
+              case 'commitDiff': NativeTabIcon = FileCode2; nativeIconClass = 'icon-commit-diff'; break;
+              case 'ciRun': NativeTabIcon = PlayCircle; nativeIconClass = 'icon-ci-run'; break;
+              case 'evidenceGraph': NativeTabIcon = Network; nativeIconClass = 'icon-evidence-graph'; break;
+              case 'commitCompare': NativeTabIcon = GitCompareArrows; nativeIconClass = 'icon-commit-compare'; break;
             }
           }
 

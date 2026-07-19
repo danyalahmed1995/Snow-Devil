@@ -47,6 +47,7 @@ export interface CommitCheckSummary {
   failed: number;
   pending: number;
   names: string[];
+  states: CommitCiState[];
   latestRunId?: string;
 }
 

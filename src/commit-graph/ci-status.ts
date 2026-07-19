@@ -73,7 +73,8 @@ function summarize(runs: IndexedRun[]): CommitCheckSummary {
     failed,
     pending,
     names: ordered.map(run => run.event.subjectTitle),
-    latestRunId: latest ? stringMetadata(latest.event, 'runId') : undefined,
+    states: states,
+    latestRunId: latest ? (stringMetadata(latest.event, 'runId') ?? latest.event.id) : undefined,
   };
 }
 
@@ -96,7 +97,7 @@ export function summarizeWorkflowJobs(jobs: WorkflowJobStatus[]): CommitCheckSum
   else if (pending > 0) state = 'pending';
   else if (jobs.length > 0 && passed === jobs.length) state = 'passing';
   else if (jobs.length > 0 && ordered.every(item => item.state === 'cancelled')) state = 'cancelled';
-  return { state, total: jobs.length, passed, failed, pending, names: ordered.map(item => item.job.name) };
+  return { state, total: jobs.length, passed, failed, pending, names: ordered.map(item => item.job.name), states: ordered.map(item => item.state as CommitCiState) };
 }
 
 /** Indexes the shared CI Activity workflow-run cache by commit SHA. */
