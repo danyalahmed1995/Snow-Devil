@@ -32,21 +32,33 @@ function getGroupId(component: ArchitectureComponent, mode: ComponentMapGrouping
   return undefined;
 }
 
-export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArchitectureImpact; onSelect: (id: string) => void }) {
-  const activeTabId = useTabsStore(s => s.activeTabId);
-  const mapState = useArchitectureStore(s => s.states[activeTabId]?.mapState);
-  const setMapState = useArchitectureStore.getState().setMapState;
-  const selectedComponentId = useArchitectureStore(s => s.states[activeTabId]?.selectedComponentId);
+const ComponentMapRefreshFrame = React.memo(function ComponentMapRefreshFrame({ activeTabId, className, children }: { activeTabId: string; className: string; children: React.ReactNode }) {
+  const status = useArchitectureRefreshStore(s => s.values[activeTabId]?.status);
+  return <div className={`${className} ${status === 'syncing' ? 'is-commit-refreshing' : status === 'updated' ? 'is-commit-updated' : ''}`}>{children}</div>;
+});
+
+const ComponentMapCommitStatus = React.memo(function ComponentMapCommitStatus({ activeTabId, impactHeadSha }: { activeTabId: string; impactHeadSha: string }) {
+  const refreshState = useArchitectureRefreshStore(s => s.values[activeTabId]);
   const synchronizedHeadSha = useTabsStore(s => {
     const tab = s.tabs.find(value => value.id === activeTabId);
     return tab?.family === 'native' && tab.context?.type === 'pullRequest' ? tab.context.headSha : undefined;
   });
-  
+  const refreshStatus = refreshState?.status === 'syncing' ? 'Syncing' : refreshState?.status === 'updated' ? 'Updated' : 'Current';
+  const displayedHeadSha = refreshState?.headSha || synchronizedHeadSha || impactHeadSha;
+  return <div className="full-component-map__commit-status" role="status" aria-live="polite">
+    <GitCommit size={13}/><span>{displayedHeadSha && displayedHeadSha !== 'head-unavailable' ? displayedHeadSha.slice(0, 7) : 'SHA unavailable'}</span><strong>{refreshStatus}</strong>
+  </div>;
+});
+
+export const FullComponentMap = React.memo(function FullComponentMap({ impact, onSelect }: { impact: PullRequestArchitectureImpact; onSelect: (id: string) => void }) {
+  const activeTabId = useTabsStore(s => s.activeTabId);
+  const mapState = useArchitectureStore(s => s.states[activeTabId]?.mapState);
+  const setMapState = useArchitectureStore.getState().setMapState;
+  const selectedComponentId = useArchitectureStore(s => s.states[activeTabId]?.selectedComponentId);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
-  const refreshState = useArchitectureRefreshStore(s => s.values[activeTabId]);
 
   const defaultMapState = { groupingMode: 'type', filters: {}, zoom: 1, panX: 0, panY: 0, isFullScreen: false } as any;
   const safeMapState = mapState || defaultMapState;
@@ -56,12 +68,6 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
   const decisionById = useMemo(() => new Map(decisions.map(item => [item.componentId, item])), [decisions]);
   const modeLabel = colorMode === 'change-impact' ? 'Change Impact' : colorMode === 'fix-strategy' ? 'Fix Strategy' : 'Architecture';
   const modeSummary = colorMode === 'change-impact' ? `${decisions.filter(item => item.impactTier === 'critical').length} critical · ${decisions.filter(item => item.impactTier === 'elevated' || item.impactTier === 'high').length} elevated` : colorMode === 'fix-strategy' ? `${decisions.filter(item => item.fixTier === 'recommended').length} recommended · ${decisions.filter(item => item.fixTier === 'plausible').length} plausible` : 'Blue and purple identity styling';
-  const isCommitRefreshing = refreshState?.status === 'syncing';
-  const recentlyUpdated = refreshState?.status === 'updated';
-  const refreshStatus = refreshState?.status === 'syncing' ? 'Syncing' : recentlyUpdated ? 'Updated' : 'Current';
-  const displayedHeadSha = refreshState?.headSha || synchronizedHeadSha || impact.headSha;
-  const emphasizeRefresh = isCommitRefreshing || recentlyUpdated;
-
   // Filter nodes based on filters
   const allRelevantComponents = useMemo(() => getRelevantComponents(impact), [impact]);
   
@@ -226,11 +232,9 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
 
   if (!mapState) return null;
 
-  return <div className={`full-component-map color-mode-${colorMode} ${isFullScreen ? 'is-full-screen' : ''} ${isCommitRefreshing ? 'is-commit-refreshing' : recentlyUpdated ? 'is-commit-updated' : ''}`}>
+  return <ComponentMapRefreshFrame activeTabId={activeTabId} className={`full-component-map color-mode-${colorMode} ${isFullScreen ? 'is-full-screen' : ''}`}>
     <header className="full-component-map__toolbar">
-      <div className="full-component-map__commit-status" role="status" aria-live="polite">
-        <GitCommit size={13}/><span>{displayedHeadSha && displayedHeadSha !== 'head-unavailable' ? displayedHeadSha.slice(0, 7) : 'SHA unavailable'}</span><strong>{refreshStatus}</strong>
-      </div>
+      <ComponentMapCommitStatus activeTabId={activeTabId} impactHeadSha={impact.headSha}/>
       <div className="toolbar-group">
         <button onClick={fitToView} title="Fit to view"><Maximize size={14}/> Fit</button>
         <button onClick={focusChanged} title="Focus changed"><MapIcon size={14}/> Focus</button>
@@ -316,7 +320,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
             const statusClass = e.type !== 'normal' && e.type !== 'indirect' ? `is-${e.type}` : '';
             const indirectClass = e.type === 'indirect' ? 'is-indirect' : '';
             const connectedClass = isConnected ? 'is-connected' : '';
-            const refreshClass = emphasizeRefresh && e.refreshAffected ? 'is-refresh-affected' : '';
+            const refreshClass = e.refreshAffected ? 'is-refresh-affected' : '';
             
             return (
               <g key={`${e.source}-${e.target}`} className={`full-component-map__edge-group`}>
@@ -324,7 +328,7 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
                 <path
                   className={`full-component-map__edge ${statusClass} ${indirectClass} ${connectedClass} ${refreshClass}`}
                   d={pathData}
-                  markerEnd={`url(#arrow-${emphasizeRefresh && e.refreshAffected ? 'sync' : isConnected ? 'is-connected' : (statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default')})`}
+                  markerEnd={`url(#arrow-${isConnected ? 'is-connected' : (statusClass ? statusClass : indirectClass ? 'is-indirect' : 'default')})`}
                 />
                 <circle cx={points[0].x} cy={points[0].y} r={3 * (1 / zoom)} className={`full-component-map__port is-${e.type} ${connectedClass} ${refreshClass}`} />
               </g>
@@ -355,5 +359,5 @@ export function FullComponentMap({ impact, onSelect }: { impact: PullRequestArch
         })}
       </div>
     </div>
-  </div>;
-}
+  </ComponentMapRefreshFrame>;
+});

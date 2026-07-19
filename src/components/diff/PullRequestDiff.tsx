@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Check, ExternalLink, Files, Folder, GitPullRequest, Workflow, Rows3 } from 'lucide-react';
 import { useModeStore } from '../../stores/mode-store';
@@ -49,7 +49,7 @@ export function PullRequestDiff({repository,number,observedHeadSha}:{repository:
   const totals=files.reduce((sum,file)=>({additions:sum.additions+file.additions,deletions:sum.deletions+file.deletions}),{additions:0,deletions:0});
   const openGithub=()=>useTabsStore.getState().openBrowserTab(`github:pr:${repository}:${number}`,'pullRequest',`PR #${number}`,`https://github.com/${repository}/pull/${number}`,false,true);
   const selectFile=(path:string)=>{setActivePath(path);setRenderLimit(CHUNK);setExpandedContext(false);mainRef.current?.scrollTo({top:0})};
-  const selectArchitectureComponent=(componentId:string)=>{useArchitectureStore.getState().selectComponent(activeTabId,componentId);setInspectorOpen(true)};
+  const selectArchitectureComponent=useCallback((componentId:string)=>{useArchitectureStore.getState().selectComponent(activeTabId,componentId);setInspectorOpen(true)},[activeTabId,setInspectorOpen]);
   const openArchitectureFile=(path:string)=>{selectFile(path);handleTabChange('changes')};
   const toggleViewed=(path:string)=>setViewed(current=>{const next=new Set(current);if(next.has(path))next.delete(path);else next.add(path);return next});
   const openOriginal=(file:DiffFile)=>useTabsStore.getState().openNativeTab(`native:repo:${repository}`,'repositoryExplorer',name,false,true,{type:'repository',repository,ref:data?.headRefName,path:file.newPath});
