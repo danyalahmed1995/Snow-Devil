@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SimulatorEvent } from '../simulator/simulator-types';
-import { indexCommitCiSummaries } from './ci-status';
+import { indexCommitCiSummaries, summarizeWorkflowJobs } from './ci-status';
 
 function run(overrides: Partial<SimulatorEvent> & { metadata?: Record<string, unknown> } = {}): SimulatorEvent {
   return {
@@ -30,5 +30,16 @@ describe('commit CI summaries', () => {
     ], 'acme/widget').get('abc123');
     expect(summaries).toMatchObject({ state: 'failing', total: 2, passed: 1, failed: 1, latestRunId: '101' });
     expect(summaries?.names).toEqual(['Build', 'Lint']);
+  });
+
+  it('counts the jobs inside a workflow as checks', () => {
+    const summary = summarizeWorkflowJobs([
+      { name: 'Rust Quality', status: 'completed', conclusion: 'success' },
+      { name: 'Frontend Quality', status: 'completed', conclusion: 'success' },
+      { name: 'Windows Tauri Build', status: 'in_progress', conclusion: null },
+      { name: 'Playwright E2E', status: 'queued', conclusion: null },
+    ]);
+    expect(summary).toMatchObject({ state: 'pending', total: 4, passed: 2, failed: 0, pending: 2 });
+    expect(summary.names).toEqual(['Frontend Quality', 'Rust Quality', 'Playwright E2E', 'Windows Tauri Build']);
   });
 });

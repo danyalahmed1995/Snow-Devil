@@ -15,9 +15,10 @@ import { demoCommitDetails, demoCommitHistory, fetchCommitDetails, fetchCommitHi
 import type { CommitCiState, CommitGraphDetails, CommitGraphFile, CommitGraphNode } from '../../commit-graph/types';
 import { demoBranches } from '../../repository/demo-repository';
 import { useForegroundAutoRefresh } from '../../commit-graph/useForegroundAutoRefresh';
-import { indexCommitCiSummaries } from '../../commit-graph/ci-status';
+import { indexCommitCiSummaries, summarizeWorkflowJobs } from '../../commit-graph/ci-status';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
+import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import './CommitGraphPage.css';
 import './CommitGraphAutoRefresh.css';
 
@@ -102,7 +103,11 @@ export function CommitGraphPage() {
   const filtered = useMemo(() => filterCommitNodes(nodes, view.filters).filter(node => !view.filters.pullRequestsOnly || node.pullRequest), [nodes, view.filters]);
   const topology = useMemo(() => calculateCommitTopology(filtered), [filtered]);
   const selected = filtered.find(node => node.sha === view.selectedSha) ?? filtered[0];
-  const details = useQuery({ queryKey: ['commit-graph', 'details', repositoryName.toLowerCase(), selected?.sha], enabled: Boolean(loaded && repositoryName && selected?.sha), queryFn: () => mode === 'demo' ? demoCommitDetails(selected!.sha) : fetchCommitDetails(repositoryName, selected!.sha), select: value => { const summary = mode === 'live' && selected ? ciSummaries.get(selected.sha.toLowerCase()) : undefined; return summary ? { ...value, node: { ...value.node, ciState: summary.state }, checks: summary } : value; }, staleTime: 10 * 60 * 1000 });
+  const selectedWorkflowSummary = mode === 'live' && selected ? ciSummaries.get(selected.sha.toLowerCase()) : undefined;
+  const selectedRunId = selectedWorkflowSummary?.latestRunId ?? '';
+  const selectedRun = useWorkflowRunWatcher(repositoryName, selectedRunId, undefined, loaded && document.hasFocus(), loaded && mode === 'live' && Boolean(selectedRunId));
+  const selectedJobSummary = useMemo(() => summarizeWorkflowJobs(selectedRun.data?.jobs ?? []), [selectedRun.data?.jobs]);
+  const details = useQuery({ queryKey: ['commit-graph', 'details', repositoryName.toLowerCase(), selected?.sha], enabled: Boolean(loaded && repositoryName && selected?.sha), queryFn: () => mode === 'demo' ? demoCommitDetails(selected!.sha) : fetchCommitDetails(repositoryName, selected!.sha), select: value => { const summary = selectedJobSummary.total > 0 ? { ...selectedJobSummary, latestRunId: selectedRunId } : selectedWorkflowSummary; return summary ? { ...value, node: { ...value.node, ciState: summary.state }, checks: summary } : value; }, staleTime: 10 * 60 * 1000 });
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const end = Math.min(filtered.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN);
 

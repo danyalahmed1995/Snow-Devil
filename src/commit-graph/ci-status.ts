@@ -11,6 +11,12 @@ interface IndexedRun {
   timestamp: number;
 }
 
+interface WorkflowJobStatus {
+  name: string;
+  status: string;
+  conclusion: string | null;
+}
+
 function stringMetadata(event: SimulatorEvent, key: string): string | undefined {
   const value = event.metadata[key];
   return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
@@ -69,6 +75,28 @@ function summarize(runs: IndexedRun[]): CommitCheckSummary {
     names: ordered.map(run => run.event.subjectTitle),
     latestRunId: latest ? stringMetadata(latest.event, 'runId') : undefined,
   };
+}
+
+export function summarizeWorkflowJobs(jobs: WorkflowJobStatus[]): CommitCheckSummary {
+  const stateForJob = (job: WorkflowJobStatus): WorkflowState => {
+    if (job.status !== 'completed') return 'pending';
+    if (job.conclusion === 'success' || job.conclusion === 'neutral') return 'passing';
+    if (job.conclusion === 'skipped') return 'skipped';
+    if (job.conclusion === 'cancelled') return 'cancelled';
+    if (job.conclusion === 'failure' || job.conclusion === 'timed_out' || job.conclusion === 'action_required') return 'failing';
+    return 'unknown';
+  };
+  const stateOrder: Record<WorkflowState, number> = { passing: 0, skipped: 0, failing: 1, pending: 2, cancelled: 3, unknown: 4 };
+  const ordered = jobs.map(job => ({ job, state: stateForJob(job) })).sort((left, right) => stateOrder[left.state] - stateOrder[right.state] || left.job.name.localeCompare(right.job.name));
+  const passed = ordered.filter(item => item.state === 'passing' || item.state === 'skipped').length;
+  const failed = ordered.filter(item => item.state === 'failing').length;
+  const pending = ordered.filter(item => item.state === 'pending').length;
+  let state: CommitCiState = 'unknown';
+  if (failed > 0) state = 'failing';
+  else if (pending > 0) state = 'pending';
+  else if (jobs.length > 0 && passed === jobs.length) state = 'passing';
+  else if (jobs.length > 0 && ordered.every(item => item.state === 'cancelled')) state = 'cancelled';
+  return { state, total: jobs.length, passed, failed, pending, names: ordered.map(item => item.job.name) };
 }
 
 /** Indexes the shared CI Activity workflow-run cache by commit SHA. */
