@@ -75,6 +75,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     pinned: false,
     closable: true,
   },
+  { label: 'Commit Graph', tabId: 'native:commit-graph', family: 'native', nativeKind: 'commitGraph', pinned: false, closable: true },
   { label: 'Settings', tabId: 'native:settings', family: 'native', nativeKind: 'settings', pinned: false, closable: true },
   { label: 'Sketch Board', tabId: 'native:sketch-board', family: 'native', nativeKind: 'sketchBoard', pinned: false, closable: true },
   { label: 'Account', tabId: 'github:profile', family: 'browser', browserKind: 'profile', urlTemplate: (login) => `https://github.com/${login}`, pinned: false, closable: true },

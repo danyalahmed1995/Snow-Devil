@@ -30,6 +30,8 @@ const SimulatorWorkbench = lazy(() => import('../simulator/SimulatorWorkbench').
 const RepositoryExplorer = lazy(() => import('../repository/RepositoryExplorer').then(module => ({ default: module.RepositoryExplorer })));
 const PullRequestDiff = lazy(() => import('../diff/PullRequestDiff').then(module => ({ default: module.PullRequestDiff })));
 const CommitDiff = lazy(() => import('../diff/CommitDiff').then(module => ({ default: module.CommitDiff })));
+const CommitGraphPage = lazy(() => import('../commit-graph/CommitGraphPage').then(module => ({ default: module.CommitGraphPage })));
+const CommitComparisonPage = lazy(() => import('../commit-graph/CommitComparisonPage').then(module => ({ default: module.CommitComparisonPage })));
 const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({ default: module.CIRunWatcher })));
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
@@ -46,6 +48,8 @@ const LOADING_COPY: Partial<Record<NativeTab['kind'], { title: string; detail: s
   accountSimulator: { title: 'Loading Account History', detail: 'Restoring cached history…' },
   repositorySimulator: { title: 'Loading Repository History', detail: 'Restoring cached history…' },
   repositoryExplorer: { title: 'Loading repository', detail: 'Preparing the repository workspace…' },
+  commitGraph: { title: 'Loading Commit Graph', detail: 'Restoring repository and branch context…' },
+  commitCompare: { title: 'Loading comparison', detail: 'Comparing commits and changed files…' },
   evidenceGraph: { title: 'Loading Architecture Context', detail: 'Preparing the component map…' },
 };
 
@@ -81,11 +85,13 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'personalFocus' && <PersonalFocusPage />}
       {tab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-history-${demoRevision}`} mode="account" />}
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
+      {tab.kind === 'commitGraph' && <CommitGraphPage />}
       {tab.kind === 'settings' && <AnalyticsSettingsPage />}
       {tab.kind === 'sketchBoard' && <SketchBoard />}
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
       {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} observedHeadSha={tab.context.headSha} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}
+      {tab.kind === 'commitCompare' && tab.context?.type === 'commitCompare' && <CommitComparisonPage repository={tab.context.repository} baseSha={tab.context.baseSha} targetSha={tab.context.targetSha} />}
       {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.selectedJobId ?? tab.context.jobId} />}
       {tab.kind === 'ciRun' && tab.context?.type !== 'ciRun' && <InvalidCIRunTab tab={tab} />}
       {tab.kind === 'notifications' && <NotificationsPage />}

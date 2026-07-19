@@ -53,9 +53,11 @@ const NATIVE_KINDS = new Set<NativeTabKind>([
   'sketchBoard',
   'accountSimulator',
   'repositorySimulator',
+  'commitGraph',
   'repositoryExplorer',
   'pullRequestDiff',
   'commitDiff',
+  'commitCompare',
   'ciRun',
   'notifications',
   'organizations',
@@ -71,6 +73,7 @@ export const FIXED_NATIVE_TAB_IDS: Partial<Record<NativeTabKind, string>> = {
   personalFocus: 'native:personal-focus',
   accountSimulator: 'native:account-simulator',
   repositorySimulator: 'native:repository-simulator',
+  commitGraph: 'native:commit-graph',
   settings: 'native:settings',
   sketchBoard: 'native:sketch-board',
   notifications: 'native:notifications',
@@ -158,13 +161,26 @@ function normalizeNativeContext(tab: Record<string, unknown>): NativeTabContext 
       repository: context.repository,
       ref: typeof context.ref === 'string' ? context.ref : undefined,
       path: typeof context.path === 'string' ? context.path : undefined,
+      architectureSha: typeof context.architectureSha === 'string' ? context.architectureSha : undefined,
     };
   }
   if (context.type === 'pullRequest' && typeof context.repository === 'string' && typeof context.number === 'number') {
     return { type: 'pullRequest', repository: context.repository, number: context.number, headSha: typeof context.headSha === 'string' ? context.headSha : undefined };
   }
   if (context.type === 'commit' && typeof context.repository === 'string' && typeof context.sha === 'string') {
-    return { type: 'commit', repository: context.repository, sha: context.sha };
+    return { type: 'commit', repository: context.repository, sha: context.sha, branch: typeof context.branch === 'string' ? context.branch : undefined, selectedPath: typeof context.selectedPath === 'string' ? context.selectedPath : undefined, source: context.source === 'commitGraph' ? 'commitGraph' : undefined };
+  }
+  if (context.type === 'commitCompare' && typeof context.repository === 'string' && typeof context.baseSha === 'string' && typeof context.targetSha === 'string') {
+    return { type: 'commitCompare', repository: context.repository, baseSha: context.baseSha, targetSha: context.targetSha };
+  }
+  if (context.type === 'commitGraph') {
+    return { type: 'commitGraph', repository: typeof context.repository === 'string' ? context.repository : undefined, branch: typeof context.branch === 'string' ? context.branch : undefined, sha: typeof context.sha === 'string' ? context.sha : undefined, path: typeof context.path === 'string' ? context.path : undefined };
+  }
+  if (context.type === 'ciActivity' && typeof context.repository === 'string') {
+    return { type: 'ciActivity', repository: context.repository, branch: typeof context.branch === 'string' ? context.branch : undefined, sha: typeof context.sha === 'string' ? context.sha : undefined };
+  }
+  if (context.type === 'deliveryRisks' && typeof context.repository === 'string') {
+    return { type: 'deliveryRisks', repository: context.repository, sha: typeof context.sha === 'string' ? context.sha : undefined, pullRequestNumber: safeNumber(context.pullRequestNumber) };
   }
   if (context.type === 'ciRun') {
     return normalizeCIRunContext(context, tab);
@@ -202,6 +218,7 @@ function normalizeTab(tab: unknown): WorkspaceTab | undefined {
     if (normalized.kind === 'repositoryExplorer' && normalized.context?.type !== 'repository') return undefined;
     if (normalized.kind === 'pullRequestDiff' && normalized.context?.type !== 'pullRequest') return undefined;
     if (normalized.kind === 'commitDiff' && normalized.context?.type !== 'commit') return undefined;
+    if (normalized.kind === 'commitCompare' && normalized.context?.type !== 'commitCompare') return undefined;
     if (normalized.kind === 'evidenceGraph' && normalized.context?.type !== 'evidenceGraph') normalized.context = { type: 'evidenceGraph' };
     return normalized;
   }
@@ -239,6 +256,7 @@ function normalizeKnownTab(tab: WorkspaceTab): WorkspaceTab {
   }
   if (isNativeTab(tab) && tab.kind === 'accountSimulator') return { ...tab, title: 'Account History' };
   if (isNativeTab(tab) && tab.kind === 'repositorySimulator') return { ...tab, title: 'Repository History' };
+  if (isNativeTab(tab) && tab.kind === 'commitGraph') return { ...tab, title: 'Commit Graph' };
   if (isNativeTab(tab) && tab.kind === 'inventory') return { ...tab, title: 'Delivery Risks' };
   return tab;
 }

@@ -1,0 +1,4 @@
+.commit-graph-footer::before {
+  content: 'Auto-refresh · 60s · foreground only';
+  color: var(--text-secondary);
+}
