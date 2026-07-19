@@ -54,13 +54,23 @@ export function CommandPalette() {
     };
     window.addEventListener('snow-devil:open-palette', onOpen); window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('snow-devil:open-palette', onOpen); window.removeEventListener('keydown', onKey); };
-  }, []);
+  }, [show]);
   useEffect(() => { if (open) requestAnimationFrame(() => input.current?.focus()); }, [open]);
-  useEffect(() => { if (open && activeOverlayId !== overlayId) setOpen(false); }, [activeOverlayId, open]);
+  const [prevOverlayState, setPrevOverlayState] = useState({ activeOverlayId, open });
+  if (activeOverlayId !== prevOverlayState.activeOverlayId || open !== prevOverlayState.open) {
+    setPrevOverlayState({ activeOverlayId, open });
+    if (open && activeOverlayId !== overlayId) setOpen(false);
+  }
   useEffect(() => () => closeOverlay(overlayId), [closeOverlay]);
 
+  const [prevRemoteDeps, setPrevRemoteDeps] = useState({ open, mode, paletteMode });
+  if (open !== prevRemoteDeps.open || mode !== prevRemoteDeps.mode || paletteMode !== prevRemoteDeps.paletteMode) {
+    setPrevRemoteDeps({ open, mode, paletteMode });
+    if (!open || mode === 'demo' || paletteMode === 'commands') { setRemote([]); setStatus(''); }
+  }
+
   useEffect(() => {
-    if (!open || mode === 'demo' || paletteMode === 'commands') { setRemote([]); setStatus(''); return; }
+    if (!open || mode === 'demo' || paletteMode === 'commands') return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setStatus('Searching cached GitHub entities…');

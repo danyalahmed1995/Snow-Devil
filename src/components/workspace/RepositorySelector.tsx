@@ -30,7 +30,7 @@ export function RepositorySelector({ selectedRepo, onSelect, compact = false }: 
       void DemoDataProvider.manifest().then(manifest => setRepos(manifest.repositories.map(repo => ({ id: repo.id, name: repo.nameWithOwner }))));
       return;
     }
-    setRepos((accountRepositories.data ?? []).map(repo => ({ id: repo.id, name: repo.nameWithOwner })));
+    Promise.resolve().then(() => setRepos((accountRepositories.data ?? []).map(repo => ({ id: repo.id, name: repo.nameWithOwner }))));
   }, [accountRepositories.data, mode]);
 
   const options = [

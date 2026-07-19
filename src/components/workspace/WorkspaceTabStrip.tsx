@@ -92,7 +92,7 @@ export function WorkspaceTabStrip() {
     };
     window.addEventListener('keydown', key, true);
     return () => window.removeEventListener('keydown', key, true);
-  }, [activeTabId, menu, setActiveTab, tabs]);
+  }, [activeTabId, menu, setActiveTab, tabs, closeMenu]);
   useEffect(() => {
     if (!menu) return;
     const pointerDown = (event: PointerEvent) => {
@@ -113,7 +113,7 @@ export function WorkspaceTabStrip() {
     };
   }, [closeMenu, menu]);
   useEffect(() => {
-    if (menu && activeOverlayId && activeOverlayId !== 'tab-menu') closeMenu();
+    Promise.resolve().then(() => { if (menu && activeOverlayId && activeOverlayId !== 'tab-menu') closeMenu(); });
   }, [activeOverlayId, closeMenu, menu]);
   useEffect(() => {
     if (previousActiveTabId.current !== activeTabId) {
@@ -122,7 +122,7 @@ export function WorkspaceTabStrip() {
     }
   }, [activeTabId, closeMenu]);
   useEffect(() => {
-    if (menu?.tabId && !tabs.some(tab => tab.id === menu.tabId)) closeMenu();
+    Promise.resolve().then(() => { if (menu?.tabId && !tabs.some(tab => tab.id === menu.tabId)) closeMenu(); });
   }, [closeMenu, menu, tabs]);
   useEffect(() => {
     if (!menu) return;

@@ -52,12 +52,14 @@ export function useReplayBuffer({ items, repositoryOwner, repositoryName, timeRa
 
   useEffect(() => {
     if (!enabled || !repositoryOwner || !repositoryName || items.length === 0) {
-      setEvents([]);
-      setStatus("idle");
-      setIsRefreshing(false);
-      setCompleteness({ isPartial: false, reasons: [] });
-      setError(null);
-      currentRequestRef.current = null;
+      Promise.resolve().then(() => {
+        setEvents([]);
+        setStatus("idle");
+        setIsRefreshing(false);
+        setCompleteness({ isPartial: false, reasons: [] });
+        setError(null);
+        currentRequestRef.current = null;
+      });
       return;
     }
 
@@ -199,6 +201,7 @@ export function useReplayBuffer({ items, repositoryOwner, repositoryName, timeRa
         abortControllerRef.current.abort();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, requestKey]);
 
   return { events, status, isRefreshing, completeness, error };

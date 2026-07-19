@@ -39,8 +39,8 @@ export function PullRequestDiff({repository,number,observedHeadSha}:{repository:
 
   useEffect(()=>()=>{if(refreshSettleTimerRef.current!==undefined)window.clearTimeout(refreshSettleTimerRef.current)},[]);
   useEffect(()=>{if(!architectureEnabled)return;const currentHead=data?.headRefOid;const newHeadPending=Boolean(observedHeadSha&&currentHead&&currentHead!==observedHeadSha);if(details.isFetching&&newHeadPending){if(refreshSettleTimerRef.current!==undefined){window.clearTimeout(refreshSettleTimerRef.current);refreshSettleTimerRef.current=undefined}setRefreshState(activeTabId,{status:'syncing',headSha:observedHeadSha});return;}if(!details.isFetching&&currentHead&&completedHeadRef.current&&completedHeadRef.current!==currentHead){completedHeadRef.current=currentHead;if(refreshSettleTimerRef.current!==undefined)window.clearTimeout(refreshSettleTimerRef.current);setRefreshState(activeTabId,{status:'updated',headSha:currentHead});refreshSettleTimerRef.current=window.setTimeout(()=>{refreshSettleTimerRef.current=undefined;const latest=useArchitectureRefreshStore.getState().values[activeTabId];if(latest?.status==='updated'&&latest.headSha===currentHead)setRefreshState(activeTabId,{status:'current',headSha:currentHead})},4000);return;}if(currentHead)completedHeadRef.current=currentHead;},[activeTabId,architectureEnabled,data?.headRefOid,details.isFetching,observedHeadSha,setRefreshState]);
-  useEffect(()=>{if(!architectureEnabled||!observedHeadSha||!data?.headRefOid||data.headRefOid===observedHeadSha||!details.isFetching)return;const timer=window.setTimeout(()=>{setRefreshState(activeTabId,{status:'current',headSha:data.headRefOid});void details.refetch();},15000);return()=>window.clearTimeout(timer)},[activeTabId,architectureEnabled,data?.headRefOid,details.isFetching,details.refetch,observedHeadSha,setRefreshState]);
-  useEffect(()=>{if(!architectureEnabled||!details.error||!data?.headRefOid)return;setRefreshState(activeTabId,{status:'current',headSha:data.headRefOid})},[activeTabId,architectureEnabled,data?.headRefOid,details.error,setRefreshState]);
+  useEffect(()=>{if(!architectureEnabled||!observedHeadSha||!data?.headRefOid||data.headRefOid===observedHeadSha||!details.isFetching)return;const timer=window.setTimeout(()=>{setRefreshState(activeTabId,{status:'current',headSha:data.headRefOid});void details.refetch();},15000);return()=>window.clearTimeout(timer)},[activeTabId,architectureEnabled,data?.headRefOid,details,observedHeadSha,setRefreshState]);
+  useEffect(()=>{if(!architectureEnabled||!details.error||!data?.headRefOid)return;setRefreshState(activeTabId,{status:'current',headSha:data.headRefOid})},[activeTabId,architectureEnabled,data?.headRefOid,details,setRefreshState]);
   useEffect(()=>{localStorage.setItem(persistedKey(repository,number),JSON.stringify({activePath,layout,viewed:[...viewed],ignoreWhitespace,surface}));},[activePath,ignoreWhitespace,layout,number,repository,surface,viewed]);
   const fallbackFiles: DiffFile[] = useMemo(() => {
     if (!data?.fallbackFiles) return [];
@@ -55,19 +55,23 @@ export function PullRequestDiff({repository,number,observedHeadSha}:{repository:
       binary: false,
       ...classifyDiffPath(f.filename)
     }));
-  }, [data?.fallbackFiles]);
+  }, [data]);
 
   const files = useMemo(() => {
     if (data?.fallbackFiles && data.fallbackFiles.length > 0) return fallbackFiles;
     return parseUnifiedDiff(data?.diff ?? '');
-  }, [data?.diff, data?.fallbackFiles, fallbackFiles]);
+  }, [data, fallbackFiles]);
 
   const repositoryArchitecture=useRepositoryArchitecture(repository,data?.baseRefOid,architectureEnabled&&Boolean(data)&&surface==='architecture');
   const architectureImpact=useMemo(()=>architectureEnabled&&surface==='architecture'&&data&&(!repositoryArchitecture.isLoading)?analyzePullRequestArchitecture({repositoryId:repository,pullRequestNumber:number,baseSha:data.baseRefOid,headSha:data.headRefOid,decisionContext:data.architectureDecisionContext,snapshot:repositoryArchitecture.data,files:files.map(file=>({oldPath:file.oldPath,newPath:file.newPath,status:file.status==='added'||file.status==='deleted'||file.status==='renamed'?file.status:'modified',additions:file.additions,deletions:file.deletions,lines:file.lines.map(line=>({type:line.kind,text:line.text}))}))}):undefined,[architectureEnabled,data,files,number,repository,repositoryArchitecture.data,repositoryArchitecture.isLoading,surface]);
   useEffect(()=>{useArchitectureStore.getState().setImpact(activeTabId,architectureImpact)},[activeTabId,architectureImpact]);
 
   useEffect(()=>{if(!architectureImpact||!(window as unknown as {__TAURI_INTERNALS__?:unknown}).__TAURI_INTERNALS__)return;const common={repositoryId:architectureImpact.repositoryId,algorithmVersion:architectureImpact.snapshot.algorithmVersion,generatedAt:architectureImpact.generatedAt};void invoke('save_pr_architecture_impact',{...common,pullRequestNumber:architectureImpact.pullRequestNumber,baseSha:architectureImpact.baseSha,headSha:architectureImpact.headSha,snapshotSha:architectureImpact.architectureSnapshotSha,payload:architectureImpact}).catch(error=>console.warn('[Architecture Context] Cache write failed',error));},[architectureImpact]);
-  useEffect(()=>{if(activePath&&!files.some(file=>file.newPath===activePath))setActivePath('')},[activePath,files]);
+  const [prevFiles, setPrevFiles] = useState(files);
+  if (files !== prevFiles) {
+    setPrevFiles(files);
+    if(activePath&&!files.some(file=>file.newPath===activePath))setActivePath('');
+  }
   const selected=useMemo(()=>activePath?files.filter(file=>file.newPath===activePath):files,[activePath,files]);const matching=useMemo(()=>{const normalizedQuery=query.trim().toLowerCase();return normalizedQuery?selected.filter(file=>file.newPath.toLowerCase().includes(normalizedQuery)||file.lines.some(line=>line.text.toLowerCase().includes(normalizedQuery))):selected},[query,selected]);
   const groups=useMemo(()=>{const map=new Map<string,DiffFile[]>();for(const file of files){const folder=file.newPath.includes('/')?file.newPath.slice(0,file.newPath.lastIndexOf('/')):'Repository root';map.set(folder,[...(map.get(folder)??[]),file]);}return[...map.entries()]},[files]);
   const isTruncated = data?.diffTruncated || (data?.changedFiles && data.changedFiles > 0 && files.length === 0);

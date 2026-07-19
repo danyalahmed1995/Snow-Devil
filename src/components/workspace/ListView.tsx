@@ -56,8 +56,8 @@ export function ListView({ type }: { type: string }) {
   };
 
   useEffect(() => {
-    fetchData();
-  }, [repositories.data, repositories.error, repositories.isLoading, session, type]);
+    Promise.resolve().then(() => fetchData());
+  }, [fetchData, repositories.data, repositories.error, repositories.isLoading, session, type]);
 
   const handleOpenItem = (item: any) => {
     if (type === 'repositories') {

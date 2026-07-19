@@ -7,7 +7,7 @@
  * - Escape → restore to current URL.
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTabsStore } from '../stores/tabs-store';
 import { isBrowserTab } from '../browser/browser-tabs';
 import { parseAddressBarInput, tabIdForUrl, titleForGithubUrl, classifyGithubUrl } from '../browser/browser-url';
@@ -29,11 +29,13 @@ export function AddressBar() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync input with active tab's URL when it changes externally
-  useEffect(() => {
+  const [prevCurrentUrl, setPrevCurrentUrl] = useState(currentUrl);
+  if (currentUrl !== prevCurrentUrl) {
+    setPrevCurrentUrl(currentUrl);
     if (!isFocused) {
       setInputValue(currentUrl);
     }
-  }, [currentUrl, isFocused]);
+  }
 
   const login =
     session.status === 'connected' ? session.account.login : undefined;
