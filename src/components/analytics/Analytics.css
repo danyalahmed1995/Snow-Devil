@@ -198,7 +198,7 @@
 .ci-jobs-list--dense .status-icon-wrapper.state-running .spinner-ring { animation: spin 1.1s linear infinite; filter: none; transition: none; }
 .ci-jobs-list--dense .ci-job-cursor { animation: ci-blink 1.35s step-end infinite; }
 .ci-job-item-header { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
-.ci-job-item-footer { width: 100%; min-width: 0; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding-left: 22px; overflow: hidden; }
+.ci-job-item-footer { width: 100%; min-width: 0; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding-left: 22px; overflow: hidden; }
 .ci-job-item.state-success { border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)); }
 .ci-job-item.state-success:hover { border-color: var(--success); }
 .ci-job-item.state-failure { border-color: color-mix(in srgb, var(--danger) 20%, var(--border-subtle)); }
@@ -210,9 +210,9 @@
 .ci-job-item.state-skipped { border-color: var(--border-subtle); }
 .ci-job-item.state-skipped:hover { border-color: var(--border-strong); }
 .ci-job-name { flex: 1; color: var(--text-primary); font-weight: 500; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ci-job-step-count { min-width: 0; justify-self: start; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ci-job-failed-step { min-width: 0; overflow: hidden; color: var(--danger); font-size: 8px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
-.ci-job-duration { justify-self: end; color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; }
+.ci-job-step-count { flex: 1; min-width: 0; color: var(--text-muted); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-job-failed-step { flex: 1; min-width: 0; overflow: hidden; color: var(--danger); font-size: 8px; line-height: 1; text-overflow: ellipsis; white-space: nowrap; }
+.ci-job-duration { flex: 0 0 auto; margin-left: auto; color: var(--text-secondary); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; line-height: 1; white-space: nowrap; }
 .ci-job-duration--finished { width: 42px; text-align: left; }
 .ci-job-running-text { color: var(--warning); display: inline-flex; align-items: center; line-height: 1; text-transform: uppercase; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
 .ci-job-cursor { width: 3px; height: 7px; flex: 0 0 auto; background: var(--warning); margin-left: 3px; animation: ci-blink 1s step-end infinite; }
