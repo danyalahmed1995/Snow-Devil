@@ -11,10 +11,8 @@ export function PullRequestView({ nodeId }: { nodeId: string }) {
   useEffect(() => {
     const parts = nodeId.split('/');
     if (parts.length !== 3) {
-      Promise.resolve().then(() => {
-        setError("Invalid PR ID format.");
-        setLoading(false);
-      });
+      setError("Invalid PR ID format.");
+      setLoading(false);
       return;
     }
     const [owner, name, number] = parts;

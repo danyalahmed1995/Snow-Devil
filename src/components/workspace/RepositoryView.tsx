@@ -14,10 +14,8 @@ export function RepositoryView({ nodeId }: { nodeId: string }) {
     // nodeId is likely "nameWithOwner", e.g. "octocat/Hello-World"
     const [owner, name] = nodeId.split('/');
     if (!owner || !name) {
-      Promise.resolve().then(() => {
-        setError("Invalid repository ID format. Expected owner/name.");
-        setLoading(false);
-      });
+      setError("Invalid repository ID format. Expected owner/name.");
+      setLoading(false);
       return;
     }
 
@@ -159,10 +157,8 @@ function RepoList({ type, owner, name }: { type: 'prs' | 'issues', owner: string
   const { openBrowserTab } = useTabsStore();
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      setLoading(true);
-      setError(null);
-    });
+    setLoading(true);
+    setError(null);
     const command = type === 'prs' ? 'get_repo_prs' : 'get_repo_issues';
     
     invoke<any[]>(command, { owner, name })
@@ -257,7 +253,7 @@ function FileBrowser({ owner, name, defaultBranch }: { owner: string, name: stri
   }, [owner, name, defaultBranch]);
 
   useEffect(() => {
-    Promise.resolve().then(() => fetchPath(currentPath));
+    fetchPath(currentPath);
   }, [currentPath, fetchPath]);
 
   const handleEntryClick = (entry: any) => {

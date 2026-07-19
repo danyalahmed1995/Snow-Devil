@@ -21,20 +21,10 @@ function readPersisted(repository:string,sha:string):PersistedDiff{try{return{ac
 
 export function CommitDiff({repository,sha}:{repository:string;sha:string}){
   const mode=useModeStore(s=>s.mode);const[owner,name]=repository.split('/');const initial=useMemo(()=>readPersisted(repository,sha),[repository,sha]);const[data,setData]=useState<CommitData>();const[error,setError]=useState<string>();const[layout,setLayout]=useState<'unified'|'split'>(initial.layout);const[activePath,setActivePath]=useState(initial.activePath);const[query,setQuery]=useState('');const[ignoreWhitespace,setIgnoreWhitespace]=useState(initial.ignoreWhitespace);const[expandedContext,setExpandedContext]=useState(false);const[renderLimit,setRenderLimit]=useState(CHUNK);const[viewed,setViewed]=useState(new Set(initial.viewed));const mainRef=useRef<HTMLElement>(null);
-  const [prevSha, setPrevSha] = useState(sha);
-  if (sha !== prevSha) {
-    setPrevSha(sha);
-    setData(undefined);
-    setError(undefined);
-  }
-  useEffect(()=>{let current=true;(invoke<CommitData>('get_commit_details',{owner,name,sha})).then(value=>{if(current)setData(value)}).catch(cause=>{if(current)setError(String(cause))});return()=>{current=false}},[name,owner,sha]);
+  useEffect(()=>{let current=true;setData(undefined);setError(undefined);(invoke<CommitData>('get_commit_details',{owner,name,sha})).then(value=>{if(current)setData(value)}).catch(cause=>{if(current)setError(String(cause))});return()=>{current=false}},[name,owner,sha]);
   useEffect(()=>{localStorage.setItem(persistedKey(repository,sha),JSON.stringify({activePath,layout,viewed:[...viewed],ignoreWhitespace}));},[activePath,ignoreWhitespace,layout,repository,sha,viewed]);
   const files=useMemo(()=>parseUnifiedDiff(data?.diff??''),[data?.diff]);
-  const [prevFiles, setPrevFiles] = useState(files);
-  if (files !== prevFiles) {
-    setPrevFiles(files);
-    if(activePath&&!files.some(file=>file.newPath===activePath))setActivePath('');
-  }
+  useEffect(()=>{if(activePath&&!files.some(file=>file.newPath===activePath))setActivePath('')},[activePath,files]);
   const selected=activePath?files.filter(file=>file.newPath===activePath):files;const matching=useMemo(()=>query.trim()?selected.filter(file=>file.newPath.toLowerCase().includes(query.toLowerCase())||file.lines.some(line=>line.text.toLowerCase().includes(query.toLowerCase()))):selected,[query,selected]);
   const groups=useMemo(()=>{const map=new Map<string,DiffFile[]>();for(const file of files){const folder=file.newPath.includes('/')?file.newPath.slice(0,file.newPath.lastIndexOf('/')):'Repository root';map.set(folder,[...(map.get(folder)??[]),file]);}return[...map.entries()]},[files]);
   const totals=data?.stats ?? {additions:0,deletions:0};

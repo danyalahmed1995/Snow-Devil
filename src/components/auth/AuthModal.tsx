@@ -80,8 +80,7 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
     if (!isConnecting && !isAuthenticated) {
       setAuthStartedAt(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
-  }, [isConnecting, isAuthenticated]);
+  }, [isConnecting, isAuthenticated, authStartedAt]);
 
   // Auto-close on success with visibility awareness
   useEffect(() => {
@@ -92,7 +91,6 @@ export function AuthModal({ onClose }: { onClose: () => void }) {
         onClose();
       }, 2500);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   }, [isAuthenticated, successClosing, onClose]);
 
   // Fix stuck panel: if we come back from background while already authenticated, close immediately

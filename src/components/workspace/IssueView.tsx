@@ -12,10 +12,8 @@ export function IssueView({ nodeId }: { nodeId: string }) {
   useEffect(() => {
     const parts = nodeId.split('/');
     if (parts.length !== 3) {
-      Promise.resolve().then(() => {
-        setError("Invalid Issue ID format.");
-        setLoading(false);
-      });
+      setError("Invalid Issue ID format.");
+      setLoading(false);
       return;
     }
     const [owner, name, number] = parts;

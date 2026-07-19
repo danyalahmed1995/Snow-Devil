@@ -451,7 +451,10 @@ pub async fn fetch_pr_details(
         let mut all_files = Vec::new();
         let mut page = 1;
         loop {
-            let files_url = format!("{}/repos/{}/{}/pulls/{}/files?per_page=100&page={}", REST_URL, owner, name, number, page);
+            let files_url = format!(
+                "{}/repos/{}/{}/pulls/{}/files?per_page=100&page={}",
+                REST_URL, owner, name, number, page
+            );
             let files_res = client
                 .get(&files_url)
                 .bearer_auth(&token)
@@ -459,13 +462,15 @@ pub async fn fetch_pr_details(
                 .header("Accept", "application/vnd.github.v3+json")
                 .send()
                 .await;
-            
+
             match files_res {
                 Ok(res) if res.status().is_success() => {
                     if let Ok(files_array) = res.json::<Vec<serde_json::Value>>().await {
                         let len = files_array.len();
                         all_files.extend(files_array);
-                        if len < 100 { break; }
+                        if len < 100 {
+                            break;
+                        }
                         page += 1;
                     } else {
                         break;

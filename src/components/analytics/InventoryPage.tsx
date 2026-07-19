@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useMemo, useState, useEffect } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Ban, Bot, Copy, GitFork, GitPullRequest, MessageSquareText, Pencil, Pin, RotateCcw, Save, Trash2, Volume2, VolumeX } from 'lucide-react';
 import { compareDeliveryRiskPriority, inventoryInspectable } from '../../analytics/selectors';
 import { getDeliveryRiskModel, useDeliveryRiskModel } from '../../analytics/delivery-risk-cache';
@@ -104,16 +104,12 @@ export function InventoryPage() {
   }, [activeTabId, selectedId, setTabState, visible]);
 
   const applySavedView = (id: string) => { const saved = deliveryRiskViewById(id, settings.deliveryRiskSavedViews); if (!saved) return; setSavedViewId(id); setViewState(saved); setSavedViewName(saved.name); setLimit(100); };
-  const [prevDefaultRiskViewId, setPrevDefaultRiskViewId] = useState(settings.defaultDeliveryRiskViewId);
-  if (settings.defaultDeliveryRiskViewId !== prevDefaultRiskViewId) {
-    setPrevDefaultRiskViewId(settings.defaultDeliveryRiskViewId);
-    if (settings.defaultDeliveryRiskViewId && settings.defaultDeliveryRiskViewId !== savedViewId) {
-      const saved = deliveryRiskViewById(settings.defaultDeliveryRiskViewId, settings.deliveryRiskSavedViews);
-      if (saved) {
-        setSavedViewId(saved.id); setViewState(saved); setSavedViewName(saved.name); setLimit(100);
-      }
-    }
-  }
+  useEffect(() => {
+    if (!settings.defaultDeliveryRiskViewId || settings.defaultDeliveryRiskViewId === savedViewId) return;
+    const saved = deliveryRiskViewById(settings.defaultDeliveryRiskViewId, settings.deliveryRiskSavedViews);
+    if (!saved) return;
+    setSavedViewId(saved.id); setViewState(saved); setSavedViewName(saved.name); setLimit(100);
+  }, [savedViewId, settings.defaultDeliveryRiskViewId, settings.deliveryRiskSavedViews]);
   const saveNewView = () => { const name = savedViewName.trim() || `Risk view ${settings.deliveryRiskSavedViews.length + 1}`; const next: DeliveryRiskSavedView = { ...view, id: `delivery-risk-view:${Date.now()}`, name }; updateSettings({ deliveryRiskSavedViews: [...settings.deliveryRiskSavedViews, next] }); setSavedViewId(next.id); setSavedViewName(name); };
   const updateCurrentView = () => { const current = settings.deliveryRiskSavedViews.find(saved => saved.id === savedViewId); if (!current) return; updateSettings({ deliveryRiskSavedViews: settings.deliveryRiskSavedViews.map(saved => saved.id === savedViewId ? { ...saved, ...view, name: savedViewName.trim() || saved.name } : saved) }); };
   const duplicateView = () => { const source = deliveryRiskViewById(savedViewId, settings.deliveryRiskSavedViews); if (!source) return; const copy: DeliveryRiskSavedView = { ...source, ...view, id: `delivery-risk-view:${Date.now()}`, name: `${source.name} copy`, builtIn: false }; updateSettings({ deliveryRiskSavedViews: [...settings.deliveryRiskSavedViews, copy] }); setSavedViewId(copy.id); setSavedViewName(copy.name); };

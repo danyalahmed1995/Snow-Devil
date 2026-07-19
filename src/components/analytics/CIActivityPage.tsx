@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
 import { matchesRepository, normalizeRepositoryName } from '../../analytics/identity';
@@ -158,19 +158,16 @@ export function CIActivityPage() {
     };
   }, [runsForStats]);
 
-  const [prevRepositoryId, setPrevRepositoryId] = useState(repositoryId);
-  if (repositoryId !== prevRepositoryId) {
-    setPrevRepositoryId(repositoryId);
+  // Auto-reset dependent filters when repository changes or branches are updated
+  useEffect(() => {
     setWorkflowFilter('all');
-  }
-
-  const [prevBranches, setPrevBranches] = useState(branches);
-  if (branches !== prevBranches) {
-    setPrevBranches(branches);
+  }, [repositoryId]);
+  
+  useEffect(() => {
     if (branchFilter !== 'all' && branches.length > 0 && !branches.includes(branchFilter)) {
       setBranchFilter('all');
     }
-  }
+  }, [branches, branchFilter]);
 
   const selectRow = useCallback((id: string) => {
     const run = allRuns.find(r => r.id === id);

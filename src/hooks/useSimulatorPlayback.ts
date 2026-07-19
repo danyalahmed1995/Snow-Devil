@@ -15,14 +15,13 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
 
   const meaningfulTimestamps = useMemo(() => options.timeZone
     ? historyCalendarCutoffs(events.map(event => event.occurredAt), loadedUntil, options.timeZone)
-    : [...new Set(events.map(event => event.occurredAt))].sort(), [events, loadedUntil, options, options.timeZone]);
+    : [...new Set(events.map(event => event.occurredAt))].sort(), [events, loadedUntil, options.timeZone]);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      setIsPlaying(false);
-      setCursor(current => current >= previousUntilRef.current ? loadedUntil : current < loadedSince ? (options.timeZone ? normalizeHistoryCutoff(loadedSince, loadedUntil, options.timeZone) : loadedSince) : current > loadedUntil ? loadedUntil : current);
-      previousUntilRef.current = loadedUntil;
-    });
+    setIsPlaying(false);
+    const prevUntil = previousUntilRef.current;
+    setCursor(current => current >= prevUntil ? loadedUntil : current < loadedSince ? (options.timeZone ? normalizeHistoryCutoff(loadedSince, loadedUntil, options.timeZone) : loadedSince) : current > loadedUntil ? loadedUntil : current);
+    previousUntilRef.current = loadedUntil;
   }, [loadedSince, loadedUntil, options.timeZone]);
 
   useEffect(() => { options.onCursorChange?.(cursor); }, [cursor, options.onCursorChange]);
