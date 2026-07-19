@@ -12,7 +12,7 @@ export function classifyDiffPath(path:string){return{generated:generatedPatterns
 
 export function parseUnifiedDiff(diff:string):DiffFile[]{
   const files:DiffFile[]=[];let current:DiffFile|undefined;let oldNumber=0;let newNumber=0;
-  for(const text of diff.split('\n')){
+  for(const text of diff.split(/\r?\n/)){
     if(text.startsWith('diff --git ')){
       const match=/^diff --git a\/(.+) b\/(.+)$/.exec(text);const oldPath=match?.[1]??'';const newPath=match?.[2]??'';const flags=classifyDiffPath(newPath);
       current={oldPath,newPath,lines:[],additions:0,deletions:0,status:'modified',similarity:undefined,binary:false,...flags};files.push(current);

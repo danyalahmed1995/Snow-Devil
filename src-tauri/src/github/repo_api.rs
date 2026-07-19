@@ -395,6 +395,9 @@ pub async fn fetch_pr_details(
                     headRefName
                     baseRefOid
                     headRefOid
+                    additions
+                    deletions
+                    changedFiles
                     commits(last: 1) {
                         nodes {
                             commit {
@@ -443,6 +446,35 @@ pub async fn fetch_pr_details(
         if let Ok(diff_text) = diff_res.text().await {
             pr_data["diff"] = json!(diff_text);
         }
+    } else if diff_res.status() == reqwest::StatusCode::NOT_ACCEPTABLE {
+        pr_data["diffTruncated"] = json!(true);
+        let mut all_files = Vec::new();
+        let mut page = 1;
+        loop {
+            let files_url = format!("{}/repos/{}/{}/pulls/{}/files?per_page=100&page={}", REST_URL, owner, name, number, page);
+            let files_res = client
+                .get(&files_url)
+                .bearer_auth(&token)
+                .header("User-Agent", "github-graph-browser")
+                .header("Accept", "application/vnd.github.v3+json")
+                .send()
+                .await;
+            
+            match files_res {
+                Ok(res) if res.status().is_success() => {
+                    if let Ok(files_array) = res.json::<Vec<serde_json::Value>>().await {
+                        let len = files_array.len();
+                        all_files.extend(files_array);
+                        if len < 100 { break; }
+                        page += 1;
+                    } else {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        }
+        pr_data["fallbackFiles"] = json!(all_files);
     }
 
     Ok(pr_data)
