@@ -22,7 +22,7 @@ import './HistoryWorkbench.css';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { defaultHistoryView, useHistoryViewStore } from '../../stores/history-view-store';
-import { addCalendarDays, calendarDateInTimeZone, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
+import { addCalendarDays, calendarDateInTimeZone, coerceCalendarDate, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
 import { summarizeHistoryStatus } from '../../simulator/history-status';
 import { loadingMotionClass } from '../../lib/data-state';
 import { entityMatchesHistorySearch, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
@@ -128,7 +128,8 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const { events, loadState, details, since, until, setSince, setUntil, refresh } = activeHistory;
   useTabRefresh(activeTabId, useMemo(() => ({ label: 'Refresh history', refresh }), [refresh]));
   const persistCursor = useCallback((cursor: string) => updateView({ selectedCalendarDate: calendarDateInTimeZone(cursor, timeZone) }), [timeZone, updateView]);
-  const initialCursor = view.selectedCalendarDate ? cutoffForCalendarDate(view.selectedCalendarDate, until, timeZone) : until;
+  const restoredCalendarDate = coerceCalendarDate(view.selectedCalendarDate, timeZone);
+  const initialCursor = restoredCalendarDate ? cutoffForCalendarDate(restoredCalendarDate, until, timeZone) : until;
   const playback = useSimulatorPlayback(events, since, until, { timeZone, reducedMotion, initialCursor, onCursorChange: persistCursor });
   const snapshot = useMemo(() => buildHistoricalSnapshot(events, playback.cursor, until), [events, playback.cursor, until]);
   const latestSnapshot = useMemo(() => buildHistoricalSnapshot(events, until, until), [events, until]);

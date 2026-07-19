@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_COMMIT_GRAPH_FILTERS } from '../../commit-graph/topology';
 import { useCommitGraphStore } from '../../stores/commit-graph-store';
 import { useModeStore } from '../../stores/mode-store';
 import { useTabsStore } from '../../stores/tabs-store';
+import { useHistoryViewStore } from '../../stores/history-view-store';
+import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { CommitGraphPage } from './CommitGraphPage';
 
 vi.mock('../../data/demo-provider', () => ({ DemoDataProvider: { manifest: async () => ({ schemaVersion: 1, referenceDate: '2026-02-15T00:00:00Z', identity: {}, repositories: [{ id: 'demo-snow-devil', nameWithOwner: 'nova-labs/snow-devil', archived: false, fork: false, stars: 1 }], coverage: [], fixtures: {} }) } }));
@@ -21,6 +23,8 @@ describe('Commit Graph workspace', () => {
     useModeStore.setState({ mode: 'demo', demoRevision: 0 });
     useCommitGraphStore.setState({ view: { repository: { id: 'demo-snow-devil', nameWithOwner: 'nova-labs/snow-devil' }, branch: 'main', scrollTop: 0, filters: DEFAULT_COMMIT_GRAPH_FILTERS }, byScope: {} });
     useTabsStore.setState({ tabs: [{ id: 'native:commit-graph', family: 'native', kind: 'commitGraph', title: 'Commit Graph', pinned: false, closable: true, createdAt: now, lastActivatedAt: now }], activeTabId: 'native:commit-graph' });
+    useHistoryViewStore.setState({ states: {} });
+    useAnalyticsSettingsStore.getState().updateSettings({ businessTimezone: 'Asia/Karachi' });
   });
 
   it('renders parent-aware history and lazily selected commit context', async () => {
@@ -38,5 +42,20 @@ describe('Commit Graph workspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Compare From Here' }));
     fireEvent.click(screen.getByRole('option', { name: /Bound inactive query cache entries/ }));
     await waitFor(() => expect(useTabsStore.getState().tabs.some(tab => tab.family === 'native' && tab.kind === 'commitCompare' && tab.context?.type === 'commitCompare')).toBe(true));
+  });
+
+  it('opens repository and author history with date-only calendar cursors', async () => {
+    renderGraph();
+    await screen.findByRole('heading', { name: 'Polish repository architecture context' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Repository History' }));
+    const repositoryHistory = useHistoryViewStore.getState().states['native:repository-simulator'];
+    expect(repositoryHistory?.selectedCalendarDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(repositoryHistory?.filters.entityType).toBe('all');
+
+    fireEvent.click(within(screen.getByRole('main')).getByRole('button', { name: 'maya-snow' }));
+    const accountHistory = useHistoryViewStore.getState().states['native:account-simulator'];
+    expect(accountHistory?.selectedCalendarDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(accountHistory?.filters.entityType).toBe('all');
   });
 });

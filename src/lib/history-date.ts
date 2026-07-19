@@ -47,6 +47,16 @@ function calendarDateParts(value: string): { year: number; month: number; day: n
   return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
+function isValidCalendarDate(value: string): boolean {
+  try {
+    const parts = calendarDateParts(value);
+    const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+    return date.getUTCFullYear() === parts.year && date.getUTCMonth() + 1 === parts.month && date.getUTCDate() === parts.day;
+  } catch {
+    return false;
+  }
+}
+
 function zonedDateTimeToUtc(parts: CalendarParts & { millisecond: number }, timeZone: string): string {
   const target = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond);
   let candidate = target;
@@ -63,6 +73,14 @@ function zonedDateTimeToUtc(parts: CalendarParts & { millisecond: number }, time
 export function calendarDateInTimeZone(value: Date | string | number, timeZone = DEFAULT_HISTORY_TIME_ZONE): string {
   const parts = partsAt(value, timeZone);
   return `${String(parts.year).padStart(4, '0')}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+/** Accepts persisted legacy timestamps while keeping calendar controls date-only. */
+export function coerceCalendarDate(value: string | undefined, timeZone = DEFAULT_HISTORY_TIME_ZONE): string | undefined {
+  if (!value) return undefined;
+  if (isValidCalendarDate(value)) return value;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? calendarDateInTimeZone(timestamp, timeZone) : undefined;
 }
 
 export function startOfCalendarDate(value: string, timeZone = DEFAULT_HISTORY_TIME_ZONE): string {
