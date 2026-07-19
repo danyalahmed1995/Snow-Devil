@@ -38,6 +38,15 @@ describe('open pull request synchronization', () => {
     expect(useArchitectureRefreshStore.getState().values['native:pr:acme/repo:42']).toMatchObject({ status: 'updated', headSha: 'new-head' });
   });
 
+  it('settles Updated to Current after the tab context rerenders the polling effect', async () => {
+    invoke.mockResolvedValue({ headRefOid: 'new-head', diff: 'new diff' });
+    const client = new QueryClient();
+    render(<QueryClientProvider client={client}><OpenPullRequestRuntime /></QueryClientProvider>);
+
+    await waitFor(() => expect(useArchitectureRefreshStore.getState().values['native:pr:acme/repo:42']).toMatchObject({ status: 'updated', headSha: 'new-head' }));
+    await waitFor(() => expect(useArchitectureRefreshStore.getState().values['native:pr:acme/repo:42']).toMatchObject({ status: 'current', headSha: 'new-head' }), { timeout: 5000 });
+  });
+
   it('does not invalidate when synchronization reports the same head', async () => {
     invoke.mockResolvedValue({ headRefOid: 'old-head', diff: 'old diff' });
     const client = new QueryClient();

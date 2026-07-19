@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { invoke } from '@tauri-apps/api/core';
 import { pullRequestDetailsQueryKey, pullRequestDetailsQueryRoot, type PullRequestData } from '../../hooks/usePullRequestDetails';
@@ -23,12 +23,26 @@ export function OpenPullRequestRuntime() {
   const setRefreshState = useArchitectureRefreshStore(state => state.set);
   const session = useAuthStore(state => state.session);
   const accountLogin = session.status === 'connected' ? session.account.login : undefined;
+  const settleTimersRef = useRef(new Map<string, number>());
+
+  useEffect(() => () => {
+    settleTimersRef.current.forEach(timer => window.clearTimeout(timer));
+    settleTimersRef.current.clear();
+  }, []);
+
+  useEffect(() => {
+    const openTabIds = new Set(openPullRequests.map(tab => tab.id));
+    settleTimersRef.current.forEach((timer, tabId) => {
+      if (openTabIds.has(tabId)) return;
+      window.clearTimeout(timer);
+      settleTimersRef.current.delete(tabId);
+    });
+  }, [openPullRequests]);
 
   useEffect(() => {
     if (openPullRequests.length === 0) return;
     let disposed = false;
     let inFlight = false;
-    const settleTimers = new Set<number>();
     const refreshOpenPullRequests = async () => {
       if (disposed || inFlight) return;
       inFlight = true;
@@ -56,16 +70,18 @@ export function OpenPullRequestRuntime() {
             await queryClient.invalidateQueries({ queryKey: pullRequestDetailsQueryRoot(current.context.repository, current.context.number), refetchType: 'none' });
             if (disposed || !useTabsStore.getState().tabs.some(candidate => candidate.id === tab.id)) return;
             updateNativeTabContext(tab.id, { ...current.context, headSha: latest.headRefOid });
+            const existingSettleTimer = settleTimersRef.current.get(tab.id);
+            if (existingSettleTimer !== undefined) window.clearTimeout(existingSettleTimer);
             setRefreshState(tab.id, { status: isInitialHead ? 'current' : 'updated', headSha: latest.headRefOid });
             if (!isInitialHead) {
               const timer = window.setTimeout(() => {
-                settleTimers.delete(timer);
-                if (!disposed && useTabsStore.getState().tabs.some(candidate => candidate.id === tab.id)) {
-                  setRefreshState(tab.id, { status: 'current', headSha: latest.headRefOid });
-                }
+                if (settleTimersRef.current.get(tab.id) !== timer) return;
+                settleTimersRef.current.delete(tab.id);
+                const latestTab = useTabsStore.getState().tabs.find(candidate => candidate.id === tab.id);
+                if (latestTab && isNativeTab(latestTab) && latestTab.context?.type === 'pullRequest' && latestTab.context.headSha === latest.headRefOid) setRefreshState(tab.id, { status: 'current', headSha: latest.headRefOid });
               }, 4000);
-              settleTimers.add(timer);
-            }
+              settleTimersRef.current.set(tab.id, timer);
+            } else settleTimersRef.current.delete(tab.id);
           } catch {
             // Keep the last verified PR data visible; the next exact open-PR poll retries.
           }
@@ -79,8 +95,6 @@ export function OpenPullRequestRuntime() {
     return () => {
       disposed = true;
       window.clearInterval(timer);
-      settleTimers.forEach(settleTimer => window.clearTimeout(settleTimer));
-      settleTimers.clear();
     };
   }, [accountLogin, openPullRequests, queryClient, setRefreshState, updateNativeTabContext]);
 
