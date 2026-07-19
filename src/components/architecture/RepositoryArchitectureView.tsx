@@ -1,9 +1,9 @@
-import { AlertTriangle, Boxes, FileQuestion, GitBranch, Network, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { AlertTriangle, Boxes, FileQuestion, GitBranch, RefreshCw, ShieldCheck, Users, Workflow } from 'lucide-react';
 import type { ArchitectureSnapshot } from '../../architecture/types';
 import './RepositoryArchitectureView.css';
 
 export function RepositoryArchitectureView({ snapshot, loading, error, onRefresh, onSelect }: { snapshot?: ArchitectureSnapshot; loading: boolean; error?: string; onRefresh: () => void; onSelect: (componentId: string) => void }) {
-  if (loading && !snapshot) return <div className="repository-architecture-state"><Network size={24}/><strong>Building component map</strong><span>Fetching the exact repository tree, then discovering boundaries, dependencies, and ownership.</span></div>;
+  if (loading && !snapshot) return <div className="repository-architecture-state"><Workflow size={24}/><strong>Building component map</strong><span>Fetching the exact repository tree, then discovering boundaries, dependencies, and ownership.</span></div>;
   if (error && !snapshot) return <div className="repository-architecture-state repository-architecture-state--error"><AlertTriangle size={24}/><strong>Architecture analysis unavailable</strong><span>{error}</span><button onClick={onRefresh}><RefreshCw size={13}/>Retry</button></div>;
   if (!snapshot) return null;
   const mappedPercent = snapshot.evidenceSummary.totalFiles ? Math.round(snapshot.evidenceSummary.mappedFiles / snapshot.evidenceSummary.totalFiles * 100) : 0;

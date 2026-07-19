@@ -35,7 +35,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
   const [copiedStepNumber, setCopiedStepNumber] = useState<number | null>(null);
   const [logsRequested, setLogsRequested] = useState(false);
 
-  const { data: watcherState, error, isLoading, refetch, isFetching } = useWorkflowRunWatcher(repositoryId, runId, selectedAttempt, isForeground, isActive, session.status === 'connected');
+  const { data: watcherState, error, isLoading, refetch, isFetching } = useWorkflowRunWatcher(repositoryId, runId, selectedAttempt, isForeground, session.status === 'connected');
 
   const hasCanonicalIdentity = Boolean(repositoryId.includes('/') && runId);
 

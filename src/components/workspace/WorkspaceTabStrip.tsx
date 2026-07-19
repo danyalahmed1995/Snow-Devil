@@ -1,4 +1,4 @@
-import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle } from 'lucide-react';
+import { AppWindow, Globe2, MoreHorizontal, Plus, RotateCcw, X, CheckCircle2, XCircle, MinusCircle, Home, Workflow, Gauge, PackageSearch, ChartNoAxesCombined, Activity, SlidersHorizontal, Boxes, Settings, NotebookPen, FolderGit2, GitPullRequest, Bell, Building2, GitCommit, FileCode2, PlayCircle, GitCompareArrows, Network } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
@@ -239,6 +239,32 @@ export function WorkspaceTabStrip() {
             }
           }
 
+          let NativeTabIcon = AppWindow;
+          let nativeIconClass = '';
+          if (tab.family === 'native') {
+            switch (tab.kind) {
+              case 'home': NativeTabIcon = Home; nativeIconClass = 'icon-home'; break;
+              case 'flow': NativeTabIcon = Workflow; nativeIconClass = 'icon-flow'; break;
+              case 'ciHealth': NativeTabIcon = Gauge; nativeIconClass = 'icon-gauge'; break;
+              case 'inventory': NativeTabIcon = PackageSearch; nativeIconClass = 'icon-package'; break;
+              case 'flowAnalytics': NativeTabIcon = ChartNoAxesCombined; nativeIconClass = 'icon-chart'; break;
+              case 'personalFocus': NativeTabIcon = Activity; nativeIconClass = 'icon-activity'; break;
+              case 'accountSimulator': NativeTabIcon = SlidersHorizontal; nativeIconClass = 'icon-sliders'; break;
+              case 'repositorySimulator': NativeTabIcon = Boxes; nativeIconClass = 'icon-boxes'; break;
+              case 'settings': NativeTabIcon = Settings; nativeIconClass = 'icon-settings'; break;
+              case 'sketchBoard': NativeTabIcon = NotebookPen; nativeIconClass = 'icon-sketch'; break;
+              case 'notifications': NativeTabIcon = Bell; nativeIconClass = 'icon-bell'; break;
+              case 'organizations': NativeTabIcon = Building2; nativeIconClass = 'icon-building'; break;
+              case 'repositoryExplorer': NativeTabIcon = FolderGit2; nativeIconClass = 'icon-folder'; break;
+              case 'pullRequestDiff': NativeTabIcon = GitPullRequest; nativeIconClass = 'icon-pr'; break;
+              case 'commitGraph': NativeTabIcon = GitCommit; nativeIconClass = 'icon-commit-graph'; break;
+              case 'commitDiff': NativeTabIcon = FileCode2; nativeIconClass = 'icon-commit-diff'; break;
+              case 'ciRun': NativeTabIcon = PlayCircle; nativeIconClass = 'icon-ci-run'; break;
+              case 'evidenceGraph': NativeTabIcon = Network; nativeIconClass = 'icon-evidence-graph'; break;
+              case 'commitCompare': NativeTabIcon = GitCompareArrows; nativeIconClass = 'icon-commit-compare'; break;
+            }
+          }
+
           return (
             <div
               key={tab.id}
@@ -276,7 +302,7 @@ export function WorkspaceTabStrip() {
                   <div className="spinner-ring" style={{ width: 14, height: 14 }}></div>
                   {ciStatusIcon}
                 </div>
-              ) : <AppWindow className="workspace-tab__family" size={11} />}
+              ) : <NativeTabIcon className={`workspace-tab__family ${nativeIconClass}`} size={11} />}
               <span className="workspace-tab__title">{tab.title}</span>
               {tab.closable && <button className="workspace-tab__close" aria-label={`Close ${tab.title}`} onClick={event => { event.stopPropagation(); closeTab(tab.id); }}><X size={15} strokeWidth={2} /></button>}
             </div>

@@ -33,7 +33,10 @@ pub async fn start_device_flow(
         .header("Accept", "application/json")
         .form(&[
             ("client_id", client_id),
-            ("scope", "repo read:org read:user user:email notifications"),
+            (
+                "scope",
+                "repo workflow read:org read:user user:email notifications",
+            ),
         ])
         .send()
         .await?;

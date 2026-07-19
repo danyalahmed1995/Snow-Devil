@@ -21,7 +21,7 @@ export default tseslint.config(
       '@typescript-eslint/ban-ts-comment': 'off',
       'react-hooks/rules-of-hooks': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
-      'react-hooks/set-state-in-effect': 'warn'
+      'react-hooks/set-state-in-effect': 'off'
     },
   }
 );

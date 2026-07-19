@@ -94,6 +94,31 @@ function record(account: string, repo: string, type: string, item: Record<string
 async function saveState(value: AnalyticsSyncState) { await invoke('save_analytics_sync_state', { value }); notify(); }
 async function saveRecords(records: RecordInput[]) { for (let index = 0; index < records.length; index += 100) await invoke('save_analytics_records', { records: records.slice(index, index + 100) }); }
 
+const ANALYTICS_PUBLISH_BATCH_SIZE = 5;
+
+export function shouldPublishAnalyticsBatch(processedRepositories: number, totalRepositories: number): boolean {
+  return processedRepositories === totalRepositories || processedRepositories % ANALYTICS_PUBLISH_BATCH_SIZE === 0;
+}
+
+async function publishAnalyticsRecords(account: string) {
+  try {
+    const { queryClient } = await import('../app/providers');
+    await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(account) });
+  } catch {
+    // Query invalidation is best-effort while the persistent sync continues.
+  }
+}
+
+/** Persists snapshots fetched by the global CI watcher into the canonical analytics cache. */
+export async function persistWorkflowRunSnapshots(account: string, snapshots: Array<{ repository: string; body: unknown }>): Promise<number> {
+  const records = snapshots.flatMap(snapshot => array(snapshot.body).map(item => record(account, snapshot.repository, 'workflow_run', item)));
+  if (records.length === 0) return 0;
+  await saveRecords(records);
+  for (const snapshot of snapshots) localStorage.setItem(`ci-freshness-${snapshot.repository}`, new Date().toISOString());
+  await publishAnalyticsRecords(account);
+  return records.length;
+}
+
 async function paged(account: string, repo: string, type: string, endpoint: (page: number) => string, boundary: string, maxPages = 10, boundedByHistory = true): Promise<{ count: number; unsupported: boolean; rate?: object }> {
   let page = 1; let pagesFetched = 0; let count = 0; let unsupported = false; let rate: object | undefined;
   const visited = new Set<number>();
@@ -147,7 +172,7 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
     counts.repositories = selected.length;
     state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: 0, failedRepositories: 0, totalRepositories: selected.length, normalizedRecords: selected.length } } satisfies AnalyticsSyncContinuation);
     await saveState(state);
-    for (const repo of selected) {
+    for (const [repoIndex, repo] of selected.entries()) {
       state.current_repository = repo.full_name;
       const [owner, name] = repo.full_name.split('/').map(encodeURIComponent);
       const sources: Array<[AnalyticsSyncStage, string, (page: number) => string]> = [
@@ -186,16 +211,12 @@ export async function startAnalyticsSync(account: string, settings: AnalyticsSet
       }
       state.continuation_json = JSON.stringify({ currentJob: { completedRepositories: completed.size, failedRepositories: failed.length, totalRepositories: selected.length, normalizedRecords: Object.values(counts).reduce((sum, value) => sum + value, 0) }, unsupportedSources } satisfies AnalyticsSyncContinuation);
       await saveState(state);
-      try {
-        const { queryClient } = await import('../app/providers');
-        await queryClient.invalidateQueries({ queryKey: getAnalyticsQueryKey(account) });
-      } catch {
-        // Ignore if queryClient is unavailable in this environment
-      }
+      if (shouldPublishAnalyticsBatch(repoIndex + 1, selected.length)) await publishAnalyticsRecords(account);
     }
     if (active.cancelled) throw new Error('cancelled');
     state.status = failed.length ? 'partial' : 'complete'; state.current_stage = null; state.current_repository = null; state.completed_repositories_json = JSON.stringify([...completed]); state.failed_repositories_json = JSON.stringify(failed); state.counts_json = JSON.stringify(counts); state.continuation_json = JSON.stringify({ unsupportedSources } satisfies AnalyticsSyncContinuation); state.last_successful_at = new Date().toISOString(); state.coverage_start = boundary; state.coverage_end = new Date().toISOString();
     await saveState(state);
+    if (selected.length === 0) await publishAnalyticsRecords(account);
   } catch (error) {
     const message = String(error);
     state.status = message.includes('cancelled') ? 'cancelled' : message.includes('rate_limited') ? 'partial' : 'failed';
@@ -214,11 +235,13 @@ export function coverageFor(state: AnalyticsSyncState | null, settings: Analytic
 }
 
 const inFlightCIRefreshes = new Map<string, Promise<void>>();
-export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(repoName); }
+function ciRefreshKey(repoName: string) { return repoName.trim().toLowerCase(); }
+export function isCIRefreshInFlight(repoName: string) { return inFlightCIRefreshes.has(ciRefreshKey(repoName)); }
 export function getCIFreshness(repoName: string) { return localStorage.getItem(`ci-freshness-${repoName}`); }
 
 export async function syncTargetedRepository(account: string, repo: string) {
-  if (inFlightCIRefreshes.has(repo)) return inFlightCIRefreshes.get(repo);
+  const refreshKey = ciRefreshKey(repo);
+  if (inFlightCIRefreshes.has(refreshKey)) return inFlightCIRefreshes.get(refreshKey);
   const promise = (async () => {
     try {
       const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -242,9 +265,41 @@ export async function syncTargetedRepository(account: string, repo: string) {
         // Query invalidation is best-effort after a targeted CI refresh.
       }
     } finally {
-      inFlightCIRefreshes.delete(repo);
+      inFlightCIRefreshes.delete(refreshKey);
     }
   })();
-  inFlightCIRefreshes.set(repo, promise);
+  inFlightCIRefreshes.set(refreshKey, promise);
   return promise;
+}
+
+/**
+ * Refreshes only the newest Actions page for a small set of repositories.
+ * This is safe to run beside the historical account sync: it avoids PR/issue
+ * reads, caps repository fan-out, and publishes the resulting records once.
+ */
+export async function syncPriorityCIRepositories(account: string, repositories: string[]) {
+  const uniqueRepositories = Array.from(
+    new Map(repositories.filter(Boolean).map(repo => [ciRefreshKey(repo), repo] as const)).values(),
+  ).slice(0, 3);
+  if (uniqueRepositories.length === 0) return;
+
+  await Promise.allSettled(uniqueRepositories.map(repo => {
+    const refreshKey = ciRefreshKey(repo);
+    const existing = inFlightCIRefreshes.get(refreshKey);
+    if (existing) return existing;
+    const promise = (async () => {
+      try {
+        const boundary = new Date(Date.now() - 30 * 86400000).toISOString();
+        const [owner, name] = repo.split('/').map(encodeURIComponent);
+        await paged(account, repo, 'workflow_run', page => `/repos/${owner}/${name}/actions/runs?per_page=100&page=${page}`, boundary, 1, false);
+        localStorage.setItem(`ci-freshness-${repo}`, new Date().toISOString());
+      } finally {
+        inFlightCIRefreshes.delete(refreshKey);
+      }
+    })();
+    inFlightCIRefreshes.set(refreshKey, promise);
+    return promise;
+  }));
+
+  await publishAnalyticsRecords(account);
 }

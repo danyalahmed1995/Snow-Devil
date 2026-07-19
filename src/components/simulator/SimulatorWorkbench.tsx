@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Filter, FolderSearch, Pause, Play, RefreshCw, X } from 'lucide-react';
 import { useAccountSimulator } from '../../hooks/useAccountSimulator';
 import { useRepositorySimulator } from '../../hooks/useRepositorySimulator';
 import { useSimulatorPlayback } from '../../hooks/useSimulatorPlayback';
@@ -15,17 +15,17 @@ import { Select } from '../ui/Select';
 import { classifyActor } from '../../lib/delivery-semantics';
 import { safeSimulatorExplanation, safeSimulatorTitle } from '../../simulator/simulator-errors';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
-import { buildHistoricalSnapshot, nextMeaningfulDate, previousMeaningfulDate } from '../../simulator/history-snapshot';
+import { buildHistoricalSnapshot, cumulativeProgress, nextMeaningfulDate, previousMeaningfulDate } from '../../simulator/history-snapshot';
 import type { SimulatorEntityState } from '../../simulator/simulator-types';
 import './SimulatorWorkbench.css';
 import './HistoryWorkbench.css';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
-import { defaultHistoryView, useHistoryViewStore } from '../../stores/history-view-store';
-import { addCalendarDays, calendarDateInTimeZone, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
+import { defaultHistoryView, normalizeHistoryFilters, useHistoryViewStore } from '../../stores/history-view-store';
+import { addCalendarDays, calendarDateInTimeZone, coerceCalendarDate, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
 import { summarizeHistoryStatus } from '../../simulator/history-status';
 import { loadingMotionClass } from '../../lib/data-state';
-import { entityMatchesHistorySearch, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
+import { entityMatchesHistorySearch, eventMatchesHistoryFilters, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
 import { formatEntityTitle } from '../../simulator/simulator-presentation';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
 import type { CIWorkflowRun } from '../../ci/ci-watcher';
@@ -83,6 +83,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const view = savedView ?? defaultHistoryView(mode);
   const updateView = useCallback((value: Parameters<typeof patchView>[2]) => patchView(activeTabId, mode, value), [activeTabId, mode, patchView]);
   const requestedRepository = useFlowStore(state => state.getTabState(activeTabId).selectedRepository);
+  const requestedEntityId = useFlowStore(state => state.getTabState(activeTabId).selectedItemId);
   const setTabState = useFlowStore(state => state.setTabState);
   const login = appMode === 'demo' ? demoManifest?.identity.login || 'snowdevil-demo' : session.status === 'connected' ? session.account.login : 'unknown';
   const defaultDemoRepo = appMode === 'demo' && mode === 'repository' && demoManifest?.repositories[0]
@@ -97,7 +98,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const showCoverage = view.showSourceDetails;
   const showAnimation = view.showAnimation;
   const customRange = view.customRange;
-  const filters = view.filters;
+  const filters = normalizeHistoryFilters(view.filters, mode);
   const sourceDisclosureRef = useRef<HTMLButtonElement>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
   const historyCanvasRef = useRef<HTMLDivElement>(null);
@@ -127,14 +128,15 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const { events, loadState, details, since, until, setSince, setUntil, refresh } = activeHistory;
   useTabRefresh(activeTabId, useMemo(() => ({ label: 'Refresh history', refresh }), [refresh]));
   const persistCursor = useCallback((cursor: string) => updateView({ selectedCalendarDate: calendarDateInTimeZone(cursor, timeZone) }), [timeZone, updateView]);
-  const initialCursor = view.selectedCalendarDate ? cutoffForCalendarDate(view.selectedCalendarDate, until, timeZone) : until;
+  const restoredCalendarDate = coerceCalendarDate(view.selectedCalendarDate, timeZone);
+  const initialCursor = restoredCalendarDate ? cutoffForCalendarDate(restoredCalendarDate, until, timeZone) : until;
   const playback = useSimulatorPlayback(events, since, until, { timeZone, reducedMotion, initialCursor, onCursorChange: persistCursor });
   const snapshot = useMemo(() => buildHistoricalSnapshot(events, playback.cursor, until), [events, playback.cursor, until]);
   const latestSnapshot = useMemo(() => buildHistoricalSnapshot(events, until, until), [events, until]);
   const latestById = useMemo(() => new Map(latestSnapshot.entities.map(entity => [entity.id, entity])), [latestSnapshot.entities]);
 
   const filteredEntities = useMemo(() => snapshot.entities.filter(entity => {
-    if (mode === 'account' && filters.repository !== 'all' && entity.repositoryId !== filters.repository) return false;
+    if (mode === 'account' && filters.repository !== 'all' && entity.repositoryId.toLowerCase() !== filters.repository.toLowerCase()) return false;
     if (filters.entityType !== 'all' && entity.subjectType !== filters.entityType) return false;
     if (filters.confidence !== 'all' && entity.sourceCompleteness !== filters.confidence) return false;
     const actorType = classifyActor(entity.author?.login);
@@ -145,7 +147,8 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   }), [filters, mode, snapshot.entities]);
   const activeEntities = filteredEntities.filter(entity => entity.subjectType !== 'workflow_run' && !isCompleted(entity));
   const completedEntities = filteredEntities.filter(entity => entity.subjectType !== 'workflow_run' && isCompleted(entity));
-  const evidenceRepositories = useMemo(() => new Set(snapshot.events.map(event => event.repositoryId.toLowerCase())), [snapshot.events]);
+  const filteredHistoryEvents = useMemo(() => snapshot.events.filter(event => eventMatchesHistoryFilters(event, filters, mode)), [filters, mode, snapshot.events]);
+  const evidenceRepositories = useMemo(() => new Set(filteredHistoryEvents.map(event => event.repositoryId.toLowerCase())), [filteredHistoryEvents]);
   const ciEntities = useMemo(() => {
     const historical = filteredEntities.filter(entity => entity.subjectType === 'workflow_run');
     const live = Object.values(ciRunsByRepository).flat().filter(run => run.updatedAt <= snapshot.selectedDate
@@ -156,7 +159,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const visibleIds = useMemo(() => new Set(filteredEntities.map(entity => entity.id)), [filteredEntities]);
   const selectableEntities = useMemo(() => [...snapshot.entities, ...ciEntities], [ciEntities, snapshot.entities]);
   const selectableIds = useMemo(() => new Set([...visibleIds, ...ciEntities.map(entity => entity.id)]), [ciEntities, visibleIds]);
-  const visibleEvents = snapshot.events;
+  const visibleEvents = filteredHistoryEvents;
   const repositoryOptions = useMemo(() => [...new Set(events.map(event => event.repositoryId))].sort(), [events]);
   const historyStatus = summarizeHistoryStatus(loadState, details);
   const incompleteSourceCount = historyStatus.partial + historyStatus.failed + historyStatus.unsupported + historyStatus.skipped;
@@ -167,7 +170,12 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     if (mode === 'repository' && requestedRepository && requestedRepository.id !== selectedRepoState?.id) setSelectedRepo(requestedRepository);
   }, [mode, requestedRepository, selectedRepoState?.id, setSelectedRepo]);
 
-
+  useEffect(() => {
+    if (requestedEntityId && requestedEntityId !== selectedEntityId) {
+      updateView({ selectedEntityId: requestedEntityId });
+      setTabState(activeTabId, { selectedItemId: undefined });
+    }
+  }, [activeTabId, requestedEntityId, selectedEntityId, setTabState, updateView]);
 
   useEffect(() => {
     if (!showCoverage) return;
@@ -414,16 +422,16 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     : historyStatus.headline;
 
   const renderHistory = () => {
-    if (mode === 'repository' && !selectedRepo) return <div className="simulator-load-state"><div><h3>Select a repository</h3><p>Choose a repository to explore what existed, what was active, and what had completed by a date.</p></div></div>;
+    if (mode === 'repository' && !selectedRepo) return <div className="simulator-load-state simulator-load-state--centered"><div><FolderSearch className="simulator-empty-icon" size={48} /><h3>Select a repository</h3><p>Choose a repository to explore what existed, what was active, and what had completed by a date.</p></div></div>;
     if (loadState === 'error') {
       const failure = details.refreshError ?? details.sourceFailures[0];
       const category = failure?.category ?? 'unknown';
-      return <div className="simulator-load-state simulator-load-state--error" role="alert"><AlertTriangle size={20}/><div><h3>{safeSimulatorTitle(category)}</h3><p>{failure?.message ?? safeSimulatorExplanation(category)}</p><button className="simulator-control simulator-control--primary" onClick={refresh}><RotateCcw size={13}/> Retry</button></div></div>;
+      return <div className="simulator-load-state simulator-load-state--error" role="alert"><AlertTriangle size={20}/><div><h3>{safeSimulatorTitle(category)}</h3><p>{failure?.message ?? safeSimulatorExplanation(category)}</p><button className="simulator-control simulator-control--primary" onClick={refresh}><RefreshCw size={13}/> Retry</button></div></div>;
     }
     if (loadState === 'loading_initial' || loadState === 'idle') return <HistoryLoadingState reducedMotion={reducedMotion}/>;
     if (events.length === 0) return <div className="simulator-load-state"><div><h3>No recorded history</h3><p>No qualifying GitHub evidence was found in the selected range.</p></div></div>;
 
-    const progress = snapshot.progress;
+    const progress = cumulativeProgress(filteredHistoryEvents);
     const selectedDate = calendarDateInTimeZone(snapshot.selectedDate, timeZone);
     const selectedRepoCount = mode === 'repository' ? 1 : progress.repositoriesContributedTo;
     return <div ref={historyCanvasRef} className="history-canvas">
@@ -475,7 +483,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
       <div className="simulator-heading"><h2>{mode === 'account' ? 'Account History' : 'Repository History'}{appMode === 'demo' && <span className="simulator-context">Demo Mode</span>}{mode === 'account' && <span className="simulator-context">{session.status === 'connected' && session.account.avatarUrl && <img src={session.account.avatarUrl} alt=""/>}{login}</span>}</h2>
         <div className="simulator-history"><span>Available evidence: {calendarDateInTimeZone(since, timeZone)} – {calendarDateInTimeZone(until, timeZone)} · {statusText}</span><button ref={sourceDisclosureRef} id={`${activeTabId}-source-disclosure`} className={`simulator-completeness simulator-completeness--${partial ? 'ready_partial' : loadState}`} aria-expanded={showCoverage} aria-controls={`${activeTabId}-source-details`} onClick={() => updateView({ showSourceDetails: !showCoverage })}>{showCoverage ? <>Hide source details <ChevronUp size={12}/></> : <>Source details <ChevronDown size={12}/></>}</button></div>
       </div>
-      <div className="history-header-actions">{mode === 'repository' && <RepositorySelector selectedRepo={selectedRepo || undefined} compact onSelect={repository => setSelectedRepo(repository)}/>}<button className="simulator-control" onClick={refresh}><RotateCcw size={13}/> Refresh history</button><div className="simulator-range" aria-label="History load range">{[30, 90, 180].map(days => <button key={days} onClick={() => { updateView({ customRange: false, selectedCalendarDate: undefined }); setRange(setSince, setUntil, days, timeZone); }}>{days}d</button>)}<button className={customRange ? 'is-active' : ''} onClick={() => updateView({ customRange: true })}>Custom</button></div></div>
+      <div className="history-header-actions">{mode === 'repository' && <RepositorySelector selectedRepo={selectedRepo || undefined} compact onSelect={repository => setSelectedRepo(repository)}/>}<button className={`simulator-control simulator-refresh-btn ${loadState === 'refreshing' ? 'is-refreshing' : ''}`} onClick={refresh} disabled={loadState === 'refreshing'}><RefreshCw size={13}/> {loadState === 'refreshing' ? 'Refreshing...' : 'Refresh history'}</button><div className="simulator-range" aria-label="History load range">{[30, 90, 180].map(days => <button key={days} onClick={() => { updateView({ customRange: false, selectedCalendarDate: undefined }); setRange(setSince, setUntil, days, timeZone); }}>{days}d</button>)}<button className={customRange ? 'is-active' : ''} onClick={() => updateView({ customRange: true })}>Custom</button></div></div>
     </header>
     {showCoverage && <div ref={sourcePanelRef} id={`${activeTabId}-source-details`} className="simulator-coverage-details" role="region" aria-label="Source details" tabIndex={-1} onScroll={event => updateView({ sourceScrollTop: event.currentTarget.scrollTop })}><header><div><strong>Source details · {historyStatus.loaded} loaded · {historyStatus.partial} partial · {historyStatus.failed} failed</strong><span>{historyStatus.depthLabel}</span></div><button type="button" aria-label="Close source details" onClick={() => { updateView({ showSourceDetails: false }); requestAnimationFrame(() => sourceDisclosureRef.current?.focus()); }}><X size={14}/></button></header><p>Selected cutoff: {formatHistoryCutoff(snapshot.selectedDate, timeZone)} · {snapshot.events.length} deduplicated events · {snapshot.entities.length} canonical entities.</p>{details.sourceStatuses?.length ? <ul className="simulator-source-statuses">{details.sourceStatuses.map(source => <li key={source.sourceId} data-status={source.status}><strong>{source.label} · {source.status}</strong><span>{source.purpose}</span><small>Affects: {source.affectedData}{source.message ? ` · ${source.message}` : ''}{source.retryable ? ' · Retryable' : ' · Not retryable'}{source.lastAttemptAt ? ` · Last attempt ${formatHistoryCutoff(source.lastAttemptAt, timeZone)}` : ''}</small></li>)}</ul> : <p>{details.loadedSources} of {details.totalSources} configured sources loaded. No per-source detail was supplied by this provider.</p>}</div>}
     {customRange && <div className="simulator-custom-range"><label>History starts<input type="date" value={calendarDateInTimeZone(since, timeZone)} max={calendarDateInTimeZone(until, timeZone)} onChange={event => { updateView({ selectedCalendarDate: undefined }); setSince(startOfCalendarDate(event.target.value, timeZone)); }}/></label><label>History ends<input type="date" value={calendarDateInTimeZone(until, timeZone)} min={calendarDateInTimeZone(since, timeZone)} onChange={event => { updateView({ selectedCalendarDate: undefined }); setUntil(endOfCalendarDate(event.target.value, timeZone)); }}/></label></div>}

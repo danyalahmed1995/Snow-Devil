@@ -28,8 +28,19 @@ export const useCIWatcherStore = create<CIWatcherStore>()(persist((set) => ({
     return { activeAccount: normalized, runsByRepository: {}, repositoryState: {}, subscriptions: {} };
   }),
   setRuns: (repository, runs) => set(state => {
-    const entries = Object.entries({ ...state.runsByRepository, [repository.toLowerCase()]: runs.slice(0, MAX_RUNS) }).slice(-MAX_REPOSITORIES);
-    return { runsByRepository: Object.fromEntries(entries), repositoryState: { ...state.repositoryState, [repository.toLowerCase()]: { status: 'ready', lastSuccessAt: new Date().toISOString() } } };
+    const key = repository.toLowerCase();
+    const existing = state.runsByRepository[key] || [];
+    const merged = new Map<string, CIWorkflowRun>();
+    for (const run of existing) merged.set(run.id, run);
+    for (const run of runs) {
+      const prev = merged.get(run.id);
+      if (!prev || run.updatedAt >= prev.updatedAt) merged.set(run.id, run);
+    }
+    const finalRuns = Array.from(merged.values())
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, MAX_RUNS);
+    const entries = Object.entries({ ...state.runsByRepository, [key]: finalRuns }).slice(-MAX_REPOSITORIES);
+    return { runsByRepository: Object.fromEntries(entries), repositoryState: { ...state.repositoryState, [key]: { status: 'ready', lastSuccessAt: new Date().toISOString() } } };
   }),
   setRepositoryStatus: (repository, status, message) => set(state => ({ repositoryState: { ...state.repositoryState, [repository.toLowerCase()]: { ...state.repositoryState[repository.toLowerCase()], status, message } } })),
   subscribe: repository => set(state => ({ subscriptions: { ...state.subscriptions, [repository.toLowerCase()]: (state.subscriptions[repository.toLowerCase()] ?? 0) + 1 } })),

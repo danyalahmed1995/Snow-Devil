@@ -16,6 +16,13 @@ describe('business time', () => {
     expect(ageBandForDays(4, { agingDays: 4, staleDays: 10 })).toBe('aging');
     expect(ageBandForDays(10, { agingDays: 4, staleDays: 10 })).toBe('stale');
   });
+
+  it('bounds long-history work to daily calendar evaluations', () => {
+    const started = performance.now();
+    const hours = businessHoursBetween('2008-01-01T00:00:00Z', '2026-07-13T00:00:00Z', calendar);
+    expect(hours).toBeGreaterThan(100_000);
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });
 
 describe('analytics math', () => {

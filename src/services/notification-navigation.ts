@@ -2,17 +2,25 @@ import { classifyGithubUrl, tabIdForUrl, type BrowserTabKind } from '../browser/
 import { notificationDestination, notificationTabTitle, type NativeNotification } from '../stores/notification-store';
 
 export type NotificationNavigationTarget =
-  | { family: 'native-pr'; id: string; title: string; repository: string; number: number }
-  | { family: 'browser'; id: string; kind: BrowserTabKind; title: string; url: string };
+  | { family: 'browser'; id: string; kind: BrowserTabKind; title: string; url: string }
+  | { family: 'native'; id: string; kind: 'pullRequestDiff'; title: string; context: { type: 'pullRequest'; repository: string; number: number } };
 
 export function notificationNavigationTarget(record: NativeNotification): NotificationNavigationTarget | null {
+  if (record.subject.type === 'PullRequest' && record.subject.apiUrl) {
+    const match = record.subject.apiUrl.match(/repos\/([^/]+\/[^/]+)\/pulls\/(\d+)/);
+    if (match) {
+      const repository = match[1];
+      const number = Number(match[2]);
+      return {
+        family: 'native',
+        id: `native:pr:${repository}:${number}`,
+        kind: 'pullRequestDiff',
+        title: `PR #${number}`,
+        context: { type: 'pullRequest', repository, number },
+      };
+    }
+  }
   const url = notificationDestination(record);
   if (!url) return null;
-  const match = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)\/?$/.exec(url);
-  if (match) {
-    const repository = `${decodeURIComponent(match[1])}/${decodeURIComponent(match[2])}`;
-    const number = Number(match[3]);
-    return { family: 'native-pr', id: `native:pr:${repository.toLowerCase()}:${number}`, title: `PR #${number}`, repository, number };
-  }
   return { family: 'browser', id: tabIdForUrl(url), kind: classifyGithubUrl(url), title: notificationTabTitle(record, url), url };
 }

@@ -57,12 +57,19 @@ const DEFAULT_FLOW_STATE: TabFlowState = {
 
 interface FlowStore {
   states: Record<string, TabFlowState>;
+  clearTab: (tabId: string) => void;
   setTabState: (tabId: string, state: Partial<TabFlowState>) => void;
   getTabState: (tabId: string) => TabFlowState;
 }
 
 export const useFlowStore = create<FlowStore>((set, get) => ({
   states: {},
+  clearTab: tabId => set(state => {
+    if (!state.states[tabId]) return state;
+    const states = { ...state.states };
+    delete states[tabId];
+    return { states };
+  }),
   setTabState: (tabId, state) => {
     set((prev) => ({
       states: {

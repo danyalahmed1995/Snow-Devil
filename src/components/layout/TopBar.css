@@ -47,34 +47,41 @@
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
-.app-mark-trio {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
+.app-logo-wrapper {
   width: 32px;
   height: 32px;
-  cursor: pointer;
-}
-.app-mark-trio .attr {
-  position: absolute;
+  border-radius: 8px;
+  background: var(--surface-panel);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 17px;
-  height: 17px;
-  border-radius: 0;
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: #0f172a;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s;
+  margin-right: 2px;
 }
-.app-mark-trio .attr.branch { top: 0; left: 8px; z-index: 3; color: #a855f7; box-shadow: inset 0 0 10px #a855f7; }
-.app-mark-trio .attr.merge { bottom: 1px; left: 0; z-index: 2; color: #eab308; box-shadow: inset 0 0 10px #eab308; }
-.app-mark-trio .attr.pr { bottom: 1px; right: 0; z-index: 1; color: #ef4444; box-shadow: inset 0 0 10px #ef4444; }
 
-.app-title:hover .attr.branch { transform: translateY(-3px) scale(1.1); }
-.app-title:hover .attr.merge { transform: translate(-3px, 2px) scale(1.1); }
-.app-title:hover .attr.pr { transform: translate(3px, 2px) scale(1.1); }
+.app-logo-wrapper:hover {
+  transform: scale(1.05);
+  border-color: var(--border-focus);
+}
+
+.app-logo-wrapper img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.app-logo-wrapper.is-spinning {
+  animation: spin-logo 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes spin-logo {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
 
 .divider {
   width: 1px;
@@ -153,7 +160,7 @@ html[data-reduced-motion="true"] .topbar-notifications.is-arriving{animation:non
   border: 1px solid color-mix(in srgb, var(--primary) 50%, transparent);
   color: white;
   padding: 0 18px;
-  border-radius: 16px;
+  border-radius: var(--radius-button);
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
@@ -200,3 +207,33 @@ html[data-reduced-motion="true"] .topbar-notifications.is-arriving{animation:non
 
 @media(max-width:1380px){.top-bar{padding:0 8px}.top-bar-left,.top-bar-right{flex-basis:31%}.app-title{font-size:13px}.topbar-actions .demo-mode-badge{display:none}.top-bar-center{flex-basis:480px}.divider{margin:0 3px}}
 .browser-toolbar__error{max-width:230px;overflow:hidden;color:var(--danger);font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+
+/* Reset Action Button (Design 3: Pulse & Rotate) */
+.reset-action-btn {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.reset-action-btn svg {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform-origin: center;
+}
+.reset-action-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px;
+}
+.reset-action-btn:hover svg {
+  animation: pulse-rotate 1.2s infinite ease-in-out;
+}
+.reset-action-btn:active {
+  background: var(--accent-primary) !important;
+  transform: translateY(0) !important;
+}
+.reset-action-btn:active svg {
+  transform: scale(0.7) rotate(180deg);
+  color: white;
+}
+
+@keyframes pulse-rotate {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.3) rotate(180deg); color: var(--accent-primary); }
+  100% { transform: scale(1) rotate(360deg); }
+}

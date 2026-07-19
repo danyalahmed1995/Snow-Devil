@@ -11,6 +11,22 @@ export interface PullRequestData extends Omit<typeof demoPullRequest, 'baseRefNa
   headRefOid?: string;
   diffTruncated?: boolean;
   architectureDecisionContext?: ArchitectureDecisionContext;
+  additions?: number;
+  deletions?: number;
+  changedFiles?: number;
+  fallbackFiles?: Array<{
+    sha: string;
+    filename: string;
+    status: string;
+    additions: number;
+    deletions: number;
+    changes: number;
+    blob_url: string;
+    raw_url: string;
+    contents_url: string;
+    patch?: string;
+    previous_filename?: string;
+  }>;
 }
 
 export const pullRequestDetailsQueryRoot = (repository: string, number: number) =>

@@ -15,7 +15,7 @@ import type { FlowItem } from '../../types/flow';
 import { formatTimeInStage, normalizeWorkflowItem } from '../../lib/workflow-presentation';
 import type { WorkItemOpenTarget, WorkSurface } from '../../lib/work-item-open-actions';
 import { WorkItemOpenActions } from '../work-items/WorkItemOpenActions';
-import { StatusIcon, formatDurationCompact } from '../analytics/CIRunRow';
+import { StatusIcon, formatDurationCompact, shouldUseDenseCIJobRendering } from '../analytics/CIRunRow';
 import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useArchitectureStore } from '../../architecture/architecture-store';
@@ -23,6 +23,7 @@ import { decisionFor, decisionLabel } from '../../architecture/decision-analysis
 import { incrementArchitectureDiagnostic } from '../../architecture/diagnostics';
 import type { ArchitectureSnapshot, PullRequestArchitectureImpact } from '../../architecture/types';
 import './Inspector.css';
+import { SketchInspector } from '../sketch/SketchInspector';
 
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object'; }
 
@@ -122,7 +123,6 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
     runId,
     metadata?.runAttempt ? parseInt(metadata.runAttempt, 10) : undefined,
     true,
-    true,
     loadJobs
   );
 
@@ -176,10 +176,10 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
       <h5 className="section-title">Jobs</h5>
       {!loadJobs && (!jobs || jobs.length === 0) && <button className="inspector-load-jobs-btn" type="button" onClick={() => setLoadJobs(true)}>Load jobs</button>}
       {isLoading && <div className="ci-jobs-loading"><div className="status-icon-wrapper state-running" style={{ width: 14, height: 14 }}><div className="spinner-ring" style={{ width: 14, height: 14 }} /></div> Loading jobs...</div>}
-      {error && <div className="ci-jobs-error">Failed to load jobs</div>}
+      {error && <div className="ci-jobs-error">{error.message === 'missing_workflow_scope' ? 'Missing workflow permission. Please reconnect GitHub in Settings.' : 'Failed to load jobs'}</div>}
       {loadJobs && jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
       {jobs && jobs.length > 0 && (
-        <ul className="ci-jobs-list">
+        <ul className={`ci-jobs-list${shouldUseDenseCIJobRendering(jobs.length) ? ' ci-jobs-list--dense' : ''}`}>
           {jobs.map(job => (
             <li 
               key={job.id} 
@@ -201,20 +201,28 @@ function WorkflowRunDetails({ selected, tab }: { selected: AnalyticsInspectable;
                 );
               }}
             >
-              <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
-              <span className="ci-job-name" title={job.name}>{job.name}</span>
-              {job.status === 'in_progress' && job.steps?.length > 0 && (
-                <span className="ci-job-steps">{job.steps.filter(s => s.status === 'completed').length} / {job.steps.length}</span>
-              )}
-              <span className="ci-job-duration">
-                {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
-                {job.started_at && !job.completed_at ? 'Running...' : ''}
-              </span>
-              {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
-                <span className="ci-job-failed-step" style={{ display: 'block', width: '100%', fontSize: '10px', color: 'var(--danger)', marginTop: '4px' }}>
-                  Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+              <div className="ci-job-item-header">
+                <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
+                <span className="ci-job-name" title={job.name}>{job.name}</span>
+              </div>
+              <div className="ci-job-item-footer">
+                {job.status === 'in_progress' && job.steps?.length > 0 && (
+                  <span className="ci-job-step-count">{job.steps.filter(s => s.status === 'completed').length} / {job.steps.length}</span>
+                )}
+                {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
+                  <span className="ci-job-failed-step" title={`Failed: ${job.steps.find(s => s.conclusion === 'failure')?.name}`}>
+                    Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+                  </span>
+                )}
+                <span className={`ci-job-duration${job.started_at && job.completed_at ? ' ci-job-duration--finished' : ''}`}>
+                  {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
+                  {job.started_at && !job.completed_at ? (
+                    <span className="ci-job-running-text">
+                      Running<span className="ci-job-cursor" />
+                    </span>
+                  ) : null}
                 </span>
-              )}
+              </div>
             </li>
           ))}
         </ul>
@@ -235,6 +243,8 @@ function FlowDetails({ item, mode, tab }: { item: FlowItem; mode: 'live' | 'demo
   </div>;
 }
 
+import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
+
 export function Inspector() {
   if (import.meta.env.DEV) incrementArchitectureDiagnostic('inspectorRenders');
   const [copyStatus, setCopyStatus] = useState('');
@@ -247,12 +257,29 @@ export function Inspector() {
   const flowState = useFlowStore(state => state.getTabState(activeTabId));
   const architectureState = useArchitectureStore(state => state.states[activeTabId]);
   const activeTab = tabs.find(tab => tab.id === activeTabId);
+  const isSketchBoard = activeTab && isNativeTab(activeTab) && activeTab.kind === 'sketchBoard';
   const resolvedItem = useResolvedFlowItem(flowState.selectedItemId);
   const selectedItem = flowState.selectedFlowItem ?? resolvedItem;
   const simulatorEntity = flowState.selectedSimulatorEntity;
+  const mockFlowItemFromSimulator = simulatorEntity ? {
+    id: simulatorEntity.id,
+    type: simulatorEntity.subjectType,
+    repositoryId: simulatorEntity.repositoryId,
+    repositoryName: simulatorEntity.repositoryId,
+    owner: simulatorEntity.repositoryId.split('/')[0] || '',
+    number: simulatorEntity.number,
+    title: simulatorEntity.title,
+    stage: simulatorEntity.stage,
+    status: simulatorEntity.status,
+    createdAt: simulatorEntity.createdAt,
+    updatedAt: simulatorEntity.updatedAt,
+    inclusionReason: 'Opened from Inspector',
+    _preservedStage: simulatorEntity.stage,
+  } as any : undefined;
   const simulatorCurrentEntity = flowState.selectedSimulatorCurrentEntity;
   const simulatorEvent = flowState.selectedSimulatorEvent;
-  const analyticsKinds = new Set(['ciHealth', 'inventory', 'flowAnalytics', 'personalFocus']);
+  if (isSketchBoard) return <SketchInspector />;
+  const analyticsKinds = new Set(['ciHealth', 'inventory', ...(ENABLE_FLOW_ANALYTICS ? ['flowAnalytics'] : []), 'personalFocus']);
   const isAnalytics = activeTab && isNativeTab(activeTab) && analyticsKinds.has(activeTab.kind);
   const isSimulator = activeTab && isNativeTab(activeTab) && (activeTab.kind === 'accountSimulator' || activeTab.kind === 'repositorySimulator');
   const homeRepositoryContext = activeTab && isNativeTab(activeTab) && activeTab.kind === 'home' && !selectedItem ? flowState.selectedAnalyticsEntity : undefined;
@@ -260,8 +287,8 @@ export function Inspector() {
   const target = resolveEntityTabTarget(targetSource, appMode);
   const analyticsEntity = flowState.selectedAnalyticsEntity;
   const workItemTarget: WorkItemOpenTarget | undefined = (() => {
-    if (selectedItem && (selectedItem.type === 'pull_request' || selectedItem.type === 'issue')) return { id: selectedItem.id, kind: selectedItem.type, title: selectedItem.title, repository: selectedItem.repositoryName || selectedItem.repositoryId, number: selectedItem.number, url: target?.url };
-    if (simulatorEntity && (simulatorEntity.subjectType === 'pull_request' || simulatorEntity.subjectType === 'issue')) return { id: simulatorEntity.id, kind: simulatorEntity.subjectType, title: simulatorEntity.title, repository: simulatorEntity.repositoryId, number: simulatorEntity.number, url: target?.url };
+    if (selectedItem && (selectedItem.type === 'pull_request' || selectedItem.type === 'issue')) return { id: selectedItem.id, kind: selectedItem.type, title: selectedItem.title, repository: selectedItem.repositoryName || selectedItem.repositoryId, number: selectedItem.number, url: target?.url, stage: selectedItem.stage };
+    if (simulatorEntity && (simulatorEntity.subjectType === 'pull_request' || simulatorEntity.subjectType === 'issue')) return { id: simulatorEntity.id, kind: simulatorEntity.subjectType, title: simulatorEntity.title, repository: simulatorEntity.repositoryId, number: simulatorEntity.number, url: target?.url, stage: simulatorEntity.stage };
     if (analyticsEntity?.runId && analyticsEntity.repositoryId) return { id: analyticsEntity.id, kind: 'ci_run', title: analyticsEntity.title, repository: analyticsEntity.repositoryId, runId: String(analyticsEntity.runId), runNumber: Number(analyticsEntity.metadata?.runNumber) || undefined, url: target?.url };
     const analyticsKind = analyticsEntity?.entityType === 'pull_request' || analyticsEntity?.entityType === 'issue' ? analyticsEntity.entityType : analyticsEntity?.kind === 'pull_request' || analyticsEntity?.kind === 'issue' ? analyticsEntity.kind : undefined;
     if (analyticsKind && analyticsEntity) return { id: analyticsEntity.id, kind: analyticsKind, title: analyticsEntity.title, repository: analyticsEntity.repositoryId, number: analyticsEntity.number, url: target?.url };
@@ -320,11 +347,11 @@ export function Inspector() {
           <button className="inspector-open-flow" type="button" onClick={() => { const selected = flowState.selectedAnalyticsEntity!; const muted = analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === selected.id.toLowerCase()); const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[selected.id]; else deliveryRiskMuteMetadata[selected.id] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskItems: muted ? analyticsSettings.mutedDeliveryRiskItems.filter(id => id.toLowerCase() !== selected.id.toLowerCase()) : [...analyticsSettings.mutedDeliveryRiskItems, selected.id], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskItems.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.id.toLowerCase()) ? 'Restore Item' : 'Mute Item'}</button>
           <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; const repositoryKey = repository.toLowerCase(); const muted = analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === repositoryKey); const metadataKey = `repository:${repositoryKey}`; const deliveryRiskMuteMetadata = { ...analyticsSettings.deliveryRiskMuteMetadata }; if (muted) delete deliveryRiskMuteMetadata[metadataKey]; else deliveryRiskMuteMetadata[metadataKey] = { mutedAt: new Date().toISOString() }; updateAnalyticsSettings({ mutedDeliveryRiskRepositories: muted ? analyticsSettings.mutedDeliveryRiskRepositories.filter(id => id.toLowerCase() !== repositoryKey) : [...analyticsSettings.mutedDeliveryRiskRepositories, repositoryKey], deliveryRiskMuteMetadata }); }}><ArrowRightCircle size={12} /> {analyticsSettings.mutedDeliveryRiskRepositories.some(id => id.toLowerCase() === flowState.selectedAnalyticsEntity!.repositoryId!.toLowerCase()) ? 'Restore Repository' : 'Mute Repository'}</button>
         </> : !workItemTarget ? <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:flow', 'flow', 'Flow', false, true); }}><ArrowRightCircle size={12} /> Open in Flow</button> : null}
-        {flowState.selectedAnalyticsEntity.kind === 'ci_health' && (
-          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository } }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
+        {flowState.selectedAnalyticsEntity?.repositoryId && (
+          <button className="inspector-open-flow" type="button" onClick={() => { const repository = flowState.selectedAnalyticsEntity!.repositoryId!; useFlowStore.getState().setTabState('native:repository-simulator', { selectedRepository: { id: repository, nameWithOwner: repository }, selectedItemId: simulatorEntity?.id, selectedSimulatorEntity: simulatorEntity }); openNativeTab('native:repository-simulator', 'repositorySimulator', 'Repository History', false, true); }}><History size={12} /> Open Repository</button>
         )}
       </div>}
-      {workItemTarget && <WorkItemOpenActions item={workItemTarget} surface={workSurface} flowItem={selectedItem} onStatus={setCopyStatus} compact />}
+      {workItemTarget && <WorkItemOpenActions item={workItemTarget} surface={workSurface} flowItem={selectedItem ?? mockFlowItemFromSimulator} onStatus={setCopyStatus} compact />}
       {demoUnavailableTarget && <button className="open-link inspector-open-tab" type="button" disabled>Open action unavailable in Demo Mode</button>}<span className="inspector-copy-status" aria-live="polite">{copyStatus}</span>
     </footer>}
   </div>;

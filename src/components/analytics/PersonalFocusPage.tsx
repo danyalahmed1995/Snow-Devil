@@ -15,6 +15,7 @@ import { Select } from '../ui/Select';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { distinctReason, partitionCanonicalResponsibilities } from '../../analytics/personal-focus';
 import { useTabsStore } from '../../stores/tabs-store';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 
 type Involvement = 'direct' | 'authored' | 'assigned' | 'review_requested' | 'mentioned' | 'participating';
 type ActorFilter = 'humans' | 'include_bots' | 'bots';
@@ -43,6 +44,7 @@ export function PersonalFocusPage() {
   const dataset = analytics.data;
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
   const [repositoryId, setRepositoryId] = useState('all');
+  useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
   const [involvement, setInvolvement] = useState<Involvement>('direct');
   const [actor, setActor] = useState<ActorFilter>('humans');
   const [windowChoice, setWindowChoice] = useState('30');
@@ -106,8 +108,28 @@ export function PersonalFocusPage() {
   }, [dataset?.events]);
   const tipItem = doNow[0] ?? responsibilities[0];
 
-  const selectEntity = (item: typeof withAge[number], reason?: string) => dataset && setTabState(activeTabId, { selectedAnalyticsEntity: { id: `focus:${item.entity.id}`, kind: 'personal_focus', title: item.entity.title, repositoryId: item.entity.repositoryId, number: item.entity.number, url: item.entity.url, state: item.activity, occurredAt: item.entity.updatedAt, reason: reason ?? distinctReason([item.relationship.label, ...item.attention.reasons.map(value => reasonLabel[value] ?? value), item.attention.reasons.length ? undefined : item.relationship.explanation]), confidence: confidenceFromEvidence({ completeness: item.entity.sourceCompleteness }), evidence: [...(item.entity.evidence ?? []), `Relationship: ${item.relationship.label}`, `Activity: ${item.activity}`, `Checks: ${item.entity.checkState ?? 'unavailable'}`, `Review: ${item.entity.reviewState ?? 'unavailable'}`], timeline: timelineForEntity(dataset, item.entity.id), definition: 'Personal Focus defaults to current direct responsibility. Participation-only work appears only when explicitly selected.', coverage: dataset.partial ? 'partial' : 'complete' } });
+  const [metricFilter, setMetricFilter] = useState<'all' | 'active' | 'reviews_requested' | 'awaiting_review' | 'oldest' | 'failed_checks' | 'unusually_old'>('all');
+
+  const selectEntity = (item: typeof withAge[number], reason?: string) => dataset && setTabState(activeTabId, { selectedAnalyticsEntity: { id: `focus:${item.entity.id}`, kind: 'personal_focus', entityType: item.entity.type, title: item.entity.title, repositoryId: item.entity.repositoryId, number: item.entity.number, url: item.entity.url, state: item.activity, occurredAt: item.entity.updatedAt, reason: reason ?? distinctReason([item.relationship.label, ...item.attention.reasons.map(value => reasonLabel[value] ?? value), item.attention.reasons.length ? undefined : item.relationship.explanation]), confidence: confidenceFromEvidence({ completeness: item.entity.sourceCompleteness }), evidence: [...(item.entity.evidence ?? []), `Relationship: ${item.relationship.label}`, `Activity: ${item.activity}`, `Checks: ${item.entity.checkState ?? 'unavailable'}`, `Review: ${item.entity.reviewState ?? 'unavailable'}`], timeline: timelineForEntity(dataset, item.entity.id), definition: 'Personal Focus defaults to current direct responsibility. Participation-only work appears only when explicitly selected.', coverage: dataset.partial ? 'partial' : 'complete' } });
   const list = (items: typeof withAge, empty: string) => items.length ? <div className="analytics-list">{items.map(item => <button key={item.entity.id} type="button" data-tooltip={`${item.entity.title}\n${item.entity.repositoryId} · ${item.relationship.label}. Select to inspect responsibility and evidence.`} onClick={() => selectEntity(item)}><span><strong>{item.entity.title}</strong><small>{distinctReason([item.attention.reasons.map(value => reasonLabel[value] ?? value.replace(/_/g, ' '))[0], item.relationship.label, item.entity.repositoryId])}</small></span><time>{Math.ceil(item.age)}d</time></button>)}</div> : <EmptyState kind="zero">{empty}</EmptyState>;
+
+  const toggleFilter = (filter: typeof metricFilter) => setMetricFilter(current => current === filter ? 'all' : filter);
+
+  const applyFilter = (items: typeof withAge) => {
+    if (metricFilter === 'all') return items;
+    if (metricFilter === 'active') return items.filter(item => responsibilities.includes(item));
+    if (metricFilter === 'reviews_requested') return items.filter(item => reviewsRequested.includes(item));
+    if (metricFilter === 'awaiting_review') return items.filter(item => authoredAwaitingReview.includes(item));
+    if (metricFilter === 'oldest') return oldestResponsibility && items.includes(oldestResponsibility) ? [oldestResponsibility] : [];
+    if (metricFilter === 'failed_checks') return items.filter(item => item.entity.checkState === 'failure');
+    if (metricFilter === 'unusually_old') return items.filter(item => item.age >= p90Threshold);
+    return items;
+  };
+
+  const filteredDoNow = applyFilter(doNow);
+  const filteredWaiting = applyFilter(waiting);
+  const filteredGettingStale = applyFilter(gettingStale);
+  const filteredDormant = applyFilter(dormant);
 
   return <AnalyticsPage title="Personal Focus" description="What to do now, what is waiting on others, and what is becoming stale" demo={analytics.mode === 'demo'} controls={<>
     <label>Repository<Select ariaLabel="Focus repository" searchable value={repositoryId} onChange={setRepositoryId} options={[{ value: 'all', label: 'All repositories' }, ...repositories.map(repository => ({ value: repository.id, label: repository.nameWithOwner }))]} /></label>
@@ -121,18 +143,18 @@ export function PersonalFocusPage() {
     <AnalyticsState label="Personal Focus coverage" loading={analytics.isLoading} error={analytics.error} partialReasons={dataset?.partialReasons ?? []} onRetry={() => void analytics.refetch()} />
     {dataset && <>
       <MetricGrid>
-        <MetricCard label="Active responsibilities" value={responsibilities.length} detail={`Your usual workload: ${usualWip}`} tone={aboveNormal ? 'danger' : 'good'} title="Active responsibilities\nCurrent evidence-backed work for which you have direct responsibility." />
-        <MetricCard label="Reviews requested from you" value={reviewsRequested.length} tone={reviewsRequested.length ? 'danger' : 'good'} detail="Current explicit requests" title="Reviews requested from you\nPull requests with an explicit current GitHub review request for your account." />
-        <MetricCard label="Your PRs awaiting review" value={authoredAwaitingReview.length} detail="Waiting on others" title="Your PRs awaiting review\nAuthored pull requests waiting for another reviewer rather than an action from you." />
-        <MetricCard label="Oldest active responsibility" value={oldestResponsibility ? `${Math.ceil(oldestResponsibility.age)}d` : 'None'} tone={oldestResponsibility?.age >= p90Threshold ? 'danger' : 'neutral'} detail={oldestResponsibility?.entity.title} title="Oldest active responsibility\nBusiness-day age of your oldest current direct responsibility." />
-        <MetricCard label="Failed checks" value={doNow.filter(item => item.entity.checkState === 'failure').length} tone={doNow.some(item => item.entity.checkState === 'failure') ? 'danger' : 'good'} title="Failed checks\nCurrent direct responsibilities whose latest reported required checks failed." />
-        <MetricCard label="Unusually old" value={responsibilities.filter(item => item.age >= p90Threshold).length} detail={`Your current threshold: ${p90Threshold} business days`} tone="warning" title="Unusually old\nResponsibilities at or beyond the configured business-day stale threshold." />
+        <MetricCard label="Active responsibilities" value={responsibilities.length} detail={`Your usual workload: ${usualWip}`} tone={aboveNormal ? 'danger' : 'good'} title="Active responsibilities\nCurrent evidence-backed work for which you have direct responsibility." onClick={() => toggleFilter('active')} active={metricFilter === 'active'} />
+        <MetricCard label="Reviews requested from you" value={reviewsRequested.length} tone={reviewsRequested.length ? 'danger' : 'good'} detail="Current explicit requests" title="Reviews requested from you\nPull requests with an explicit current GitHub review request for your account." onClick={() => toggleFilter('reviews_requested')} active={metricFilter === 'reviews_requested'} />
+        <MetricCard label="Your PRs awaiting review" value={authoredAwaitingReview.length} detail="Waiting on others" title="Your PRs awaiting review\nAuthored pull requests waiting for another reviewer rather than an action from you." onClick={() => toggleFilter('awaiting_review')} active={metricFilter === 'awaiting_review'} />
+        <MetricCard label="Oldest active responsibility" value={oldestResponsibility ? `${Math.ceil(oldestResponsibility.age)}d` : 'None'} tone={oldestResponsibility?.age >= p90Threshold ? 'danger' : 'neutral'} detail={oldestResponsibility?.entity.title} title="Oldest active responsibility\nBusiness-day age of your oldest current direct responsibility." onClick={() => toggleFilter('oldest')} active={metricFilter === 'oldest'} />
+        <MetricCard label="Failed checks" value={doNow.filter(item => item.entity.checkState === 'failure').length} tone={doNow.some(item => item.entity.checkState === 'failure') ? 'danger' : 'good'} title="Failed checks\nCurrent direct responsibilities whose latest reported required checks failed." onClick={() => toggleFilter('failed_checks')} active={metricFilter === 'failed_checks'} />
+        <MetricCard label="Unusually old" value={responsibilities.filter(item => item.age >= p90Threshold).length} detail={`Your current threshold: ${p90Threshold} business days`} tone="warning" title="Unusually old\nResponsibilities at or beyond the configured business-day stale threshold." onClick={() => toggleFilter('unusually_old')} active={metricFilter === 'unusually_old'} />
       </MetricGrid>
       <div className="analytics-focus-grid">
-        <SectionCard title="Do now">{list(doNow, 'No current evidence-backed action is required.')}</SectionCard>
-        <SectionCard title="Waiting on others">{list(waiting, 'No direct responsibility is currently waiting on another party.')}</SectionCard>
-        <SectionCard title="Getting stale">{list(gettingStale, 'No current responsibility is unusually old.')}</SectionCard>
-        {includeDormant && <SectionCard title="Dormant work">{list(dormant, `No direct responsibility is outside the ${activityWindowDays}-day activity window.`)}</SectionCard>}
+        <SectionCard title="Do now">{list(filteredDoNow, metricFilter !== 'all' ? 'No items match the selected filter.' : 'No current evidence-backed action is required.')}</SectionCard>
+        <SectionCard title="Waiting on others">{list(filteredWaiting, metricFilter !== 'all' ? 'No items match the selected filter.' : 'No direct responsibility is currently waiting on another party.')}</SectionCard>
+        <SectionCard title="Getting stale">{list(filteredGettingStale, metricFilter !== 'all' ? 'No items match the selected filter.' : 'No current responsibility is unusually old.')}</SectionCard>
+        {includeDormant && <SectionCard title="Dormant work">{list(filteredDormant, metricFilter !== 'all' ? 'No items match the selected filter.' : `No direct responsibility is outside the ${activityWindowDays}-day activity window.`)}</SectionCard>}
         <SectionCard title="Recent meaningful activity"><div className="analytics-list">{recent.map(event => <div key={`${event.repositoryId}:${event.type}:${event.date}`} className="analytics-activity-row"><span><strong>{event.count > 1 ? `${event.count} ${event.type.replace(/_/g, ' ')} events` : event.type.replace(/_/g, ' ')}</strong><small>{event.repositoryId}</small></span><time>{new Date(`${event.date}T00:00:00Z`).toLocaleDateString()}</time></div>)}</div></SectionCard>
         {remembered.length > 0 && <SectionCard title="Snoozed or dismissed" action={<button className="analytics-button" onClick={() => setShowRemembered(value => !value)}>{showRemembered ? 'Hide' : `Show ${remembered.length}`}</button>}>{showRemembered && <div className="analytics-list">{remembered.map(item => <div className="analytics-activity-row" key={item.entity.id}><span><strong>{item.entity.title}</strong><small>Remembered on this device</small></span><button className="analytics-button" onClick={() => preferences.undo(item.entity.id)}>Undo</button></div>)}</div>}</SectionCard>}
       </div>

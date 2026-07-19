@@ -25,4 +25,15 @@ describe('active native browser runtime reconciliation', () => {
     await waitFor(() => expect(useTabsStore.getState().getActiveBrowserTab()?.currentUrl).toBe('https://github.com/octo/app/pull/42/files'));
     expect(useTabsStore.getState().getActiveBrowserTab()?.history).toEqual(['https://github.com/octo/app/pull/42', 'https://github.com/octo/app/pull/42/files']);
   });
+
+  it('does not poll WebView state while a native surface is active', () => {
+    useTabsStore.setState({
+      activeTabId: 'native:home',
+      tabs: [{ id: 'native:home', family: 'native', kind: 'home', title: 'Home', pinned: true, closable: false, createdAt: 1, lastActivatedAt: 1 } as any],
+    });
+    const setInterval = vi.spyOn(window, 'setInterval');
+    render(<ActiveBrowserRuntimeSync />);
+    expect(setInterval).not.toHaveBeenCalled();
+    expect(browserGetState).not.toHaveBeenCalled();
+  });
 });

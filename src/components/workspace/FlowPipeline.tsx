@@ -226,10 +226,19 @@ const FLOW_STAGE_PREVIEW_LIMIT = 5;
 
 function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, source, countDisplay, onScroll, expansionKey, pendingScrollItemId, onConsumeScroll, isSurfaceActive, onFocusSettled, usesPipelineScroller }: { stage: { id: FlowStage; label: string }; items: FlowItem[]; selectedItemId?: string; onSelectItem?: (item: FlowItem) => void; onOpenItem?: (item: FlowItem) => void; source: SourceControls[keyof SourceControls]; countDisplay: string | number; onScroll: () => void; expansionKey: string; pendingScrollItemId?: string; onConsumeScroll?: () => void; isSurfaceActive: boolean; onFocusSettled: () => void; usesPipelineScroller: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [dismissedFocusTarget, setDismissedFocusTarget] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(() => expandedStageCache.get(expansionKey) ?? false);
-  const shouldExpandForFocus = Boolean(pendingScrollItemId && items.slice(FLOW_STAGE_PREVIEW_LIMIT).some(item => item.id === pendingScrollItemId));
+  React.useEffect(() => {
+    if (!pendingScrollItemId) setDismissedFocusTarget(null);
+  }, [pendingScrollItemId]);
+  const hiddenWhenCollapsed = Math.max(0, items.length - FLOW_STAGE_PREVIEW_LIMIT);
+  const shouldExpandForFocus = Boolean(
+    pendingScrollItemId
+    && dismissedFocusTarget !== pendingScrollItemId
+    && items.slice(FLOW_STAGE_PREVIEW_LIMIT).some(item => item.id === pendingScrollItemId)
+  );
+  const isShowingAll = expanded || shouldExpandForFocus;
   const visibleItems = expanded || shouldExpandForFocus ? items : items.slice(0, FLOW_STAGE_PREVIEW_LIMIT);
-  const hidden = Math.max(0, items.length - visibleItems.length);
 
   // Stable refs for things that shouldn't trigger the positioning effect
   const latestProps = useRef({ items, visibleItems, onConsumeScroll, onFocusSettled, source });
@@ -245,8 +254,8 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
 
     const hasItem = currentItems.some(item => item.id === pendingScrollItemId);
     if (!hasItem) {
-      // Safe failure path: if data is fully loaded and item is not found, consume to lift cloak.
-      if (!currentSource.isFetching && !currentSource.hasNextPage) {
+      // Safe failure path: if data is fully loaded for this page and item is not found, consume to lift cloak.
+      if (!currentSource.isFetching) {
         console.warn(`[FlowFocus] Target ${pendingScrollItemId} not found in stage ${stage.id}. Consuming request to lift cloak.`);
         requestAnimationFrame(() => currentConsume?.());
       }
@@ -307,7 +316,11 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
   }, [pendingScrollItemId, expanded, isSurfaceActive, stage.id]);
 
   const toggleExpanded = () => {
-    if (expanded) {
+    if (isShowingAll && hiddenWhenCollapsed > 0) {
+      if (shouldExpandForFocus && pendingScrollItemId) {
+        setDismissedFocusTarget(pendingScrollItemId);
+        requestAnimationFrame(() => onConsumeScroll?.());
+      }
       expandedStageCache.set(expansionKey, false);
       setExpanded(false);
       if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -339,7 +352,7 @@ function FlowColumn({ stage, items, selectedItemId, onSelectItem, onOpenItem, so
         {items.length === 0 && <div className="flow-stage-empty">No items in this stage</div>}
         {source.isFetching && <div className="flow-lane-loading">Loading...</div>}
       </div>
-      {(hidden > 0 || expanded || source.hasNextPage) && <button className="flow-stage-more" type="button" onClick={toggleExpanded}>{expanded ? 'Show fewer' : hidden > 0 ? `Show ${hidden} more` : 'Load more'}</button>}
+      {(hiddenWhenCollapsed > 0 || source.hasNextPage) && <button className="flow-stage-more" type="button" onClick={toggleExpanded}>{isShowingAll && hiddenWhenCollapsed > 0 ? 'Show fewer' : hiddenWhenCollapsed > 0 ? `Show ${hiddenWhenCollapsed} more` : 'Load more'}</button>}
     </div>
   );
 }

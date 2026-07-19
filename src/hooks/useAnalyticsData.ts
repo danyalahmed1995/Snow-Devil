@@ -33,6 +33,10 @@ interface DbSimulatorEvent {
 interface RepositoryRow { id: string; databaseId?: string | number; name: string; url?: string; viewerPermission?: string; ownerLogin?: string; fork?: boolean; archived?: boolean; private?: boolean; template?: boolean; empty?: boolean }
 interface AnalyticsRecordRow { repository_id: string; source_type: string; source_id: string; updated_at: string; payload_json: string }
 
+export function hasCanonicalAnalyticsRepositories(rows: AnalyticsRecordRow[]): boolean {
+  return rows.some(row => row.source_type === 'repository');
+}
+
 function parseJsonObject(value: string | null): Record<string, unknown> {
   if (!value) return {};
   try {
@@ -68,6 +72,32 @@ export function normalizeEvent(row: DbSimulatorEvent): SimulatorEvent | null {
 
 export function analyticsRecordEvents(row: AnalyticsRecordRow): SimulatorEvent[] {
   const data = parseJsonObject(row.payload_json);
+  if (row.source_type === 'risk_event') {
+    const validSubjectTypes = new Set<SimulatorEvent['subjectType']>(['issue', 'pull_request', 'branch', 'commit', 'workflow_run', 'check_suite', 'release', 'deployment']);
+    const subjectType = typeof data.subjectType === 'string' && validSubjectTypes.has(data.subjectType as SimulatorEvent['subjectType']) ? data.subjectType as SimulatorEvent['subjectType'] : undefined;
+    if (!subjectType || typeof data.id !== 'string' || typeof data.repositoryId !== 'string' || typeof data.subjectId !== 'string' || typeof data.subjectTitle !== 'string' || typeof data.occurredAt !== 'string' || typeof data.eventType !== 'string') return [];
+    return [{
+      id: data.id,
+      repositoryId: data.repositoryId,
+      repositoryName: typeof data.repositoryName === 'string' ? data.repositoryName : data.repositoryId.split('/')[1] ?? data.repositoryId,
+      repositoryOwner: typeof data.repositoryOwner === 'string' ? data.repositoryOwner : data.repositoryId.split('/')[0] ?? '',
+      subjectId: data.subjectId,
+      subjectType,
+      subjectNumber: typeof data.subjectNumber === 'number' ? data.subjectNumber : undefined,
+      subjectTitle: data.subjectTitle,
+      occurredAt: data.occurredAt,
+      sourceOccurredAt: typeof data.sourceOccurredAt === 'string' ? data.sourceOccurredAt : undefined,
+      observedAt: typeof data.observedAt === 'string' ? data.observedAt : undefined,
+      persistedAt: typeof data.persistedAt === 'string' ? data.persistedAt : undefined,
+      observationOnly: data.observationOnly === true,
+      eventType: data.eventType as SimulatorEvent['eventType'],
+      actor: data.actor && typeof data.actor === 'object' ? data.actor as SimulatorEvent['actor'] : undefined,
+      metadata: data.metadata && typeof data.metadata === 'object' && !Array.isArray(data.metadata) ? data.metadata as SimulatorEvent['metadata'] : {},
+      source: typeof data.source === 'string' ? data.source : 'github-current-state',
+      sourceCompleteness: data.sourceCompleteness === 'complete' || data.sourceCompleteness === 'partial' ? data.sourceCompleteness : 'unknown',
+      inclusionReason: data.inclusionReason as SimulatorEvent['inclusionReason'],
+    }];
+  }
   const [owner, name] = row.repository_id.split('/');
   const number = typeof data.number === 'number' ? data.number : undefined;
   const author = data.user ?? data.actor ?? data.author;
@@ -147,13 +177,19 @@ export function useAnalyticsData(options: { enabled?: boolean } = {}) {
   const liveQuery = useQuery({
     queryKey: getAnalyticsQueryKey(login),
     enabled: enabled && mode === 'live' && Boolean(login),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 15_000,
     queryFn: async (): Promise<AnalyticsDataset> => {
-      const [rows, repositories, analyticsRows] = await Promise.all([
-        invoke<DbSimulatorEvent[]>('get_simulator_events', { repositoryId: null }),
-        invoke<RepositoryRow[]>('get_all_repositories'),
-        invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! }),
-      ]);
+      // Canonical analytics records supersede the legacy simulator/node tables.
+      // Reading all three through one SQLite mutex during synchronization could
+      // starve this initial query until the complete repository sync ended.
+      const analyticsRows = await invoke<AnalyticsRecordRow[]>('get_analytics_records', { accountLogin: login! });
+      const hasCanonicalRepositories = hasCanonicalAnalyticsRepositories(analyticsRows);
+      const [rows, repositories] = hasCanonicalRepositories
+        ? [await invoke<DbSimulatorEvent[]>('get_delivery_risk_events'), []] as [DbSimulatorEvent[], RepositoryRow[]]
+        : await Promise.all([
+            invoke<DbSimulatorEvent[]>('get_simulator_events', { repositoryId: null }),
+            invoke<RepositoryRow[]>('get_all_repositories'),
+          ]);
       const syncedEvents = analyticsRows.flatMap(analyticsRecordEvents).map(event => normalizeSimulatorEventProvenance(event));
       const syncedRepositories = analyticsRows.filter(row => row.source_type === 'repository').map(row => { const value = parseJsonObject(row.payload_json); const permissions = value.permissions as Record<string, unknown> | undefined; const viewerPermission = permissions?.admin ? 'ADMIN' : permissions?.maintain ? 'MAINTAIN' : permissions?.push ? 'WRITE' : permissions?.triage ? 'TRIAGE' : permissions?.pull ? 'READ' : 'UNKNOWN'; const owner = value.owner as Record<string, unknown> | undefined; return { id: row.repository_id, databaseId: typeof value.id === 'number' || typeof value.id === 'string' ? value.id : undefined, name: typeof value.full_name === 'string' ? value.full_name : row.repository_id, url: typeof value.html_url === 'string' ? value.html_url : undefined, viewerPermission, ownerLogin: typeof owner?.login === 'string' ? owner.login : row.repository_id.split('/')[0], fork: value.fork === true, archived: value.archived === true, private: value.private === true, template: value.is_template === true, empty: value.size === 0 }; });
       const eventMap = new Map<string, SimulatorEvent>();

@@ -24,6 +24,13 @@ interface RepoCard { id: string; name: string; description: string | null; updat
 type MetricFilter = 'attention' | 'waiting_review' | 'failing' | 'merged';
 let homeScrollTop = 0;
 
+export function homeMetricFlowStage(filter: MetricFilter): FlowStage | undefined {
+  if (filter === 'waiting_review') return 'review';
+  if (filter === 'failing') return 'checks';
+  if (filter === 'merged') return 'merged';
+  return undefined;
+}
+
 function relativeTime(timestamp: string, reference: number): string {
   if (!timestamp) return 'Activity unavailable';
   const hours = Math.max(0, Math.floor((reference - new Date(timestamp).getTime()) / 3600000));
@@ -31,6 +38,7 @@ function relativeTime(timestamp: string, reference: number): string {
 }
 
 function greeting(hour = new Date().getHours()): string {
+  if (hour < 5) return 'Up late';
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
@@ -38,12 +46,19 @@ function greeting(hour = new Date().getHours()): string {
 
 export function Dashboard() {
   const homeRef = useRef<HTMLElement>(null);
+  const previewCardRefs = useRef(new Map<string, HTMLDivElement>());
+  const revealSequence = useRef(0);
   const hasAutoRetried = useRef(false);
   const mode = useModeStore(state => state.mode);
   const enterDemo = useModeStore(state => state.enterDemo);
   const session = useAuthStore(state => state.session);
   const openAuthModal = useAuthStore(state => state.openAuthModal);
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
+  const [currentHour, setCurrentHour] = useState(() => new Date().getHours());
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentHour(new Date().getHours()), 60000);
+    return () => clearInterval(interval);
+  }, []);
   const [liveReference] = useState(() => Date.now());
   const { data: demoHome, isLoading: demoHomeLoading, error: demoHomeError } = useDemoHome();
   const { data: demoManifest } = useDemoManifest();
@@ -51,6 +66,7 @@ export function Dashboard() {
   const [repos, setRepos] = useState<RepoCard[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
   const [reposLoaded, setReposLoaded] = useState(false);
+  const [pipelineRevealRequest, setPipelineRevealRequest] = useState<{ itemId: string; sequence: number }>();
   const { openBrowserTab, openNativeTab } = useTabsStore();
   const activeTabId = useCurrentTabId();
   const isActiveTab = useTabsStore(state => state.activeTabId === activeTabId);
@@ -99,6 +115,21 @@ export function Dashboard() {
       cancelAnimationFrame(frame);
     };
   }, [isActiveTab, mode, session.status]);
+  useLayoutEffect(() => {
+    if (!isActiveTab || !pipelineRevealRequest) return;
+    const frame = requestAnimationFrame(() => {
+      const target = previewCardRefs.current.get(pipelineRevealRequest.itemId);
+      if (!target) return;
+      const reducedMotion = document.documentElement.dataset.reducedMotion === 'true'
+        || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      target.scrollIntoView({
+        behavior: reducedMotion ? 'auto' : 'smooth',
+        block: 'center',
+        inline: 'center',
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isActiveTab, pipelineRevealRequest]);
   const hasSnapshot = mode === 'demo' ? Boolean(demoHome && demoPipeline) : rawSummaryData !== undefined;
   const homeState = resolveDataViewState({
     loading: mode === 'demo' ? demoLoading || demoHomeLoading : liveLoading,
@@ -170,9 +201,18 @@ export function Dashboard() {
   );
 
   const openFlow = (stage?: FlowStage, statusFilter: MetricFilter | 'all' = 'all') => {
-    const stageLabel = stage ? WORKFLOW_STAGES.find(value => value.id === stage)?.label : undefined;
+    const focusedStage = stage ?? (statusFilter === 'all' ? undefined : homeMetricFlowStage(statusFilter));
+    const stageLabel = focusedStage ? WORKFLOW_STAGES.find(value => value.id === focusedStage)?.label : undefined;
     const statusLabel = statusFilter === 'attention' ? 'Needs attention' : statusFilter === 'waiting_review' ? 'Reviews requested' : statusFilter === 'failing' ? 'Failing checks' : statusFilter === 'merged' ? 'Recently merged' : undefined;
-    setTabState('native:flow', { scope: 'account', filterStage: stage, statusFilter, search: '', sourceContext: stageLabel ?? statusLabel ? `Opened from Home: ${stageLabel ?? statusLabel}` : undefined });
+    const sourceLabel = statusLabel ?? stageLabel;
+    setTabState('native:flow', {
+      scope: 'account',
+      filterStage: focusedStage,
+      hideEmptyStages: statusFilter === 'attention',
+      statusFilter,
+      search: '',
+      sourceContext: sourceLabel ? `Opened from Home: ${sourceLabel}` : undefined,
+    });
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
   const openFlowForItem = (item: FlowItem) => {
@@ -189,7 +229,12 @@ export function Dashboard() {
     openNativeTab('native:flow', 'flow', 'Flow', false, true);
   };
   const openItem = (item: FlowItem) => { const target = resolveEntityTabTarget(item, mode); if (target && (item.type === 'pull_request' || item.type === 'issue')) openPrimaryWorkItem({ id: item.id, kind: item.type, title: item.title, repository: item.repositoryName || item.repositoryId, number: item.number, url: target.url }); };
-  const selectItem = (item: FlowItem) => setTabState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item, selectedAnalyticsEntity: undefined });
+  const selectItem = (item: FlowItem, revealInPipeline = false) => {
+    if (revealInPipeline) {
+      setPipelineRevealRequest({ itemId: item.id, sequence: ++revealSequence.current });
+    }
+    setTabState(activeTabId, { selectedItemId: item.id, selectedFlowItem: item, selectedAnalyticsEntity: undefined });
+  };
   const selectRepository = (repo: { id: string; nameWithOwner: string; lastActivityAt?: string }) => setTabState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined, selectedAnalyticsEntity: { id: `home-repo:${repo.id}`, kind: 'repository', title: repo.nameWithOwner, repositoryId: repo.nameWithOwner, state: 'recently active', occurredAt: repo.lastActivityAt, reason: 'Recently active based on the latest synchronized workflow item.' } });
   const openRepositoryFlow = (repo: { id: string; nameWithOwner: string }) => {
     setTabState('native:flow', { scope: 'repository', selectedRepository: { id: repo.id, nameWithOwner: repo.nameWithOwner }, filterStage: undefined, statusFilter: 'all', search: '' });
@@ -207,18 +252,22 @@ export function Dashboard() {
   const attentionItems = canonicalAttentionItems(items).slice(0, 4);
   const failingRepositories = new Set(items.filter(item => item.status === 'failing').map(item => item.repositoryId)).size;
   return <main ref={homeRef} onScroll={event => { if (isActiveTab) homeScrollTop = event.currentTarget.scrollTop; }} className="dashboard-view home-command-center">
-    <header className="home-header"><div><h1 aria-label="Home">{greeting()}{currentUser ? `, ${session.status === 'connected' ? session.account.name || session.account.login : currentUser}` : ''}</h1><p>Here is what needs your attention across your GitHub work.</p></div><button className="home-primary" data-tooltip="Open Flow Workbench\nOpen or activate the singleton Flow page with the full account workflow." onClick={() => openFlow()}><span>Open Flow Workbench</span><ArrowRight size={14} /></button></header>
+    <header className="home-header"><div><h1 aria-label="Home">{greeting(currentHour)}{currentUser ? `, ${session.status === 'connected' ? session.account.name || session.account.login : currentUser}` : ''}</h1><p>Here is what needs your attention across your GitHub work.</p></div><button className="home-primary" data-tooltip="Open Flow Workbench\nOpen or activate the singleton Flow page with the full account workflow." onClick={() => openFlow()}><span>Open Flow Workbench</span><ArrowRight size={14} /></button></header>
     <section className="home-metrics" aria-label="Workflow health summary">{metricCards.map(metric => { const comparison = metric.previous != null ? ` Compared with ${metric.previous} in the prior period.` : ''; const context = metric.filter === 'attention' ? `${metric.value} item${metric.value === 1 ? '' : 's'} require action` : metric.filter === 'waiting_review' ? `${metric.value} outstanding review request${metric.value === 1 ? '' : 's'}` : metric.filter === 'failing' ? `${metric.value} failing check${metric.value === 1 ? '' : 's'} across ${failingRepositories} repositor${failingRepositories === 1 ? 'y' : 'ies'}` : `${metric.value} PR${metric.value === 1 ? '' : 's'} merged in the last 7 days`; return <button key={metric.label} className={`home-metric home-metric--${metric.tone}`} data-tooltip={`${metric.label}\n${metric.help}${comparison} Activate to open the matching Flow view.`} aria-label={`${metric.label}: ${metric.value}. ${context}. ${metric.help}${comparison}`} onClick={() => openFlow(undefined, metric.filter)}><i className="home-metric__icon">{metric.icon}</i><span>{metric.label}</span><strong>{metric.value}</strong><small>{context}</small><em>View in Flow <ArrowRight size={10}/></em></button>; })}</section>
     <section className="home-sync-context" aria-label="Home synchronization context"><span>Last synchronized: {mode === 'demo' ? new Date(demoPipeline?.referenceDate ?? liveReference).toLocaleString() : sync.state?.last_successful_at ? new Date(sync.state.last_successful_at).toLocaleString() : 'Unavailable'}</span><span className="home-scope-note">Active items are current. Completed activity covers the last 7 days.</span>{mode !== 'demo' && sync.coverage !== 'complete' && <span>Partial coverage</span>}{sync.state && (() => { try { const failed = JSON.parse(sync.state.failed_repositories_json || '[]').length; return failed ? <span>{failed} failed source{failed === 1 ? '' : 's'}</span> : null; } catch { return null; } })()}</section>
     <section className="home-panel home-pipeline"><header><div><h2>Pipeline Preview</h2><p>Active work and completed evidence</p></div></header><div className="home-pipeline-groups"><div><h3 data-tooltip="Active work\nCurrent issues and pull requests grouped by their evidence-backed workflow stage.">Active work</h3><div className="home-stage-grid">{WORKFLOW_STAGES.slice(0, 6).map(stage => stagePreview(stage.id, stage.label))}</div></div><div><h3 data-tooltip="Completed work\nRecent merge, release, and deployment evidence grouped without collapsing distinct entity types.">Completed work</h3><div className="home-stage-grid home-stage-grid--completed">{WORKFLOW_STAGES.slice(6).map(stage => stagePreview(stage.id, stage.label))}</div></div></div></section>
     <div className="home-lower"><section className="home-panel"><header><div><h2>Recently Active Repositories</h2><p>Status reflects the latest ranking reason</p></div>{session.status === 'connected' && <button onClick={() => openBrowserTab('github:repositories', 'repositories', 'Repositories', `https://github.com/${session.account.login}?tab=repositories`, false, true)}>View all</button>}</header><div className="home-list">{reposLoading && !reposLoaded && shownRepos.length === 0 ? <><div className="home-skeleton-row home-skeleton"/><div className="home-skeleton-row home-skeleton"/></> : shownRepos.length ? shownRepos.slice(0, 4).map(repo => <div className="home-list-row" key={repo.id}><button onClick={() => selectRepository(repo)} onDoubleClick={() => openRepositoryExplorer(repo)} data-tooltip="Repository activity\nSelect to inspect; double-click to browse the repository."><span><strong>{repo.nameWithOwner}</strong><small>{repo.reason ?? 'Recent meaningful activity'} · {relativeTime(repo.lastActivityAt, referenceTime)}{repo.activeItems != null ? ` · ${repo.activeItems} active` : ''}</small></span>{repo.status && <i className={`home-health home-health--${repo.status}`} data-tooltip={repo.reason ?? repo.status} />}</button><button aria-label={`Open ${repo.nameWithOwner} in Repository Flow`} onClick={() => openRepositoryFlow(repo)}><ArrowRight size={13} /></button></div>) : <div className="home-list-empty">No repositories matched the current account scope.</div>}</div></section>
-      <section className="home-panel"><header><div><h2>Recent Merges</h2><p>Repository, merge time, checks, and downstream evidence</p></div><GitMerge size={15} /></header><div className="home-list">{merges.length ? merges.map(item => <div className="home-list-row" key={item.id}><button onClick={() => selectItem(item)} onDoubleClick={() => openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Relationship unavailable'} · {item.repositoryName} #{item.number} · Merged {relativeTime(item.mergedAt!, referenceTime)} · {item.checksSummary?.state === 'SUCCESS' ? 'Checks passed' : item.checksSummary?.state === 'FAILURE' ? 'Checks failed' : 'Check outcome unavailable'}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={() => openFlowForItem(item)}><ArrowRight size={13} /></button></div>) : <div className="home-list-empty"><ShieldAlert size={14} /> No synchronized merges in this preview.</div>}</div></section><section className="home-panel"><header><div><h2>Needs Your Attention</h2><p>Evidence-backed actions, not editable tasks</p></div><CircleAlert size={15}/></header><div className="home-list">{attentionItems.length?attentionItems.map(item=><div className="home-list-row" key={item.id}><button onClick={()=>selectItem(item)} onDoubleClick={()=>openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Direct responsibility'} · {(item.attentionReasons?.[0]??item.status).replace(/_/g,' ')} · Updated {relativeTime(item.updatedAt, referenceTime)}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={()=>openFlowForItem(item)}><ArrowRight size={13}/></button></div>):<div className="home-list-empty"><ShieldCheck size={14}/>No synchronized item needs action.</div>}</div></section></div>
+      <section className="home-panel"><header><div><h2>Recent Merges</h2><p>Repository, merge time, checks, and downstream evidence</p></div><GitMerge size={15} /></header><div className="home-list">{merges.length ? merges.map(item => <div className="home-list-row" key={item.id}><button onClick={() => selectItem(item, true)} onDoubleClick={() => openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Relationship unavailable'} · {item.repositoryName} #{item.number} · Merged {relativeTime(item.mergedAt!, referenceTime)} · {item.checksSummary?.state === 'SUCCESS' ? 'Checks passed' : item.checksSummary?.state === 'FAILURE' ? 'Checks failed' : 'Check outcome unavailable'}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={() => openFlowForItem(item)}><ArrowRight size={13} /></button></div>) : <div className="home-list-empty"><ShieldAlert size={14} /> No synchronized merges in this preview.</div>}</div></section><section className="home-panel"><header><div><h2>Needs Your Attention</h2><p>Evidence-backed actions, not editable tasks</p></div><CircleAlert size={15}/></header><div className="home-list">{attentionItems.length?attentionItems.map(item=><div className="home-list-row" key={item.id}><button onClick={()=>selectItem(item, true)} onDoubleClick={()=>openItem(item)}><span><strong>{item.title}</strong><small>{item.inclusionReason ?? 'Direct responsibility'} · {(item.attentionReasons?.[0]??item.status).replace(/_/g,' ')} · Updated {relativeTime(item.updatedAt, referenceTime)}</small></span></button><button aria-label={`Open ${item.title} in Flow`} onClick={()=>openFlowForItem(item)}><ArrowRight size={13}/></button></div>):<div className="home-list-empty"><ShieldCheck size={14}/>No synchronized item needs action.</div>}</div></section></div>
     {homeState === 'refreshing-with-snapshot' && <div className="home-loading" role="status">Refreshing GitHub data · Displaying previous snapshot</div>}
   </main>;
 
   function stagePreview(stageId: FlowStage, stageLabel: string) {
     const stageItems = items.filter(item => item.stage === stageId);
-    return <article className="home-stage" key={stageId}><button className="home-stage__header" data-tooltip={`${stageLabel}\n${stageItems.length} item${stageItems.length === 1 ? '' : 's'} in this stage. Open the matching Flow column.`} onClick={() => openFlow(stageId)}><span>{stageLabel}</span><strong>{stageItems.length}</strong></button><div className="home-stage__cards">{previews[stageId].map(item => <FlowCard key={item.id} item={item} variant="preview" isSelected={flowState.selectedItemId === item.id} onClick={() => selectItem(item)} onOpen={() => openItem(item)} />)}{stageItems.length === 0 && <div className="home-stage__empty">No items</div>}</div>{stageItems.length > 2 && <button className="home-stage__more" data-tooltip={`${stageItems.length - 2} additional ${stageLabel} items\nOpen the complete stage in Flow.`} aria-label={`Open ${stageLabel} in Account Flow`} onClick={() => openFlow(stageId)}>+{stageItems.length - 2} more</button>}</article>;
+    const selectedStageItem = stageItems.find(item => item.id === flowState.selectedItemId);
+    const stagePreviews = selectedStageItem && !previews[stageId].some(item => item.id === selectedStageItem.id)
+      ? [...previews[stageId].slice(0, 1), selectedStageItem]
+      : previews[stageId];
+    return <article className="home-stage" key={stageId}><button className="home-stage__header" data-tooltip={`${stageLabel}\n${stageItems.length} item${stageItems.length === 1 ? '' : 's'} in this stage. Open the matching Flow column.`} onClick={() => openFlow(stageId)}><span>{stageLabel}</span><strong>{stageItems.length}</strong></button><div className="home-stage__cards">{stagePreviews.map(item => <div key={item.id} data-home-flow-item-id={item.id} ref={element => { if (element) previewCardRefs.current.set(item.id, element); else previewCardRefs.current.delete(item.id); }}><FlowCard item={item} variant="preview" isSelected={flowState.selectedItemId === item.id} onClick={() => selectItem(item)} onOpen={() => openItem(item)} /></div>)}{stageItems.length === 0 && <div className="home-stage__empty">No items</div>}</div>{stageItems.length > 2 && <button className="home-stage__more" data-tooltip={`${stageItems.length - 2} additional ${stageLabel} items\nOpen the complete stage in Flow.`} aria-label={`Open ${stageLabel} in Account Flow`} onClick={() => openFlow(stageId)}>+{stageItems.length - 2} more</button>}</article>;
   }
 }
 

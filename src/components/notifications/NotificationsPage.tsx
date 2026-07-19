@@ -27,8 +27,11 @@ export function NotificationsPage() {
   const open = (record: NativeNotification) => {
     const target = notificationNavigationTarget(record);
     if (!target) return;
-    if (target.family === 'native-pr') useTabsStore.getState().openNativeTab(target.id, 'pullRequestDiff', target.title, false, true, { type: 'pullRequest', repository: target.repository, number: target.number });
-    else useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    if (target.family === 'native') {
+      useTabsStore.getState().openNativeTab(target.id, target.kind, target.title, false, true, target.context);
+    } else {
+      useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    }
   };
   const statusLabel = pollingStatus === 'checking' ? 'Checking GitHub…' : pollingStatus === 'ready' ? 'Background polling active' : pollingMessage ?? pollingStatus.replace(/_/g, ' ');
   const markRead = async (record: NativeNotification, unread: boolean) => {

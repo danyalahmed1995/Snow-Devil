@@ -36,9 +36,11 @@ export function calculateTooltipPosition(target: DOMRect, tooltip: { width: numb
 
 export function TooltipProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<TooltipState | null>(null);
+  const [closing, setClosing] = useState(false);
   const [position, setPosition] = useState({ left: 0, top: 0, placement: 'bottom' as 'top' | 'bottom' });
   const tooltipRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<number | undefined>(undefined);
+  const closingTimerRef = useRef<number | undefined>(undefined);
   const describedTargetRef = useRef<{ target: HTMLElement; previous: string | null } | undefined>(undefined);
 
   const clearTimer = useCallback(() => {
@@ -48,7 +50,12 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
 
   const close = useCallback(() => {
     clearTimer();
-    setActive(null);
+    setClosing(true);
+    if (closingTimerRef.current !== undefined) window.clearTimeout(closingTimerRef.current);
+    closingTimerRef.current = window.setTimeout(() => {
+      setActive(null);
+      setClosing(false);
+    }, 110);
   }, [clearTimer]);
 
   const schedule = useCallback((target: HTMLElement) => {
@@ -56,7 +63,11 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
     if (!content) return;
     clearTimer();
     timerRef.current = window.setTimeout(() => {
-      if (target.isConnected) setActive({ target, content });
+      if (target.isConnected) {
+        if (closingTimerRef.current !== undefined) window.clearTimeout(closingTimerRef.current);
+        setClosing(false);
+        setActive({ target, content });
+      }
     }, OPEN_DELAY_MS);
   }, [clearTimer]);
 
@@ -131,15 +142,15 @@ export function TooltipProvider({ children }: { children: ReactNode }) {
     const mutation = new MutationObserver(() => { if (!active.target.isConnected) close(); });
     mutation.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('resize', reposition);
-    document.addEventListener('scroll', reposition, true);
+    document.addEventListener('scroll', close, true);
     return () => {
       window.cancelAnimationFrame(initialFrame);
       observer?.disconnect();
       mutation.disconnect();
       window.removeEventListener('resize', reposition);
-      document.removeEventListener('scroll', reposition, true);
+      document.removeEventListener('scroll', close, true);
     };
   }, [active, close, reposition]);
 
-  return <>{children}{active && createPortal(<div ref={tooltipRef} id={TOOLTIP_ID} role="tooltip" data-placement={position.placement} className="contextual-tooltip" style={{ left: position.left, top: position.top }}>{active.content}</div>, document.body)}</>;
+  return <>{children}{active && createPortal(<div ref={tooltipRef} id={TOOLTIP_ID} role="tooltip" data-placement={position.placement} className={`contextual-tooltip${closing ? ' is-closing' : ''}`} style={{ left: position.left, top: position.top }}>{active.content}</div>, document.body)}</>;
 }

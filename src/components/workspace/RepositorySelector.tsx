@@ -15,6 +15,11 @@ interface RepositorySelectorProps {
   compact?: boolean;
 }
 
+export function resolveRepositorySelectionId(repositories: Repo[], selectedRepo?: { id: string; nameWithOwner: string }): string {
+  if (!selectedRepo) return '';
+  return repositories.find(repo => repo.id === selectedRepo.id || repo.name.toLowerCase() === selectedRepo.nameWithOwner.toLowerCase())?.id ?? selectedRepo.id;
+}
+
 export function RepositorySelector({ selectedRepo, onSelect, compact = false }: RepositorySelectorProps) {
   const mode = useModeStore(state => state.mode);
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -32,8 +37,9 @@ export function RepositorySelector({ selectedRepo, onSelect, compact = false }: 
     ...(!selectedRepo ? [{ value: '', label: 'Select a repository…', disabled: true, disabledReason: 'Choose a repository to continue' }] : []),
     ...repos.map(repo => ({ value: repo.id, label: repo.name })),
   ];
+  const selectedId = resolveRepositorySelectionId(repos, selectedRepo);
   return <div className={`repository-selector${compact ? ' repository-selector--compact' : ''}`} style={{ width: compact ? 260 : 300 }}>
-    <Select value={selectedRepo?.id ?? ''} options={options} ariaLabel="Repository" searchable searchPlaceholder="Search repositories…" onChange={id => {
+    <Select value={selectedId} options={options} ariaLabel="Repository" searchable searchPlaceholder="Search repositories…" onChange={id => {
       const repo = repos.find(value => value.id === id);
       if (repo) onSelect({ id: repo.id, nameWithOwner: repo.name });
     }} />

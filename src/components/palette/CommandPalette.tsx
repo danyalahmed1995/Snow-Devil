@@ -9,11 +9,13 @@ import type { NativeTabKind } from '../../browser/browser-tabs';
 import { useOverlayStore } from '../../stores/overlay-store';
 import './CommandPalette.css';
 
+import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
+
 type PaletteMode = 'search' | 'files' | 'commands';
 interface PaletteResult extends RankableResult { group: string; path?: string; number?: number; url?: string; command?: () => void; route?: { id: string; kind: NativeTabKind; title: string } }
 
 const ROUTES: PaletteResult[] = [
-  ['home','Home','home'],['flow','Flow','flow'],['ci-health','CI Activity','ciHealth'],['inventory','Delivery Risks','inventory'],['flow-analytics','Flow Analytics','flowAnalytics'],['personal-focus','Personal Focus','personalFocus'],['account-simulator','Account History','accountSimulator'],['repository-simulator','Repository History','repositorySimulator'],['settings','Settings','settings'],
+  ['home','Home','home'],['flow','Flow','flow'],['ci-health','CI Activity','ciHealth'],['inventory','Delivery Risks','inventory'],...(ENABLE_FLOW_ANALYTICS ? [['flow-analytics','Flow Analytics','flowAnalytics']] : []),['personal-focus','Personal Focus','personalFocus'],['account-simulator','Account History','accountSimulator'],['repository-simulator','Repository History','repositorySimulator'],['commit-graph','Commit Graph','commitGraph'],['settings','Settings','settings'],
 ].map(([id,title,kind]) => ({ id:`command:${id}`, type:'command', group:'Commands', title:`Go to ${title}`, source:'local', route:{id:`native:${id}`,kind:kind as NativeTabKind,title} }));
 
 const DEMO_RESULTS: PaletteResult[] = [

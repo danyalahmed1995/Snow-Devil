@@ -22,6 +22,7 @@ import '../saved-views/SavedViewsMenu.css';
 import { useAuthStore } from '../../stores/auth-store';
 import { queryClient } from '../../app/providers';
 import { useCurrentTabId } from './TabInstanceContext';
+import { WorkspaceLoadingState } from './WorkspaceLoadingState';
 
 function flattenSourcePages(
   data: any, 
@@ -88,6 +89,7 @@ export function FlowWorkbench() {
   const mode = flowState.mode;
   const selectedRepository = flowState.selectedRepository;
   const selectedItemId = flowState.selectedItemId;
+  const selectedFlowItem = flowState.selectedFlowItem;
   
   const timeRange = flowState.timeRange;
   const rangeStart = flowState.rangeStart;
@@ -192,10 +194,16 @@ export function FlowWorkbench() {
     }
 
     const map = new Map<string, FlowItem>();
+    if (selectedFlowItem) {
+      const selected = selectedFlowItem.inclusionReason
+        ? selectedFlowItem
+        : { ...selectedFlowItem, inclusionReason: 'Opened from Inspector' };
+      map.set(selected.id, selected);
+    }
     for (const item of all) map.set(item.id, item);
     return Array.from(map.values());
   }, [
-    appMode, demoPipeline, selectedRepository, isRepo, isAccount,
+    selectedFlowItem, appMode, demoPipeline, selectedRepository, isRepo, isAccount,
     rawRepoOpenPrs, rawRepoOpenIssues, rawRepoMergedPrs, rawRepoReleases,
     rawAccAuthoredPrs, rawAccReviewReqPrs, rawAccReviewedPrs, rawAccAuthoredIssues, rawAccAssignedIssues, rawAccMergedPrs
   ]);
@@ -316,8 +324,31 @@ export function FlowWorkbench() {
     setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
   }, [scope, selectedRepository?.id, activeTabId, setFlowState]);
   useEffect(() => {
-    if (selectedItemId && !items.some(item => item.id === selectedItemId)) setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
+    if (selectedItemId && !items.some(item => item.id === selectedItemId)) {
+      const pending = useFlowStore.getState().getTabState(activeTabId).pendingScrollItemId;
+      if (pending === selectedItemId) return;
+      setFlowState(activeTabId, { selectedItemId: undefined, selectedFlowItem: undefined });
+    }
   }, [activeTabId, items, selectedItemId, setFlowState]);
+
+  // Auto-focus the stage lane if we arrive via a focus navigation and the stage is unknown
+  useEffect(() => {
+    const state = useFlowStore.getState().getTabState(activeTabId);
+    const pending = state.pendingScrollItemId;
+    if (pending && !filterStage) {
+      // Try exact ID match first. If the ID is a focus: pseudo-ID and we have exactly 1 item due to the search filter, use that item.
+      const targetItem = items.find(i => i.id === pending) || (pending.startsWith('focus:') && items.length === 1 ? items[0] : undefined);
+      if (targetItem && targetItem.stage) {
+        setFlowState(activeTabId, { 
+          filterStage: targetItem.stage,
+          ...(pending.startsWith('focus:') && { 
+            selectedItemId: targetItem.id, 
+            pendingScrollItemId: targetItem.id 
+          })
+        });
+      }
+    }
+  }, [activeTabId, filterStage, items, setFlowState]);
 
   useEffect(() => {
     const clearTransientFilters = (event: KeyboardEvent) => {
@@ -442,9 +473,7 @@ export function FlowWorkbench() {
             <p>Use the dropdown above to select a repository and view its flow.</p>
           </div>
         ) : isLoading ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-            Loading {scope} flow...
-          </div>
+          <WorkspaceLoadingState title={`Loading ${scope} flow…`} detail="Fetching items and pipeline status from cache." />
         ) : error && items.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
             Error loading flow: {(error as Error).message}

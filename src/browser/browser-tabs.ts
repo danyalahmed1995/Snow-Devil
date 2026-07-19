@@ -21,20 +21,27 @@ export type NativeTabKind =
   | "flowAnalytics"
   | "personalFocus"
   | "settings"
+  | "sketchBoard"
   | "accountSimulator"
   | "repositorySimulator"
+  | "commitGraph"
   | "repositoryExplorer"
   | "pullRequestDiff"
   | "commitDiff"
+  | "commitCompare"
   | "ciRun"
   | "notifications"
   | "organizations"
   | "evidenceGraph";
 
 export type NativeTabContext =
-  | { type: "repository"; repository: string; ref?: string; path?: string }
+  | { type: "repository"; repository: string; ref?: string; path?: string; architectureSha?: string }
   | { type: "pullRequest"; repository: string; number: number; headSha?: string }
-  | { type: "commit"; repository: string; sha: string }
+  | { type: "commit"; repository: string; sha: string; branch?: string; selectedPath?: string; source?: "commitGraph" }
+  | { type: "commitCompare"; repository: string; baseSha: string; targetSha: string }
+  | { type: "commitGraph"; repository?: string; branch?: string; sha?: string; path?: string }
+  | { type: "ciActivity"; repository: string; branch?: string; sha?: string }
+  | { type: "deliveryRisks"; repository: string; sha?: string; pullRequestNumber?: number }
   | {
       type: "ciRun";
       owner?: string;

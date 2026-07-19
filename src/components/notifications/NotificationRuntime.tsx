@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Bell, X } from 'lucide-react';
 import { useEffect } from 'react';
-import { isNotificationApiPage, normalizeApiNotifications, notificationRetryDelay, type NotificationPollResponse } from '../../services/notification-api';
+import { isNotificationApiPage, normalizeApiNotifications, normalizeNotificationEtag, notificationRetryDelay, type NotificationPollResponse } from '../../services/notification-api';
 import { notificationNavigationTarget } from '../../services/notification-navigation';
 import { playNotificationSound, releaseNotificationSound } from '../../services/notification-sound';
 import { useAuthStore } from '../../stores/auth-store';
@@ -97,7 +97,7 @@ export function NotificationRuntime() {
       try {
         const response = await invoke<NotificationPollResponse>('poll_github_notifications', { etag: metadata?.etag ?? null, lastModified: metadata?.lastModified ?? null });
         if (disposed || currentGeneration !== generation || useNotificationStore.getState().activeAccount !== account.toLowerCase()) return;
-        const validators = { etag: response.etag, lastModified: response.lastModified, pollIntervalMs: Math.max(60_000, (response.pollIntervalSeconds || 60) * 1000), checkedAt: new Date().toISOString() };
+        const validators = { etag: normalizeNotificationEtag(response.etag), lastModified: response.lastModified, pollIntervalMs: Math.max(60_000, (response.pollIntervalSeconds || 60) * 1000), checkedAt: new Date().toISOString() };
         if (response.status === 304) useNotificationStore.getState().markPollSuccess(account, validators);
         else if (response.status >= 200 && response.status < 300) {
           if (!isNotificationApiPage(response.body)) throw new Error('notification_response_invalid');
@@ -149,8 +149,13 @@ export function NotificationRuntime() {
   const open = () => {
     const record = useNotificationStore.getState().records.find(value => value.id === toast.recordIds[0]);
     const target = record ? notificationNavigationTarget(record) : null;
-    if (target?.family === 'native-pr') useTabsStore.getState().openNativeTab(target.id, 'pullRequestDiff', target.title, false, true, { type: 'pullRequest', repository: target.repository, number: target.number });
-    else if (target) useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+    if (target) {
+      if (target.family === 'native') {
+        useTabsStore.getState().openNativeTab(target.id, target.kind, target.title, false, true, target.context);
+      } else {
+        useTabsStore.getState().openBrowserTab(target.id, target.kind, target.title, target.url, false, true);
+      }
+    }
     dismissToast();
   };
   return <aside className="notification-arrival-toast" role="status" aria-live="polite"><button className="notification-arrival-main" onClick={open}><Bell size={15}/><span><strong>{toast.title}</strong><small>{toast.body}</small></span></button><button aria-label="Dismiss notification alert" onClick={dismissToast}><X size={13}/></button></aside>;

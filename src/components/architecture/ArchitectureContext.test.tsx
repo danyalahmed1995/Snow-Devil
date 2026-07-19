@@ -49,4 +49,18 @@ describe('ArchitectureContext', () => {
     expect(nodeIcon).toHaveAttribute('width', '13');
     expect(nodeIcon).toHaveAttribute('height', '13');
   });
+
+  it('does not pan the overview map with the right mouse button', () => {
+    const { container } = render(<ArchitectureContext impact={impact} onSelectComponent={vi.fn()} onOpenFile={vi.fn()}/>);
+    const canvas = container.querySelector('.architecture-map__canvas')!;
+    const layer = canvas.firstElementChild as HTMLElement;
+    const initialTransform = layer.style.transform;
+
+    fireEvent.pointerDown(canvas, { button: 2, buttons: 2, pointerId: 1, clientX: 40, clientY: 50 });
+    fireEvent.pointerMove(canvas, { button: 2, buttons: 2, pointerId: 1, clientX: 140, clientY: 150 });
+    fireEvent.pointerUp(canvas, { button: 2, buttons: 0, pointerId: 1, clientX: 140, clientY: 150 });
+
+    expect(layer.style.transform).toBe(initialTransform);
+    expect(canvas).not.toHaveClass('is-dragging');
+  });
 });

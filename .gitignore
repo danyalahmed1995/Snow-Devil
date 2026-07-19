@@ -8,10 +8,10 @@ dist-ssr/
 coverage/
 *.local
 
-# Report Docs & Miscellaneous
-docs/
+# Generated reports and local design artifacts
+docs/report/
 screenshots/
-assets/icon-concepts
+assets/icon-concepts/
 
 # Playwright outputs
 playwright-report/

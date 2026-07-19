@@ -210,6 +210,40 @@ pub fn get_simulator_events(
     Ok(events)
 }
 
+/// Returns the bounded subset of rich GraphQL evidence needed to classify
+/// current pull-request delivery risks alongside the canonical REST dataset.
+#[tauri::command]
+pub fn get_delivery_risk_events(state: State<'_, AppState>) -> Result<Vec<SimulatorEvent>, String> {
+    let mut conn_guard = state.db_conn.lock().map_err(|error| error.to_string())?;
+    let conn = conn_guard.as_mut().ok_or("Database connection not found")?;
+    let mut stmt = conn
+        .prepare("SELECT id, repository_id, repository_name, repository_owner, subject_id, subject_type, subject_number, subject_title, event_type, timestamp, actor_json, metadata_json, source, completeness, inclusion_reason FROM simulator_events WHERE subject_type = 'pull_request' AND source IN ('github-current-state', 'github-graphql') ORDER BY timestamp ASC")
+        .map_err(|error| error.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(SimulatorEvent {
+                id: row.get(0)?,
+                repository_id: row.get(1)?,
+                repository_name: row.get(2)?,
+                repository_owner: row.get(3)?,
+                subject_id: row.get(4)?,
+                subject_type: row.get(5)?,
+                subject_number: row.get(6)?,
+                subject_title: row.get(7)?,
+                event_type: row.get(8)?,
+                timestamp: row.get(9)?,
+                actor_json: row.get(10)?,
+                metadata_json: row.get(11)?,
+                source: row.get(12)?,
+                completeness: row.get(13)?,
+                inclusion_reason: row.get(14)?,
+            })
+        })
+        .map_err(|error| error.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn get_simulator_entities(
     state: State<'_, AppState>,

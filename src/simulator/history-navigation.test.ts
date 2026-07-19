@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultHistoryView } from '../stores/history-view-store';
-import { historyFilterConflicts, resolveHistoryNavigationTarget } from './history-navigation';
+import { eventMatchesHistoryFilters, historyFilterConflicts, resolveHistoryNavigationTarget } from './history-navigation';
 import type { SimulatorEntityState, SimulatorEvent } from './simulator-types';
 
 const entity = (stage: SimulatorEntityState['stage']): SimulatorEntityState => ({ id: 'pull-request:octo/app:2', repositoryId: 'octo/app', subjectType: 'pull_request', title: 'Two', number: 2, stage, status: stage, assignees: [], reviewers: [], labels: [], commitCount: 0, commentCount: 0, reviewCommentCount: 0, reviewState: 'none', checkState: 'unknown', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', sourceCompleteness: 'complete' });
@@ -22,5 +22,11 @@ describe('history event navigation', () => {
   it('identifies only conflicting filters', () => {
     const filters = { ...defaultHistoryView('account').filters, repository: 'octo/other', entityType: 'issue' };
     expect(historyFilterConflicts(entity('review'), filters, 'account')).toEqual(['repository', 'entityType']);
+  });
+  it('filters account activity by the selected repository and involvement', () => {
+    const filters = { ...defaultHistoryView('account').filters, repository: 'OCTO/APP', involvement: 'authored_by_you' };
+    expect(eventMatchesHistoryFilters({ ...event, inclusionReason: 'authored_by_you' }, filters, 'account')).toBe(true);
+    expect(eventMatchesHistoryFilters({ ...event, repositoryId: 'octo/other', inclusionReason: 'authored_by_you' }, filters, 'account')).toBe(false);
+    expect(eventMatchesHistoryFilters({ ...event, inclusionReason: 'assigned_to_you' }, filters, 'account')).toBe(false);
   });
 });

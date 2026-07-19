@@ -24,6 +24,18 @@ fn header_string(response: &reqwest::Response, name: header::HeaderName) -> Opti
         .map(str::to_owned)
 }
 
+/// GitHub can return the syntactically valid but non-discriminating empty ETag `""`
+/// for the notifications endpoint. Reusing it makes conditional requests return 304
+/// even after Last-Modified advances, leaving the local inbox permanently stale.
+fn usable_etag(value: String) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed == "\"\"" || trimmed.contains(['\r', '\n']) {
+        None
+    } else {
+        Some(trimmed.to_owned())
+    }
+}
+
 fn poll_interval(response: &reqwest::Response) -> u64 {
     response
         .headers()
@@ -46,17 +58,19 @@ pub async fn poll_github_notifications(
         .timeout(Duration::from_secs(20))
         .build()
         .map_err(|_| "notification_client_unavailable".to_string())?;
+    let etag = etag.and_then(usable_etag);
     let mut request = client
         .get("https://api.github.com/notifications?all=true&participating=false&per_page=100")
         .bearer_auth(token)
         .header(header::USER_AGENT, "snow-devil-notifications")
         .header(header::ACCEPT, "application/vnd.github+json");
-    if let Some(value) = etag.filter(|value| !value.contains(['\r', '\n'])) {
+    if let Some(value) = etag {
         request = request.header(header::IF_NONE_MATCH, value);
     }
-    if let Some(value) = last_modified.filter(|value| !value.contains(['\r', '\n'])) {
-        request = request.header(header::IF_MODIFIED_SINCE, value);
-    }
+    // GitHub's notifications endpoint has returned false 304 responses while
+    // advancing Last-Modified. Without a usable ETag, an interval-respecting
+    // unconditional request is the only reliable way to receive the new body.
+    let _ = last_modified;
     let response = request
         .send()
         .await
@@ -130,13 +144,21 @@ pub async fn mark_github_notification_read(thread_id: String) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
+    use super::usable_etag;
+
     #[test]
     fn conditional_validators_reject_header_injection() {
-        let valid = Some("W/\"etag\"".to_string()).filter(|value| !value.contains(['\r', '\n']));
-        let hostile = Some("etag\r\nAuthorization: secret".to_string())
-            .filter(|value| !value.contains(['\r', '\n']));
+        let valid = usable_etag("W/\"etag\"".to_string());
+        let hostile = usable_etag("etag\r\nAuthorization: secret".to_string());
         assert!(valid.is_some());
         assert!(hostile.is_none());
+    }
+
+    #[test]
+    fn empty_notification_etag_is_not_reused() {
+        assert_eq!(usable_etag("\"\"".to_string()), None);
+        assert_eq!(usable_etag("  \"\"  ".to_string()), None);
+        assert_eq!(usable_etag(String::new()), None);
     }
 
     #[test]

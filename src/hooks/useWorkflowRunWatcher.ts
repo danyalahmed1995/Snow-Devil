@@ -5,6 +5,8 @@ import { getCanonicalWorkflowRunId, getWorkflowRunTimestamp } from '../analytics
 import { useAuthStore } from '../stores/auth-store';
 import { fetchPullRequestRiskSnapshot } from '../simulator/simulator-github-api';
 import { saveSimulatorEventsToDb } from '../simulator/simulator-cache';
+import { useCIWatcherStore } from '../stores/ci-watcher-store';
+import { normalizeWorkflowRuns } from '../ci/ci-watcher';
 
 interface ApiResponse {
   status: number;
@@ -44,20 +46,45 @@ export interface RunWatcherState {
   jobs: WorkflowJob[];
 }
 
+// A run watcher polls frequently while CI is active. GitHub commonly returns the
+// exact same run payload between job updates, so avoid rewriting SQLite and
+// invalidating the full analytics dataset until the run itself has changed.
+const persistedRunMarkers = new Map<string, string>();
+const MAX_PERSISTED_RUN_MARKERS = 200;
+
+export function workflowRunPersistenceMarker(run: WorkflowRunDetails): string {
+  return [run.updated_at, run.status, run.conclusion ?? '', run.run_attempt].join('|');
+}
+
+export function shouldPersistWorkflowRun(repositoryId: string, run: WorkflowRunDetails): boolean {
+  const key = `${repositoryId.toLowerCase()}:${run.id}`;
+  const marker = workflowRunPersistenceMarker(run);
+  if (persistedRunMarkers.get(key) === marker) return false;
+  if (!persistedRunMarkers.has(key) && persistedRunMarkers.size >= MAX_PERSISTED_RUN_MARKERS) {
+    const oldest = persistedRunMarkers.keys().next().value;
+    if (oldest !== undefined) persistedRunMarkers.delete(oldest);
+  }
+  persistedRunMarkers.set(key, marker);
+  return true;
+}
+
+export function clearWorkflowRunPersistenceMarkersForTests() {
+  persistedRunMarkers.clear();
+}
+
 export function isRunTerminal(status: string, conclusion: string | null): boolean {
   if (status === 'completed') return true;
   if (conclusion && conclusion !== 'neutral') return true;
   return false;
 }
 
-export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, isTabActive?: boolean, canFetch = true) {
+export function useWorkflowRunWatcher(repositoryId: string, runId: string, attemptNumber?: number, isForeground?: boolean, canFetch = true) {
   const [owner, repo] = repositoryId.split('/');
   const hasCanonicalIdentity = Boolean(owner && repo && runId);
   return useQuery({
     queryKey: ['ciRunWatcher', repositoryId, runId, attemptNumber],
     enabled: canFetch && hasCanonicalIdentity,
     refetchInterval: (query) => {
-      if (isTabActive === false) return false;
       const data = query.state.data;
       if (data && isRunTerminal(data.run.status, data.run.conclusion)) {
         return false;
@@ -72,13 +99,43 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
       const runEndpoint = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) + '/actions/runs/' + encodeURIComponent(runId);
       const runRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: runEndpoint });
       
-      if (runRes.status >= 400) throw new Error('github_error_' + runRes.status);
+      if (runRes.status >= 400) {
+        const msg = String((runRes.body as any)?.message || '').toLowerCase();
+        if (runRes.status === 403 && !msg.includes('rate limit')) {
+          throw new Error('missing_workflow_scope');
+        }
+        throw new Error('github_error_' + runRes.status);
+      }
       const runData = runRes.body as WorkflowRunDetails;
+      const runChanged = shouldPersistWorkflowRun(repositoryId, runData);
+
+      if (runChanged) {
+        const store = useCIWatcherStore.getState();
+        const repoKey = repositoryId.toLowerCase();
+        const existing = store.runsByRepository[repoKey] ?? [];
+        const normalizedRun = normalizeWorkflowRuns(repositoryId, { workflow_runs: [runData] })[0];
+        if (normalizedRun) {
+          let found = false;
+          const updatedRuns = existing.map(r => {
+            if (r.runId.toString() === runData.id.toString()) {
+              found = true;
+              return normalizedRun;
+            }
+            return r;
+          });
+          if (!found) updatedRuns.unshift(normalizedRun);
+          store.setRuns(repositoryId, updatedRuns);
+        }
+
+        if (isRunTerminal(runData.status, runData.conclusion)) {
+          window.dispatchEvent(new CustomEvent('snow-devil:ci-refresh'));
+        }
+      }
       
       // Save the updated run status to local DB so dashboard CI Activity is updated in real-time
       const session = useAuthStore.getState().session;
       const login = session.status === 'connected' ? session.account.login : null;
-      if (login) {
+      if (login && runChanged) {
         const repoNumericId = runData.repository?.id;
         const canonicalId = getCanonicalWorkflowRunId(repoNumericId, repositoryId, runData.id);
         const updated_at = getWorkflowRunTimestamp(runData);
@@ -105,7 +162,13 @@ export function useWorkflowRunWatcher(repositoryId: string, runId: string, attem
         : `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${encodeURIComponent(runId)}/jobs?filter=latest`;
       
       const jobsRes = await invoke<ApiResponse>('analytics_fetch_rest', { endpoint: jobsEndpoint });
-      if (jobsRes.status >= 400) throw new Error('github_error_' + jobsRes.status);
+      if (jobsRes.status >= 400) {
+        const msg = String((jobsRes.body as any)?.message || '').toLowerCase();
+        if (jobsRes.status === 403 && !msg.includes('rate limit')) {
+          throw new Error('missing_workflow_scope');
+        }
+        throw new Error('github_error_' + jobsRes.status);
+      }
       
       const jobsData = (jobsRes.body as any).jobs as WorkflowJob[];
       

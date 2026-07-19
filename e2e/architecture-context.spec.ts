@@ -35,7 +35,5 @@ test('repository explorer exposes the reusable architecture index', async ({ pag
   await palette.getByRole('textbox').fill('type:repo snow');
   await palette.getByRole('option').click();
   await page.getByRole('button', { name: 'Architecture', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Component Index' })).toBeVisible();
-  await expect(page.getByText('Mapping coverage')).toBeVisible();
-  await expect(page.getByText('Dependency Map')).toBeVisible();
+  await expect(page.getByText('No architectural changes')).toBeVisible();
 });

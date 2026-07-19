@@ -61,7 +61,8 @@ export interface NotificationToast {
 }
 
 interface SyncValidators {
-  etag?: string;
+  /** Null explicitly clears an unusable persisted validator. */
+  etag?: string | null;
   lastModified?: string;
   pollIntervalMs?: number;
   checkedAt?: string;
@@ -91,6 +92,19 @@ interface NotificationStore {
   clearTestNotifications: () => void;
   settleArrival: () => void;
   dismissToast: () => void;
+}
+
+export function migrateNotificationState(persisted: unknown, version: number): unknown {
+  if (version >= 6 || !persisted || typeof persisted !== 'object') return persisted;
+  const saved = persisted as Partial<NotificationStore>;
+  const syncByAccount = Object.fromEntries(Object.entries(saved.syncByAccount ?? {}).map(([account, metadata]) => [account, {
+    ...metadata,
+    // Earlier versions may have accepted a false 304 from GitHub and
+    // advanced Last-Modified without receiving the corresponding records.
+    etag: undefined,
+    lastModified: undefined,
+  }]));
+  return { ...saved, syncByAccount };
 }
 
 const MAX_RECORDS = 300;
@@ -227,23 +241,34 @@ export const useNotificationStore = create<NotificationStore>()(persist((set, ge
     const state = get();
     const previousMeta = state.syncByAccount[account] ?? { initialized: false, seen: {}, pollIntervalMs: 60_000 };
     const real = normalizeNotifications(incoming.map(record => ({ ...record, accountLogin: account, source: record.source ?? 'github' })));
-    const arrivals = previousMeta.initialized && allowArrival ? real.filter(record => {
+    const newlyUnread = real.filter(record => {
+      if (!record.unread) return false;
       const previous = previousMeta.seen[record.id];
       if (!previous) return true;
-      const [previousUpdated, previousUnread] = previous.split('|');
-      return previousUnread === 'read' && record.unread && record.updatedAt > previousUpdated;
-    }).filter(record => notificationAllowed(record, state.settings)) : [];
+      const [previousUpdated] = previous.split('|');
+      // GitHub reuses a notification thread ID for later comments and mentions.
+      // An already-unread thread must still alert when its updated timestamp advances.
+      return record.unread && record.updatedAt > previousUpdated;
+    });
+    const arrivals = previousMeta.initialized && allowArrival ? newlyUnread.filter(record => notificationAllowed(record, state.settings)) : [];
+    const unreadResetIds = new Set([
+      ...newlyUnread.map(record => record.id),
+      ...real.filter(record => record.unread && state.localRead[record.id] === true && (!record.lastReadAt || record.updatedAt > record.lastReadAt)).map(record => record.id),
+    ]);
     const tests = state.records.filter(record => record.isTestNotification);
     const sync: NotificationSyncMetadata = {
       initialized: true,
       seen: boundedSeen(previousMeta.seen, real),
-      etag: validators.etag ?? previousMeta.etag,
+      etag: validators.etag === null ? undefined : validators.etag ?? previousMeta.etag,
       lastModified: validators.lastModified ?? previousMeta.lastModified,
       lastSuccessAt: validators.checkedAt ?? new Date().toISOString(),
       pollIntervalMs: Math.max(60_000, validators.pollIntervalMs ?? previousMeta.pollIntervalMs),
     };
     set(current => ({
       records: normalizeNotifications([...tests, ...real]),
+      // A local read override belongs to the previous version of a GitHub thread.
+      // New unread activity on that reused thread ID must restore the unread badge.
+      localRead: unreadResetIds.size ? Object.fromEntries(Object.entries(current.localRead).filter(([id]) => !unreadResetIds.has(id))) : current.localRead,
       syncByAccount: boundedEntry(current.syncByAccount, account, sync, MAX_ACCOUNTS),
       pollingStatus: 'ready', pollingMessage: undefined,
       ...(arrivals.length ? {
@@ -258,7 +283,7 @@ export const useNotificationStore = create<NotificationStore>()(persist((set, ge
   markPollSuccess: (login, validators = {}) => set(state => {
     const account = login.toLowerCase();
     const previous = state.syncByAccount[account] ?? { initialized: true, seen: {}, pollIntervalMs: 60_000 };
-    return { pollingStatus: 'ready', pollingMessage: undefined, syncByAccount: boundedEntry(state.syncByAccount, account, { ...previous, initialized: true, etag: validators.etag ?? previous.etag, lastModified: validators.lastModified ?? previous.lastModified, lastSuccessAt: validators.checkedAt ?? new Date().toISOString(), pollIntervalMs: Math.max(60_000, validators.pollIntervalMs ?? previous.pollIntervalMs) }, MAX_ACCOUNTS) };
+    return { pollingStatus: 'ready', pollingMessage: undefined, syncByAccount: boundedEntry(state.syncByAccount, account, { ...previous, initialized: true, etag: validators.etag === null ? undefined : validators.etag ?? previous.etag, lastModified: validators.lastModified ?? previous.lastModified, lastSuccessAt: validators.checkedAt ?? new Date().toISOString(), pollIntervalMs: Math.max(60_000, validators.pollIntervalMs ?? previous.pollIntervalMs) }, MAX_ACCOUNTS) };
   }),
   setPollingStatus: (pollingStatus, pollingMessage) => set({ pollingStatus, pollingMessage }),
   updateSettings: settings => set(state => ({ settings: { ...state.settings, ...settings } })),
@@ -274,7 +299,8 @@ export const useNotificationStore = create<NotificationStore>()(persist((set, ge
   dismissToast: () => set({ toast: undefined }),
 }), {
   name: 'snow-devil-notifications',
-  version: 4,
+  version: 6,
+  migrate: migrateNotificationState,
   partialize: state => ({
     records: state.records.filter(record => !record.isTestNotification).slice(0, MAX_RECORDS),
     localRead: state.localRead,

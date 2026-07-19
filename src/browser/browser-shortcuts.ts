@@ -9,6 +9,8 @@
 import type { BrowserTabKind } from './browser-url';
 import type { NativeTabKind } from './browser-tabs';
 
+import { ENABLE_FLOW_ANALYTICS } from '../config/features';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -55,7 +57,7 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
   },
   { label: 'CI Activity', tabId: 'native:ci-health', family: 'native', nativeKind: 'ciHealth', pinned: false, closable: true },
   { label: 'Delivery Risks', tabId: 'native:inventory', family: 'native', nativeKind: 'inventory', pinned: false, closable: true },
-  { label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native', nativeKind: 'flowAnalytics', pinned: false, closable: true },
+  ...(ENABLE_FLOW_ANALYTICS ? [{ label: 'Flow Analytics', tabId: 'native:flow-analytics', family: 'native' as const, nativeKind: 'flowAnalytics' as NativeTabKind, pinned: false, closable: true }] : []),
   { label: 'Personal Focus', tabId: 'native:personal-focus', family: 'native', nativeKind: 'personalFocus', pinned: false, closable: true },
   {
     label: 'Account History',
@@ -73,7 +75,9 @@ export const SIDEBAR_SHORTCUTS: ShortcutDefinition[] = [
     pinned: false,
     closable: true,
   },
+  { label: 'Commit Graph', tabId: 'native:commit-graph', family: 'native', nativeKind: 'commitGraph', pinned: false, closable: true },
   { label: 'Settings', tabId: 'native:settings', family: 'native', nativeKind: 'settings', pinned: false, closable: true },
+  { label: 'Sketch Board', tabId: 'native:sketch-board', family: 'native', nativeKind: 'sketchBoard', pinned: false, closable: true },
   { label: 'Account', tabId: 'github:profile', family: 'browser', browserKind: 'profile', urlTemplate: (login) => `https://github.com/${login}`, pinned: false, closable: true },
   { label: 'Repositories', tabId: 'github:repositories', family: 'browser', browserKind: 'repositories', urlTemplate: (login) => `https://github.com/${login}?tab=repositories`, pinned: false, closable: true },
   { label: 'Pull requests', tabId: 'github:pull-requests', family: 'browser', browserKind: 'pullRequests', urlTemplate: () => 'https://github.com/pulls', pinned: false, closable: true },

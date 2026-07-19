@@ -54,12 +54,12 @@ test.describe('Navigation and Tab Handling', () => {
     await expect(page.locator('.workspace-tab--active .workspace-tab__title')).toHaveText('Repositories', { timeout: 10000 });
     
     // Tab should be added
-    let tabs = await page.locator('.workspace-tab').count();
+    const tabs = await page.locator('.workspace-tab').count();
     expect(tabs).toBeGreaterThanOrEqual(2);
     
     // Click Repositories again
     await page.locator('.navigator').getByText('Repositories', { exact: true }).click();
-    let tabsAfter = await page.locator('.workspace-tab').count();
+    const tabsAfter = await page.locator('.workspace-tab').count();
     expect(tabsAfter).toBe(tabs); // No duplicate
   });
 
@@ -67,7 +67,7 @@ test.describe('Navigation and Tab Handling', () => {
     await page.locator('.navigator').getByText('Flow', { exact: true }).click();
     await page.locator('.navigator').getByText('Repositories', { exact: true }).click();
     
-    let tabs = await page.locator('.workspace-tab').count();
+    const tabs = await page.locator('.workspace-tab').count();
     expect(tabs).toBeGreaterThanOrEqual(3);
     
     // Switch between them
@@ -76,7 +76,7 @@ test.describe('Navigation and Tab Handling', () => {
       await page.click('div.workspace-tab:has-text("Repositories")');
     }
     
-    let tabsAfter = await page.locator('.workspace-tab').count();
+    const tabsAfter = await page.locator('.workspace-tab').count();
     expect(tabsAfter).toBe(tabs);
   });
 

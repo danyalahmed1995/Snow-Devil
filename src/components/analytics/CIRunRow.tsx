@@ -1,6 +1,6 @@
 import { memo, useState, type ReactNode } from 'react';
 import { CheckCircle2, Clock, ExternalLink, GitCommit, GitBranch, GitMerge, XCircle, AlertCircle, Loader2, MinusCircle, ChevronRight } from 'lucide-react';
-import { useWorkflowJobs } from '../../hooks/useWorkflowJobs';
+import { useWorkflowRunWatcher } from '../../hooks/useWorkflowRunWatcher';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
 export function formatDurationCompact(ms?: number) {
@@ -25,6 +25,12 @@ function timeAgo(dateString?: string) {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+export const MAX_FULL_EFFECT_CI_JOBS = 12;
+
+export function shouldUseDenseCIJobRendering(jobCount: number): boolean {
+  return jobCount > MAX_FULL_EFFECT_CI_JOBS;
 }
 
 export function StatusIcon({ status, conclusion, size = 14 }: { status?: string; conclusion?: string | null; size?: number }) {
@@ -74,7 +80,15 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
   const status = m?.status as string | undefined;
   const conclusion = m?.conclusion as string | null | undefined;
   const isActiveRun = status !== 'completed' && conclusion === null;
-  const { data: jobs, isLoading, error } = useWorkflowJobs(run.repositoryId, run.metadata?.runId as string, expanded, isActiveRun);
+  const attemptNumber = m?.runAttempt ? parseInt(m.runAttempt, 10) : undefined;
+  const { data: watcherState, isLoading, error } = useWorkflowRunWatcher(
+    run.repositoryId, 
+    m?.runId as string, 
+    attemptNumber, 
+    expanded && isActiveRun, 
+    expanded
+  );
+  const jobs = watcherState?.jobs;
   
   const title = run.subjectTitle || '';
   const msg = m?.commitMessage || '';
@@ -249,10 +263,10 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
       {expanded && (
         <div className="ci-activity-row__jobs">
           {isLoading && <div className="ci-jobs-loading"><Loader2 className="is-spinning" size={14} /> Loading jobs...</div>}
-          {error && <div className="ci-jobs-error">Failed to load jobs</div>}
+          {error && <div className="ci-jobs-error">{error.message === 'missing_workflow_scope' ? 'Missing workflow permission. Please reconnect GitHub in Settings.' : 'Failed to load jobs'}</div>}
           {jobs?.length === 0 && <div className="ci-jobs-empty">No jobs found</div>}
           {jobs && jobs.length > 0 && (
-            <ul className="ci-jobs-list">
+            <ul className={`ci-jobs-list${shouldUseDenseCIJobRendering(jobs.length) ? ' ci-jobs-list--dense' : ''}`}>
               {jobs.map(job => {
                 const statusStr = job.status as string;
                 const conclusionStr = job.conclusion as string | null;
@@ -270,17 +284,30 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
                 }
                 return (
                   <li key={job.id} className={`ci-job-item ${jobState}`} onClick={(e) => { e.stopPropagation(); onOpenJob?.(run, String(job.id)); }}>
-                    <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
-                    <span className="ci-job-name">{job.name}</span>
-                    {job.status === 'in_progress' && job.steps?.length > 0 && (
-                      <span className="ci-job-steps">
-                        {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
+                    <div className="ci-job-item-header">
+                      <StatusIcon status={job.status} conclusion={job.conclusion} size={14} />
+                      <span className="ci-job-name" title={job.name}>{job.name}</span>
+                    </div>
+                    <div className="ci-job-item-footer">
+                      {job.status === 'in_progress' && job.steps?.length > 0 && (
+                        <span className="ci-job-step-count">
+                          {job.steps.filter(s => s.status === 'completed').length} / {job.steps.length} steps
+                        </span>
+                      )}
+                      {job.conclusion === 'failure' && job.steps?.find(s => s.conclusion === 'failure') && (
+                        <span className="ci-job-failed-step" title={`Failed: ${job.steps.find(s => s.conclusion === 'failure')?.name}`}>
+                          Failed: {job.steps.find(s => s.conclusion === 'failure')?.name}
+                        </span>
+                      )}
+                      <span className={`ci-job-duration${job.started_at && job.completed_at ? ' ci-job-duration--finished' : ''}`}>
+                        {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
+                        {job.started_at && !job.completed_at ? (
+                          <span className="ci-job-running-text">
+                            Running<span className="ci-job-cursor" />
+                          </span>
+                        ) : null}
                       </span>
-                    )}
-                    <span className="ci-job-duration">
-                      {job.started_at && job.completed_at ? formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime()) : ''}
-                      {job.started_at && !job.completed_at ? 'Running...' : ''}
-                    </span>
+                    </div>
                   </li>
                 );
               })}
@@ -293,5 +320,3 @@ function CIRunRowComponent({ run, isSelected, onSelect, onOpenRun, onOpenJob }: 
 }
 
 export const CIRunRow = memo(CIRunRowComponent);
-
-

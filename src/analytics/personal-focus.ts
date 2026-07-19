@@ -21,13 +21,14 @@ export function partitionCanonicalResponsibilities<T extends ResponsibilityCandi
     if (!current || item.entity.updatedAt > current.entity.updatedAt) unique.set(item.entity.id, item);
   }
   const direct = [...unique.values()].filter(item => item.relationship.directResponsibility);
-  const doNow = direct.filter(item => item.activity !== 'dormant' && item.attention.needsAttention);
-  const doNowIds = new Set(doNow.map(item => item.entity.id));
   const waiting = direct.filter(item => item.activity !== 'dormant'
-    && !doNowIds.has(item.entity.id)
     && item.entity.author?.toLowerCase() === viewerLogin.toLowerCase()
     && (item.entity.reviewState === 'requested' || ['queued', 'running'].includes(item.entity.checkState ?? '')));
   const waitingIds = new Set(waiting.map(item => item.entity.id));
+  const doNow = direct.filter(item => item.activity !== 'dormant'
+    && !waitingIds.has(item.entity.id)
+    && (item.attention.needsAttention || item.activity === 'active'));
+  const doNowIds = new Set(doNow.map(item => item.entity.id));
   const gettingStale = direct.filter(item => item.activity !== 'dormant'
     && !doNowIds.has(item.entity.id)
     && !waitingIds.has(item.entity.id)

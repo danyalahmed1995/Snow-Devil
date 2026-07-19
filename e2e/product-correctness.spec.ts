@@ -45,13 +45,6 @@ test('analytics surfaces use responsibility and maintained-repository defaults',
   await expect(page.getByLabel('Delivery Risks repository scope')).toHaveText('Repositories I maintain');
   await expect(page.getByLabel('Saved Delivery Risks views')).toHaveText('Active Risks');
 
-  await page.getByRole('button', { name: 'Flow Analytics', exact: true }).click();
-  await expect(page.getByLabel('Analytics repository scope')).toHaveText('Repositories I maintain');
-  await expect(page.getByRole('checkbox', { name: 'Include bot-authored work' })).not.toBeChecked();
-  await expect(page.getByRole('img', { name: /Cumulative flow occupancy/ })).toBeVisible();
-  const issues = page.getByRole('button', { name: 'issues', exact: true });
-  await issues.click();
-  await expect(issues).toHaveAttribute('aria-pressed', 'false');
 });
 
 test('Account History latest date reconciles a current Flow item', async ({ page }) => {

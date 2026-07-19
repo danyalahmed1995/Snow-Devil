@@ -36,7 +36,7 @@ function djb2Hash(str: string): string {
   return (hash >>> 0).toString(36);
 }
 
-const GITHUB_HOST_RE = /^(?:https?:\/\/)?(?:www\.)?github\.com/i;
+const TRUSTED_GITHUB_HOSTS = new Set(["github.com", "www.github.com", "gist.github.com"]);
 
 // ---------------------------------------------------------------------------
 // URL safety
@@ -122,7 +122,13 @@ export function normalizeGithubUrl(input: string): string | null {
 
 /** Returns `true` when the string looks like a GitHub URL. */
 export function isGithubUrl(url: string): boolean {
-  return GITHUB_HOST_RE.test(url.trim());
+  const trimmed = url.trim();
+  try {
+    const parsed = new URL(/^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    return TRUSTED_GITHUB_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------

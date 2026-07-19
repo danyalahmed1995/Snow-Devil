@@ -5,31 +5,58 @@
  * - Browser tabs → BrowserViewport (webview placeholder)
  */
 
-import { useTabsStore, isNativeTab, isBrowserTab, isFixedNativeTab } from '../../stores/tabs-store';
+import { useTabsStore, isNativeTab, isBrowserTab } from '../../stores/tabs-store';
 import type { NativeTab } from '../../browser/browser-tabs';
 import { Dashboard } from './Dashboard';
 import { FlowWorkbench } from './FlowWorkbench';
 import { BrowserViewport } from '../../browser/BrowserViewport';
 import { browserHideAll } from '../../browser/browser-commands';
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { useModeStore } from '../../stores/mode-store';
 import { ListView } from './ListView';
 import { TabInstanceProvider } from './TabInstanceContext';
+import { ENABLE_FLOW_ANALYTICS } from '../../config/features';
+import { DeferredSurface } from './DeferredSurface';
+import { WorkspaceLoadingState } from './WorkspaceLoadingState';
+import { acquireFrontendResource } from '../../diagnostics/leak-diagnostics';
+import { shouldKeepNativeSurfaceMounted } from './native-surface-lifecycle';
 
 const CIActivityPage = lazy(() => import('../analytics/CIActivityPage').then(module => ({ default: module.CIActivityPage })));
 const InventoryPage = lazy(() => import('../analytics/InventoryPage').then(module => ({ default: module.InventoryPage })));
-const FlowAnalyticsPage = lazy(() => import('../analytics/FlowAnalyticsPage').then(module => ({ default: module.FlowAnalyticsPage })));
+const FlowAnalyticsPage = ENABLE_FLOW_ANALYTICS ? lazy(() => import('../analytics/FlowAnalyticsPage').then(module => ({ default: module.FlowAnalyticsPage }))) : () => null;
 const PersonalFocusPage = lazy(() => import('../analytics/PersonalFocusPage').then(module => ({ default: module.PersonalFocusPage })));
 const AnalyticsSettingsPage = lazy(() => import('../analytics/AnalyticsSettingsPage').then(module => ({ default: module.AnalyticsSettingsPage })));
 const SimulatorWorkbench = lazy(() => import('../simulator/SimulatorWorkbench').then(module => ({ default: module.SimulatorWorkbench })));
 const RepositoryExplorer = lazy(() => import('../repository/RepositoryExplorer').then(module => ({ default: module.RepositoryExplorer })));
 const PullRequestDiff = lazy(() => import('../diff/PullRequestDiff').then(module => ({ default: module.PullRequestDiff })));
 const CommitDiff = lazy(() => import('../diff/CommitDiff').then(module => ({ default: module.CommitDiff })));
+const CommitGraphPage = lazy(() => import('../commit-graph/CommitGraphPage').then(module => ({ default: module.CommitGraphPage })));
+const CommitComparisonPage = lazy(() => import('../commit-graph/CommitComparisonPage').then(module => ({ default: module.CommitComparisonPage })));
 const CIRunWatcher = lazy(() => import('./cirun/CIRunWatcher').then(module => ({ default: module.CIRunWatcher })));
 const NotificationsPage = lazy(() => import('../notifications/NotificationsPage').then(module => ({ default: module.NotificationsPage })));
 const EvidenceGraphPage = lazy(() => import('../graph/EvidenceGraphPage').then(module => ({ default: module.EvidenceGraphPage })));
+const SketchBoard = lazy(() => import('../sketch/SketchBoard').then(module => ({ default: module.SketchBoard })));
 
-function SurfaceLoading() { return <div className="workspace-loading" role="status" style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '24px' }}><div className="global-spinner" /><div style={{ textAlign: 'center' }}><h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--text-primary)', animation: 'fresh-fade-in 0.5s ease-out' }}>Loading workspace surface…</h1></div></div>; }
+function SurfaceLoading() { return <WorkspaceLoadingState title="Loading workspace surface" detail="Restoring the selected view…" />; }
+
+const LOADING_COPY: Partial<Record<NativeTab['kind'], { title: string; detail: string }>> = {
+  inventory: { title: 'Loading Delivery Risks', detail: 'Analyzing repository, pull request, and CI evidence…' },
+  ciHealth: { title: 'Loading CI Activity', detail: 'Restoring recent runs and checks…' },
+  pullRequestDiff: { title: 'Loading pull request', detail: 'Preparing changes and architecture evidence…' },
+  ciRun: { title: 'Loading CI run', detail: 'Restoring recent jobs, checks, and logs…' },
+  flow: { title: 'Loading Flow', detail: 'Restoring the current delivery snapshot…' },
+  accountSimulator: { title: 'Loading Account History', detail: 'Restoring cached history…' },
+  repositorySimulator: { title: 'Loading Repository History', detail: 'Restoring cached history…' },
+  repositoryExplorer: { title: 'Loading repository', detail: 'Preparing the repository workspace…' },
+  commitGraph: { title: 'Loading Commit Graph', detail: 'Restoring repository and branch context…' },
+  commitCompare: { title: 'Loading comparison', detail: 'Comparing commits and changed files…' },
+  evidenceGraph: { title: 'Loading Architecture Context', detail: 'Preparing the component map…' },
+};
+
+function TrackedHeavySurface({ children }: { children: ReactNode }) {
+  useEffect(() => acquireFrontendResource('mountedHeavyViews'), []);
+  return children;
+}
 
 function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
   const closeTab = useTabsStore(state => state.closeTab);
@@ -48,20 +75,23 @@ function InvalidCIRunTab({ tab }: { tab: NativeTab }) {
 }
 
 function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: number }) {
-  return <TabInstanceProvider tabId={tab.id}>
+  const content = <TabInstanceProvider tabId={tab.id}>
     <Suspense fallback={<SurfaceLoading />}>
       {tab.kind === 'home' && <Dashboard />}
       {tab.kind === 'flow' && <FlowWorkbench />}
       {tab.kind === 'ciHealth' && <CIActivityPage />}
       {tab.kind === 'inventory' && <InventoryPage />}
-      {tab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
+      {ENABLE_FLOW_ANALYTICS && tab.kind === 'flowAnalytics' && <FlowAnalyticsPage />}
       {tab.kind === 'personalFocus' && <PersonalFocusPage />}
       {tab.kind === 'accountSimulator' && <SimulatorWorkbench key={`account-history-${demoRevision}`} mode="account" />}
       {tab.kind === 'repositorySimulator' && <SimulatorWorkbench key={`repository-history-${demoRevision}`} mode="repository" />}
+      {tab.kind === 'commitGraph' && <CommitGraphPage />}
       {tab.kind === 'settings' && <AnalyticsSettingsPage />}
+      {tab.kind === 'sketchBoard' && <SketchBoard />}
       {tab.kind === 'repositoryExplorer' && tab.context?.type === 'repository' && <RepositoryExplorer repository={tab.context.repository} initialRef={tab.context.ref} initialPath={tab.context.path} />}
       {tab.kind === 'pullRequestDiff' && tab.context?.type === 'pullRequest' && <PullRequestDiff repository={tab.context.repository} number={tab.context.number} observedHeadSha={tab.context.headSha} />}
       {tab.kind === 'commitDiff' && tab.context?.type === 'commit' && <CommitDiff repository={tab.context.repository} sha={tab.context.sha} />}
+      {tab.kind === 'commitCompare' && tab.context?.type === 'commitCompare' && <CommitComparisonPage repository={tab.context.repository} baseSha={tab.context.baseSha} targetSha={tab.context.targetSha} />}
       {tab.kind === 'ciRun' && tab.context?.type === 'ciRun' && <CIRunWatcher repositoryId={tab.context.repository} runId={tab.context.runId} initialAttempt={tab.context.attempt} initialJobId={tab.context.selectedJobId ?? tab.context.jobId} />}
       {tab.kind === 'ciRun' && tab.context?.type !== 'ciRun' && <InvalidCIRunTab tab={tab} />}
       {tab.kind === 'notifications' && <NotificationsPage />}
@@ -69,6 +99,10 @@ function NativeSurface({ tab, demoRevision }: { tab: NativeTab; demoRevision: nu
       {tab.kind === 'evidenceGraph' && <EvidenceGraphPage rootId={tab.context?.type === 'evidenceGraph' ? tab.context.rootId : undefined} />}
     </Suspense>
   </TabInstanceProvider>;
+  const loading = LOADING_COPY[tab.kind];
+  return loading
+    ? <TrackedHeavySurface><DeferredSurface identity={tab.id} title={loading.title} detail={loading.detail}>{content}</DeferredSurface></TrackedHeavySurface>
+    : content;
 }
 
 export function WorkspaceContent() {
@@ -77,6 +111,11 @@ export function WorkspaceContent() {
   const demoRevision = useModeStore(s => s.demoRevision);
 
   const activeTab = tabs.find(t => t.id === activeTabId);
+  // Home is intentionally cheap and remains warm. Every other native surface
+  // owns its resources only while active so hidden tabs cannot retain polling,
+  // observers, animation frames, workers, or large rendered trees.
+  const persistentTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && shouldKeepNativeSurfaceMounted(tab.kind));
+  const activeIsTransientNative = activeTab && isNativeTab(activeTab) && !shouldKeepNativeSurfaceMounted(activeTab.kind);
 
   // Sync with Tauri backend for native tabs
   useEffect(() => {
@@ -93,11 +132,15 @@ export function WorkspaceContent() {
     );
   }
 
-  const fixedTabs = tabs.filter((tab): tab is NativeTab => isNativeTab(tab) && isFixedNativeTab(tab));
-  const dynamicNative = isNativeTab(activeTab) && !isFixedNativeTab(activeTab) ? activeTab : undefined;
   return <div className="workspace-content">
-    {fixedTabs.map(tab => <div className="workspace-native-surface" key={tab.id} hidden={activeTabId !== tab.id} aria-hidden={activeTabId !== tab.id}><NativeSurface tab={tab} demoRevision={demoRevision} /></div>)}
-    {dynamicNative && <div className="workspace-native-surface"><NativeSurface tab={dynamicNative} demoRevision={demoRevision} /></div>}
+    {persistentTabs.map(tab => (
+      <div className="workspace-native-surface" key={tab.id} hidden={activeTab.id !== tab.id} aria-hidden={activeTab.id !== tab.id}>
+        <NativeSurface tab={tab} demoRevision={demoRevision} />
+      </div>
+    ))}
+    {activeIsTransientNative && <div className="workspace-native-surface" key={activeTab.id}>
+      <NativeSurface tab={activeTab} demoRevision={demoRevision} />
+    </div>}
     {isBrowserTab(activeTab) && <BrowserViewport />}
   </div>;
 }

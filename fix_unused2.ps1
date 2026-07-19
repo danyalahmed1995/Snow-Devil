@@ -1,2 +1,0 @@
-(Get-Content -Path src/components/analytics/CIActivityPage.tsx) -replace 'const includedCount = ', '// const includedCount = ' -replace 'const unsupportedCount = ', '// const unsupportedCount = ' -replace 'const lastSync = ', '// const lastSync = ' | Set-Content -Path src/components/analytics/CIActivityPage.tsx
-(Get-Content -Path src/components/analytics/CIRunRow.tsx) -replace 'const sparklinePts = ', '// const sparklinePts = ' | Set-Content -Path src/components/analytics/CIRunRow.tsx

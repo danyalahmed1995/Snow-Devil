@@ -71,6 +71,18 @@ pub async fn get_pr_details(owner: String, name: String, number: i64) -> Result<
 }
 
 #[tauri::command]
+pub async fn get_compare_diff(
+    owner: String,
+    name: String,
+    base: String,
+    head: String,
+) -> Result<Value, String> {
+    crate::github::repo_api::fetch_compare_diff(&owner, &name, &base, &head)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn get_issue_details(owner: String, name: String, number: i64) -> Result<Value, String> {
     crate::github::repo_api::fetch_issue_details(&owner, &name, number)
         .await

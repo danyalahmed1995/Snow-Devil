@@ -10,5 +10,21 @@ export function ThemeProvider() {
     const frame = requestAnimationFrame(() => { document.documentElement.dataset.themeReady = 'true'; });
     return () => cancelAnimationFrame(frame);
   }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    const syncWindowActivity = () => {
+      root.dataset.windowActive = document.visibilityState !== 'hidden' && document.hasFocus() ? 'true' : 'false';
+    };
+    syncWindowActivity();
+    document.addEventListener('visibilitychange', syncWindowActivity);
+    window.addEventListener('focus', syncWindowActivity);
+    window.addEventListener('blur', syncWindowActivity);
+    return () => {
+      document.removeEventListener('visibilitychange', syncWindowActivity);
+      window.removeEventListener('focus', syncWindowActivity);
+      window.removeEventListener('blur', syncWindowActivity);
+      delete root.dataset.windowActive;
+    };
+  }, []);
   return null;
 }

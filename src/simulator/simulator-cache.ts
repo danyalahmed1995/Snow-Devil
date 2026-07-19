@@ -59,6 +59,19 @@ export async function saveSimulatorEventsToDb(events: SimulatorEvent[]): Promise
   await invoke("save_simulator_events", { events: dbEvents });
 }
 
+/** Persist exact current PR evidence where Delivery Risks reads canonical data. */
+export async function saveAnalyticsRiskEventsToDb(accountLogin: string, events: SimulatorEvent[]): Promise<void> {
+  const records = canonicalizeSimulatorEvents(events).map(event => normalizeSimulatorEventProvenance(event)).map(event => ({
+    account_login: accountLogin,
+    repository_id: event.repositoryId,
+    source_type: 'risk_event',
+    source_id: event.id,
+    updated_at: event.observedAt ?? event.occurredAt,
+    payload_json: JSON.stringify(event),
+  }));
+  if (records.length > 0) await invoke('save_analytics_records', { records });
+}
+
 export async function getSimulatorEventsFromDb(repositoryId?: string): Promise<SimulatorEvent[]> {
   const dbEvents: DbSimulatorEvent[] = await invoke("get_simulator_events", { repositoryId });
   const normalized = dbEvents.map(e => {

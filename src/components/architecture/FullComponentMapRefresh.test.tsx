@@ -6,6 +6,7 @@ import { useArchitectureStore } from '../../architecture/architecture-store';
 import { useTabsStore } from '../../stores/tabs-store';
 import { FullComponentMap } from './FullComponentMap';
 import { useArchitectureRefreshStore } from '../../architecture/refresh-state';
+import { architectureDecisionDiagnostics, resetArchitectureDecisionDiagnostics } from '../../architecture/diagnostics';
 
 const component = (id: string, name: string): ArchitectureComponent => ({
   id, name, repositoryId: 'acme/repo', kind: 'package', rootPaths: [id], manifestPaths: [], owners: [], configured: false,
@@ -33,6 +34,7 @@ function impactAt(headSha: string) {
 describe('full component map commit refresh notifier', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    resetArchitectureDecisionDiagnostics();
     useArchitectureStore.setState({ states: { 'native:pr:42': { section: 'map', mapState: { groupingMode: 'none', filters: { dependencies: true, dependents: true, indirect: true, external: true }, expandedGroups: [], zoom: 1, panX: 0, panY: 0 } } } });
     useTabsStore.setState({ tabs: [{ id: 'native:pr:42', family: 'native', kind: 'pullRequestDiff', title: 'PR #42', pinned: false, closable: true, createdAt: 1, lastActivatedAt: 1, context: { type: 'pullRequest', repository: 'acme/repo', number: 42, headSha: 'newhead123' } }], activeTabId: 'native:pr:42' });
     useArchitectureRefreshStore.setState({ values: { 'native:pr:42': { status: 'syncing', headSha: 'newhead123' } } });
@@ -48,19 +50,37 @@ describe('full component map commit refresh notifier', () => {
     const edges = container.querySelectorAll('.full-component-map__edge');
     expect(edges).toHaveLength(2);
     expect(container.querySelectorAll('.full-component-map__edge.is-refresh-affected')).toHaveLength(1);
-    expect(edges[0]).toHaveAttribute('marker-end', 'url(#arrow-sync)');
+    expect(edges[0]).toHaveAttribute('marker-end', 'url(#arrow-default)');
     expect(edges[1]).not.toHaveAttribute('marker-end', 'url(#arrow-sync)');
 
     rerender(<FullComponentMap impact={impactAt('newhead123')} onSelect={vi.fn()} />);
+    const layoutRunsAfterImpactChange = architectureDecisionDiagnostics.layoutRuns;
     act(() => {
       useArchitectureRefreshStore.getState().set('native:pr:42', { status: 'updated', headSha: 'newhead123' });
       window.setTimeout(() => useArchitectureRefreshStore.getState().set('native:pr:42', { status: 'current', headSha: 'newhead123' }), 4000);
     });
     expect(screen.getByRole('status')).toHaveTextContent('Updated');
     expect(container.querySelector('.full-component-map')).toHaveClass('is-commit-updated');
+    expect(architectureDecisionDiagnostics.layoutRuns).toBe(layoutRunsAfterImpactChange);
 
     act(() => vi.advanceTimersByTime(4000));
     expect(screen.getByRole('status')).toHaveTextContent('Current');
     expect(container.querySelector('.full-component-map')).not.toHaveClass('is-commit-updated');
+    expect(architectureDecisionDiagnostics.layoutRuns).toBe(layoutRunsAfterImpactChange);
+  });
+
+  it('does not rebuild the graph when only the synchronized tab head changes', () => {
+    const impact = impactAt('newhead123');
+    const onSelect = vi.fn();
+    const { rerender } = render(<FullComponentMap impact={impact} onSelect={onSelect} />);
+    const layoutRuns = architectureDecisionDiagnostics.layoutRuns;
+
+    act(() => {
+      useTabsStore.getState().updateNativeTabContext('native:pr:42', { type: 'pullRequest', repository: 'acme/repo', number: 42, headSha: 'newhead456' });
+    });
+    rerender(<FullComponentMap impact={impact} onSelect={onSelect} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('newhead');
+    expect(architectureDecisionDiagnostics.layoutRuns).toBe(layoutRuns);
   });
 });

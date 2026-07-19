@@ -1,12 +1,15 @@
 import { beforeEach,describe,expect,it } from 'vitest';
 import { SIDEBAR_SHORTCUTS } from '../browser/browser-shortcuts';
 import { isBrowserTab, useTabsStore } from './tabs-store';
+import { useFlowStore } from './flow-store';
+import { defaultHistoryView, useHistoryViewStore } from './history-view-store';
 const tab=(id:string,title=id)=>({id,family:'native' as const,kind:'flow' as const,title,pinned:false,closable:true,createdAt:1,lastActivatedAt:1});
 const accountTab={id:'github:profile',family:'browser' as const,kind:'profile' as const,title:'Account',canonicalUrl:'https://github.com/danyalahmed1995',currentUrl:'https://github.com/danyalahmed1995',history:['https://github.com/danyalahmed1995'],historyIndex:0,isLoading:false,lifecycle:'resident' as const,pinned:false,closable:true,createdAt:1,lastActivatedAt:1};
 
 describe('browser-grade tab closing',()=>{
-  beforeEach(()=>{localStorage.clear();useTabsStore.setState({tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},tab('a'),tab('b'),tab('c')],activeTabId:'b',closedTabs:[]});});
+  beforeEach(()=>{localStorage.clear();useFlowStore.setState({states:{}});useHistoryViewStore.setState({states:{}});useTabsStore.setState({tabs:[{...tab('native:home','Home'),kind:'home',closable:false,pinned:true},tab('a'),tab('b'),tab('c')],activeTabId:'b',closedTabs:[]});});
   it('closes only the target and selects the previous neighbor for an active tab',()=>{useTabsStore.getState().closeTab('b');expect(useTabsStore.getState().tabs.map(value=>value.id)).toEqual(['native:home','a','c']);expect(useTabsStore.getState().activeTabId).toBe('a');});
+  it('disposes tab-owned Flow and History state when a native tab closes',()=>{useFlowStore.getState().setTabState('b',{search:'retained'});useHistoryViewStore.getState().patch('b','account',{...defaultHistoryView('account'),selectedEntityId:'large-entity'});useTabsStore.getState().closeTab('b');expect(useFlowStore.getState().states.b).toBeUndefined();expect(useHistoryViewStore.getState().states.b).toBeUndefined();});
   it('preserves the active tab when a background tab closes',()=>{useTabsStore.getState().closeTab('c');expect(useTabsStore.getState().activeTabId).toBe('b');});
   it('never closes a pinned unclosable tab',()=>{useTabsStore.getState().closeTab('native:home');expect(useTabsStore.getState().tabs.some(value=>value.id==='native:home')).toBe(true);});
   it('defines the embedded GitHub Account shortcut as a closable dynamic tab',()=>{expect(SIDEBAR_SHORTCUTS.find(shortcut=>shortcut.tabId==='github:profile')).toMatchObject({pinned:false,closable:true});});

@@ -14,6 +14,7 @@ describe('shared contextual tooltip', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('Meaning Activation result');
     expect(target).toHaveAttribute('aria-describedby', 'snow-devil-contextual-tooltip');
     fireEvent.pointerOut(target);
+    act(() => vi.advanceTimersByTime(150));
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
@@ -28,6 +29,7 @@ describe('shared contextual tooltip', () => {
     expect(screen.getAllByRole('tooltip')).toHaveLength(1);
     expect(screen.getByRole('tooltip')).toHaveTextContent('Second');
     fireEvent.keyDown(document, { key: 'Escape' });
+    act(() => vi.advanceTimersByTime(150));
     expect(screen.queryByRole('tooltip')).toBeNull();
   });
 

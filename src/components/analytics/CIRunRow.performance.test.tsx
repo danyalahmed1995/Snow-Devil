@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CIRunRow } from './CIRunRow';
+import { CIRunRow, MAX_FULL_EFFECT_CI_JOBS, shouldUseDenseCIJobRendering } from './CIRunRow';
 import type { SimulatorEvent } from '../../simulator/simulator-types';
 
-vi.mock('../../hooks/useWorkflowJobs', () => ({
-  useWorkflowJobs: () => ({ data: undefined, isLoading: false, error: null }),
+const watcherMock = vi.hoisted(() => ({ value: { data: undefined, isLoading: false, error: null } as any }));
+vi.mock('../../hooks/useWorkflowRunWatcher', () => ({
+  useWorkflowRunWatcher: () => watcherMock.value,
 }));
 
 function run(id: string): SimulatorEvent {
@@ -63,6 +64,7 @@ function ProbeList() {
 describe('CIRunRow render stability', () => {
   beforeEach(() => {
     (window as any).__SNOW_DEVIL_CI_ROW_RENDER_PROBE__ = vi.fn();
+    watcherMock.value = { data: undefined, isLoading: false, error: null };
   });
 
   it('does not rerender unrelated rows for sync progress or selection changes', async () => {
@@ -79,5 +81,38 @@ describe('CIRunRow render stability', () => {
     expect(counts.get('run-1')).toBe(2);
     expect(counts.get('run-2')).toBe(2);
     expect(counts.get('run-3')).toBe(1);
+  });
+
+  it('uses lightweight animated rendering for large workflow matrices', () => {
+    expect(shouldUseDenseCIJobRendering(MAX_FULL_EFFECT_CI_JOBS)).toBe(false);
+    expect(shouldUseDenseCIJobRendering(MAX_FULL_EFFECT_CI_JOBS + 1)).toBe(true);
+    expect(shouldUseDenseCIJobRendering(26)).toBe(true);
+  });
+
+  it('keeps visible spinner and cursor motion hooks in a 26-job matrix', () => {
+    watcherMock.value = {
+      data: {
+        jobs: Array.from({ length: 26 }, (_, index) => ({
+          id: index + 1,
+          name: `Matrix job ${index + 1}`,
+          status: 'in_progress',
+          conclusion: null,
+          started_at: '2026-07-17T10:00:00Z',
+          completed_at: null,
+          steps: [{ name: 'Build', status: 'in_progress', conclusion: null }],
+        })),
+      },
+      isLoading: false,
+      error: null,
+    };
+    const activeRun = run('run-26');
+    activeRun.metadata = { ...activeRun.metadata, status: 'in_progress', conclusion: null };
+    const { container } = render(<CIRunRow run={activeRun} isSelected onSelect={() => {}} />);
+
+    fireEvent.click(container.querySelector('.ci-activity-row__expand')!);
+    const denseList = container.querySelector('.ci-jobs-list--dense');
+    expect(denseList).not.toBeNull();
+    expect(denseList?.querySelectorAll('.spinner-ring')).toHaveLength(26);
+    expect(denseList?.querySelectorAll('.ci-job-cursor')).toHaveLength(26);
   });
 });

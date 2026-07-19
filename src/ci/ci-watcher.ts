@@ -94,3 +94,12 @@ export function ciRunTransitions(previous: CIWorkflowRun[], next: CIWorkflowRun[
     return before && (before.status !== run.status || before.conclusion !== run.conclusion) ? [{ before, after: run }] : [];
   });
 }
+
+export function workflowSnapshotChanged(previous: CIWorkflowRun[], next: CIWorkflowRun[]): boolean {
+  if (previous.length !== next.length) return true;
+  const previousById = new Map(previous.map(run => [run.id, run]));
+  return next.some(run => {
+    const before = previousById.get(run.id);
+    return !before || before.updatedAt !== run.updatedAt || before.status !== run.status || before.conclusion !== run.conclusion || before.runAttempt !== run.runAttempt;
+  });
+}

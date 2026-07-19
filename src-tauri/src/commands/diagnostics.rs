@@ -1,5 +1,7 @@
+use crate::browser::manager::BrowserWebviewManager;
 use crate::db::AppState;
 use serde_json::{json, Value};
+use std::sync::Mutex;
 use tauri::State;
 
 const COUNT_TABLES: &[&str] = &[
@@ -48,6 +50,37 @@ pub fn get_safe_diagnostics(state: State<'_, AppState>) -> Result<Value, String>
     }))
 }
 
+#[tauri::command]
+pub fn get_leak_diagnostics(
+    database: State<'_, AppState>,
+    browser: State<'_, Mutex<BrowserWebviewManager>>,
+) -> Result<Value, String> {
+    let enabled = cfg!(debug_assertions) || option_env!("SNOW_DEVIL_LEAK_DIAGNOSTICS") == Some("1");
+    if !enabled {
+        return Err("Leak diagnostics are disabled in this build".to_string());
+    }
+    let sqlite_connections = usize::from(
+        database
+            .db_conn
+            .lock()
+            .map_err(|_| "diagnostic database lock failed")?
+            .is_some(),
+    );
+    let browser = browser
+        .lock()
+        .map_err(|_| "diagnostic browser lock failed")?;
+    Ok(json!({
+        "format": "snow-devil-leak-diagnostics-v1",
+        "backend": {
+            "tokioTasks": 0, "channels": 0, "childProcesses": 0, "gitProcesses": 0,
+            "fileWatchers": 0, "sqliteConnections": sqlite_connections,
+            "sqliteStatements": 0, "sqliteTransactions": 0, "tempFiles": 0,
+            "tauriListeners": 0, "browserWebviews": browser.records.len(),
+            "browserCapacity": browser.max_resident
+        }
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -65,5 +98,10 @@ mod tests {
         ] {
             assert!(!serialized.to_lowercase().contains(forbidden));
         }
+    }
+
+    #[test]
+    fn verbose_leak_diagnostics_are_not_enabled_in_release_by_default() {
+        assert!(cfg!(debug_assertions) || option_env!("SNOW_DEVIL_LEAK_DIAGNOSTICS").is_none());
     }
 }

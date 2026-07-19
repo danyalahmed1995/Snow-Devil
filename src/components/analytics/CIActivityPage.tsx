@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
-import { matchesRepository } from '../../analytics/identity';
+import { matchesRepository, normalizeRepositoryName } from '../../analytics/identity';
 import { useFlowStore } from '../../stores/flow-store';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton } from './AnalyticsShared';
@@ -9,14 +9,29 @@ import { useRepositoryBranches } from '../../hooks/useRepositoryBranches';
 import { Select } from '../ui/Select';
 import { CIRunRow, formatDurationCompact } from './CIRunRow';
 import { useTabsStore } from '../../stores/tabs-store';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
+import { useCIWatcherStore } from '../../stores/ci-watcher-store';
+
+export function recentDistinctCIRepositories(runs: Array<{ repositoryId: string }>, limit = 3): string[] {
+  const repositories = new Map<string, string>();
+  for (const run of runs) {
+    const key = normalizeRepositoryName(run.repositoryId);
+    if (!repositories.has(key)) repositories.set(key, run.repositoryId);
+    if (repositories.size === limit) break;
+  }
+  return [...repositories.values()];
+}
+
+export function repositoriesWithWorkflowRuns<T extends { id: string }>(repositories: T[], runs: Array<{ repositoryId: string }>): T[] {
+  const runRepositories = new Set(runs.map(run => normalizeRepositoryName(run.repositoryId)));
+  return repositories.filter(repository => runRepositories.has(normalizeRepositoryName(repository.id)));
+}
 
 export function CIActivityPage() {
   const activeTabId = useCurrentTabId();
   const isActive = useTabsStore(state => state.activeTabId === activeTabId);
   const analytics = useAnalyticsData({ enabled: isActive });
   const sync = useAnalyticsSync({ enabled: isActive });
-  const syncActionRef = useRef(sync.sync);
-  const refetchAnalyticsRef = useRef(analytics.refetch);
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
 
@@ -27,6 +42,8 @@ export function CIActivityPage() {
   const [eventFilter, setEventFilter] = useState('all');
   const [rangeChoice, setRangeChoice] = useState('30');
   const [limit, setLimit] = useState(50);
+  const watcherRepositoryState = useCIWatcherStore(state => state.repositoryState);
+  useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
 
   const dataset = analytics.data;
 
@@ -46,8 +63,7 @@ export function CIActivityPage() {
   // Extract unique filter options based on repository (if selected)
   const reposForFilter = useMemo(() => {
     if (!dataset) return [];
-    const set = new Set(allRuns.map(r => r.repositoryId));
-    return dataset.repositories.filter(r => set.has(r.id)).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
+    return repositoriesWithWorkflowRuns(dataset.repositories, allRuns).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
   }, [dataset, allRuns]);
 
   const getFilterRepo = useCallback(() => repositoryId === 'all' ? null : reposForFilter.find(r => r.id === repositoryId), [repositoryId, reposForFilter]);
@@ -142,9 +158,6 @@ export function CIActivityPage() {
     };
   }, [runsForStats]);
 
-  useEffect(() => { syncActionRef.current = sync.sync; }, [sync.sync]);
-  useEffect(() => { refetchAnalyticsRef.current = analytics.refetch; }, [analytics.refetch]);
-
   // Auto-reset dependent filters when repository changes or branches are updated
   useEffect(() => {
     setWorkflowFilter('all');
@@ -155,24 +168,6 @@ export function CIActivityPage() {
       setBranchFilter('all');
     }
   }, [branches, branchFilter]);
-
-  // Auto-refresh the CI run list when the tab is active/focused to show new CI runs quickly
-  useEffect(() => {
-    if (!isActive) return;
-    
-    const triggerRefresh = () => {
-      if (repositoryId !== 'all') {
-        void syncActionRef.current({ singleRepository: repositoryId });
-      } else {
-        const recentRepos = Array.from(new Set(allRuns.slice(0, 3).map(r => r.repositoryId)));
-        void syncActionRef.current({ priorityRepositories: recentRepos });
-      }
-      void refetchAnalyticsRef.current();
-    };
-    
-    const interval = setInterval(triggerRefresh, 10000);
-    return () => clearInterval(interval);
-  }, [isActive, repositoryId, allRuns]);
 
   const selectRow = useCallback((id: string) => {
     const run = allRuns.find(r => r.id === id);
@@ -207,21 +202,17 @@ export function CIActivityPage() {
 
   
   const handleRefresh = () => {
-    if (repositoryId !== 'all') {
-      void sync.sync({ singleRepository: repositoryId });
-    } else {
-      const activeRepo = allRuns.find(r => r.id === selectedId)?.repositoryId;
-      void sync.sync({ priorityRepositories: activeRepo ? [activeRepo] : [] });
-    }
-    void analytics.refetch();
+    window.dispatchEvent(new Event('snow-devil:ci-refresh'));
     import('../../app/providers').then(m => m.queryClient.invalidateQueries({ queryKey: ['workflow_jobs'] })).catch(() => {});
   };
   
   let freshnessText = '';
   let isTargetingRefreshing = false;
   if (repositoryId !== 'all') {
-    isTargetingRefreshing = sync.isTargetSyncing(repositoryId);
+    const status = watcherRepositoryState[repositoryId.toLowerCase()]?.status;
+    isTargetingRefreshing = status === 'loading' || status === 'refreshing';
   }
+  const globalWatcherRefreshing = Object.values(watcherRepositoryState).some(state => state.status === 'loading' || state.status === 'refreshing');
   
   let globalSyncText = '';
   if (sync.syncing && sync.state?.continuation_json) {
@@ -265,7 +256,7 @@ export function CIActivityPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
          {remoteBranchesData.isFetching && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Loading branches...</span>}
          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{freshnessText}</span>
-         <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? isTargetingRefreshing : false)} onClick={handleRefresh} />
+         <RefreshButton refreshing={analytics.isFetching || (repositoryId !== 'all' ? isTargetingRefreshing : globalWatcherRefreshing)} onClick={handleRefresh} />
       </div>
     </>}>
       {import.meta.env.DEV && (

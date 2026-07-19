@@ -33,6 +33,21 @@ describe('FullComponentMap Edge Rendering', () => {
     expect(edges.length).toBe(0);
   });
 
+  it('does not pan the graph with the right mouse button', () => {
+    const impact = createImpact([{ id: 'c1', name: 'Primary', kind: 'application', rootPaths: [], manifestPaths: [], owners: [], configured: false, confidence: { level: 'high', score: 1 } }], [], []);
+    impact.primaryComponentId = 'c1';
+    impact.affectedComponents = [{ component: impact.snapshot.components[0], files: [], additions: 0, deletions: 0, role: 'primary' }];
+
+    const { container } = render(<FullComponentMap impact={impact} onSelect={vi.fn()} />);
+    const canvas = container.querySelector('.full-component-map__canvas')!;
+    fireEvent.pointerDown(canvas, { button: 2, buttons: 2, pointerId: 1, clientX: 40, clientY: 50 });
+    fireEvent.pointerMove(canvas, { button: 2, buttons: 2, pointerId: 1, clientX: 140, clientY: 150 });
+    fireEvent.pointerUp(canvas, { button: 2, buttons: 0, pointerId: 1, clientX: 140, clientY: 150 });
+
+    expect(useArchitectureStore.getState().states['test-tab'].mapState).toMatchObject({ panX: 0, panY: 0 });
+    expect(canvas).not.toHaveClass('is-dragging');
+  });
+
   it('arrow markers exist for every directed visible edge and use non-scaling-stroke', () => {
     const impact = createImpact(
       [

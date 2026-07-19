@@ -2,17 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { useTabsStore, isBrowserTab } from '../../stores/tabs-store';
-import {
-  Menu,
-  PanelRightClose,
-  PanelRightOpen,
-  LogOut,
-  Copy,
-  ExternalLink,
-  RotateCcw,
-  GitBranch, GitMerge, GitPullRequest,
-  Bell,
-} from 'lucide-react';
+import { Bell, Copy, ExternalLink, LogOut, Menu, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
 import { AuthModal } from '../auth/AuthModal';
 import { useModeStore } from '../../stores/mode-store';
 import { BrowserToolbar } from '../../browser/BrowserToolbar';
@@ -26,6 +16,7 @@ export function TopBar() {
   const { toggleNavigator, toggleInspector, isInspectorOpen } = useLayoutStore();
   const { isAuthenticated, checkAuthStatus, session, showAuthModal, openAuthModal, closeAuthModal } = useAuthStore();
   const [isResetting, setIsResetting] = useState(false);
+  const [isIconSpinning, setIsIconSpinning] = useState(false);
   const { mode, exitDemo, resetDemo } = useModeStore();
   const notificationRecords=useNotificationStore(state=>state.records);const notificationRead=useNotificationStore(state=>state.localRead);const notificationSnoozed=useNotificationStore(state=>state.snoozedUntil);const unreadNotifications=activeNotifications(notificationRecords,notificationSnoozed).filter(record=>effectiveUnread(record,notificationRead)).length;
   const notificationArrivalCount = useNotificationStore(state => state.arrivalCount);
@@ -62,11 +53,16 @@ export function TopBar() {
             <Menu size={18} />
           </button>
           <div className="app-title">
-            <span className="app-mark-trio" data-tooltip="Git Trinity">
-              <div className="attr branch"><GitBranch size={9} strokeWidth={3} /></div>
-              <div className="attr merge"><GitMerge size={9} strokeWidth={3} /></div>
-              <div className="attr pr"><GitPullRequest size={9} strokeWidth={3} /></div>
-            </span>
+            <div 
+              className={`app-logo-wrapper ${isIconSpinning ? 'is-spinning' : ''}`} 
+              data-tooltip="Touch grass"
+              onClick={() => { if (!isIconSpinning) setIsIconSpinning(true); }}
+              onAnimationEnd={(e) => {
+                if (e.target === e.currentTarget) setIsIconSpinning(false);
+              }}
+            >
+              <img src="/icon.svg" alt="Snow Devil Logo" />
+            </div>
             <span className="app-name">Snow Devil</span>
           </div>
           <BrowserToolbar activeTab={activeBrowserTab} />
@@ -101,11 +97,11 @@ export function TopBar() {
           )}
 
           <div className="topbar-actions">
-            {import.meta.env.DEV && <button className="icon-button" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>}
+            {import.meta.env.DEV && <button className="icon-button reset-action-btn" aria-label="Reset local app data" onClick={() => { setIsResetting(true); resetLocalAppData().catch(console.error).finally(() => setTimeout(() => setIsResetting(false), 800)); }} data-tooltip="Reset local app data\nDevelopment-only destructive reset of Snow Devil's local state."><RefreshCw size={16} className={isResetting ? "icon-spin-cw" : ""} /></button>}
             {mode === 'demo' ? (
               <>
                 <span className="demo-mode-badge">Demo Mode</span>
-                <button className="icon-button" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RotateCcw size={16} className={isResetting ? "icon-spin-ccw" : ""} /></button>
+                <button className="icon-button reset-action-btn" aria-label="Reset demo" data-tooltip="Reset Demo\nRestores deterministic demo fixtures to their initial state." onClick={() => { setIsResetting(true); resetDemo(); setTimeout(() => setIsResetting(false), 800); }}><RefreshCw size={16} className={isResetting ? "icon-spin-cw" : ""} /></button>
                 <button className="icon-button" aria-label="Exit demo" onClick={exitDemo} data-tooltip="Exit Demo\nReturn to the authenticated live workspace."><LogOut size={16} /></button>
               </>
             ) : isAuthenticated && session.status === 'connected' ? (

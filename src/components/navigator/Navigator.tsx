@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useAuthStore } from '../../stores/auth-store';
 import { SIDEBAR_SHORTCUTS } from '../../browser/browser-shortcuts';
-import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, LogOut, PackageSearch, Settings, SlidersHorizontal, Workflow } from 'lucide-react';
+import { Activity, Bell, Bookmark, Boxes, Building2, ChartNoAxesCombined, CircleUserRound, FolderGit2, Gauge, GitPullRequest, Home, Info, LogOut, NotebookPen, PackageSearch, Settings, SlidersHorizontal, Workflow, GitCommit } from 'lucide-react';
 import { openSavedView, useSavedViewsStore } from '../../stores/saved-views-store';
 import { activeNotifications, effectiveUnread, formatNotificationCount, useNotificationStore } from '../../stores/notification-store';
 import './Navigator.css';
 import { useAccountRepositories } from '../../hooks/useAccountContext';
+import { AboutModal } from './AboutModal';
 
 export function Navigator() {
+  const [showAbout, setShowAbout] = useState(false);
   const { session, disconnect } = useAuthStore();
   const { openNativeTab, openBrowserTab, activeTabId, tabs } = useTabsStore();
   const savedViews = useSavedViewsStore(state => state.views);
@@ -84,13 +87,15 @@ export function Navigator() {
   };
 
   const icons: Record<string, React.ReactNode> = {
-    'native:home': <Home size={15} />, 'native:flow': <Workflow size={15} />, 'native:ci-health': <Gauge size={15} />,
-    'native:inventory': <PackageSearch size={15} />, 'native:flow-analytics': <ChartNoAxesCombined size={15} />,
-    'native:personal-focus': <Activity size={15} />, 'native:account-simulator': <SlidersHorizontal size={15} />,
-    'native:repository-simulator': <Boxes size={15} />, 'native:settings': <Settings size={15} />,
-    'github:profile': <CircleUserRound size={15} />, 'github:repositories': <FolderGit2 size={15} />,
-    'github:pull-requests': <GitPullRequest size={15} />, 'github:issues': <PackageSearch size={15} />,
-    'native:notifications': <Bell size={15} />, 'native:organizations': <Building2 size={15} />,
+    'native:home': <Home size={15} className="icon-home" />, 'native:flow': <Workflow size={15} className="icon-flow" />, 'native:ci-health': <Gauge size={15} className="icon-gauge" />,
+    'native:inventory': <PackageSearch size={15} className="icon-package" />, 'native:flow-analytics': <ChartNoAxesCombined size={15} className="icon-chart" />,
+    'native:personal-focus': <Activity size={15} className="icon-activity" />, 'native:account-simulator': <SlidersHorizontal size={15} className="icon-sliders" />,
+    'native:repository-simulator': <Boxes size={15} className="icon-boxes" />, 'native:settings': <Settings size={15} className="icon-settings" />,
+    'native:commit-graph': <GitCommit size={15} className="icon-commit-graph" />,
+    'native:sketch-board': <NotebookPen size={15} className="icon-sketch" />,
+    'github:profile': <CircleUserRound size={15} className="icon-user" />, 'github:repositories': <FolderGit2 size={15} className="icon-folder" />,
+    'github:pull-requests': <GitPullRequest size={15} className="icon-pr" />, 'github:issues': <PackageSearch size={15} className="icon-issues" />,
+    'native:notifications': <Bell size={15} className="icon-bell" />, 'native:organizations': <Building2 size={15} className="icon-building" />,
   };
 
   const navigation = SIDEBAR_SHORTCUTS.filter(shortcut => shortcut.family === 'native' && !['native:notifications', 'native:organizations'].includes(shortcut.tabId));
@@ -111,7 +116,9 @@ export function Navigator() {
       if (unavailableOrganizations) displayCount = '!';
       if (partialOrganizations) displayCount = `${counts.organizations ?? 0}+`;
       return <li key={shortcut.tabId}><button className={`nav-item ${isActive ? 'active' : ''}`} data-tooltip={unavailableOrganizations || partialOrganizations ? session.status === 'connected' ? session.account.organizations?.message : undefined : countKey ? countSemantics[countKey] : `${shortcut.label}\nOpen or activate this Snow Devil workspace.`} onClick={() => handleSelect(shortcut)} aria-current={isActive ? 'page' : undefined}><span className="nav-item__label">{icons[shortcut.tabId]}<span>{shortcut.label}</span></span>{displayCount !== null && <span className="badge">{displayCount}</span>}</button></li>;
-    })}</ul>
+    })}
+    {label === 'Navigation' && <li><button className="nav-item" onClick={() => setShowAbout(true)}><span className="nav-item__label"><Info size={15} className="icon-info" /><span>About</span></span></button></li>}
+    </ul>
   </section>;
 
   return (
@@ -129,6 +136,7 @@ export function Navigator() {
           <button className="navigator-account__action" aria-label="Sign out" data-tooltip="Sign out\nDisconnect GitHub and clear account-scoped runtime state." onClick={() => void disconnect()}><LogOut size={14} /></button>
         </> : <div className="navigator-account__disconnected"><CircleUserRound size={24} /><span><strong>GitHub account</strong><small>{session.status === 'checking' ? 'Checking connection…' : 'Not connected'}</small></span></div>}
       </footer>
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </div>
   );
 }

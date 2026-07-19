@@ -19,7 +19,8 @@ export function useSimulatorPlayback(events: SimulatorEvent[], loadedSince: stri
 
   useEffect(() => {
     setIsPlaying(false);
-    setCursor(current => current >= previousUntilRef.current ? loadedUntil : current < loadedSince ? (options.timeZone ? normalizeHistoryCutoff(loadedSince, loadedUntil, options.timeZone) : loadedSince) : current > loadedUntil ? loadedUntil : current);
+    const prevUntil = previousUntilRef.current;
+    setCursor(current => current >= prevUntil ? loadedUntil : current < loadedSince ? (options.timeZone ? normalizeHistoryCutoff(loadedSince, loadedUntil, options.timeZone) : loadedSince) : current > loadedUntil ? loadedUntil : current);
     previousUntilRef.current = loadedUntil;
   }, [loadedSince, loadedUntil, options.timeZone]);
 

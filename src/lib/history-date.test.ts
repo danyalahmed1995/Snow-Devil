@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calendarDateInTimeZone, cutoffForCalendarDate, endOfCalendarDate, historyCalendarCutoffs, todayCalendarDate } from './history-date';
+import { calendarDateInTimeZone, coerceCalendarDate, cutoffForCalendarDate, endOfCalendarDate, historyCalendarCutoffs, todayCalendarDate } from './history-date';
 
 const ZONE = 'Asia/Karachi';
 
@@ -25,5 +25,12 @@ describe('History business-timezone dates', () => {
       '2026-06-28T18:59:59.999Z',
       '2026-06-29T18:59:59.999Z',
     ]);
+  });
+
+  it('recovers legacy timestamp cursors as date-only values', () => {
+    expect(coerceCalendarDate('2026-07-19T05:46:18Z', ZONE)).toBe('2026-07-19');
+    expect(coerceCalendarDate('2026-07-19T20:30:00Z', ZONE)).toBe('2026-07-20');
+    expect(coerceCalendarDate('2026-07-19', ZONE)).toBe('2026-07-19');
+    expect(coerceCalendarDate('not-a-date', ZONE)).toBeUndefined();
   });
 });

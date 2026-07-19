@@ -28,7 +28,7 @@ describe('tabs-store migration', () => {
     const state = useTabsStore.getState();
     expect(state.tabs.find(t => t.id === 'native:flow')).toBeDefined();
     expect(state.tabs.find(t => t.id === 'native:map')).toBeUndefined();
-    expect(state.activeTabId).toBe('native:flow');
+    expect(state.activeTabId).toBe('native:home');
     
     const flowTab = state.tabs.find(t => t.id === 'native:flow');
     expect(flowTab?.kind).toBe('flow');
