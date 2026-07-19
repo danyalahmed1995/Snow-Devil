@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { CommitCheckSummary, CommitCiState, CommitComparison, CommitGraphDetails, CommitGraphFile, CommitGraphNode, CommitGraphPullRequest } from './types';
+import type { CommitCiState, CommitComparison, CommitGraphDetails, CommitGraphFile, CommitGraphNode, CommitGraphPullRequest } from './types';
 
 interface RestResponse<T> { status: number; body: T; rate_remaining?: number; rate_reset?: number; next_page?: number }
 
@@ -16,15 +16,6 @@ async function rest<T>(endpoint: string): Promise<T> {
   if (response.status >= 400) readableStatus(response.status, response);
   return response.body;
 }
-
-const conclusionState = (conclusion?: string | null, status?: string): CommitCiState => {
-  if (status && status !== 'completed') return 'pending';
-  if (!conclusion) return 'unknown';
-  if (conclusion === 'success' || conclusion === 'neutral') return 'passing';
-  if (conclusion === 'cancelled') return 'cancelled';
-  if (conclusion === 'skipped') return 'skipped';
-  return 'failing';
-};
 
 function rollupState(value?: string | null): CommitCiState {
   if (value === 'SUCCESS') return 'passing';
@@ -108,21 +99,13 @@ interface RestCommit {
 
 function file(value: NonNullable<RestCommit['files']>[number]): CommitGraphFile { return { filename: value.filename, previousFilename: value.previous_filename, status: value.status, additions: value.additions, deletions: value.deletions, changes: value.changes, patch: value.patch }; }
 
-function checksSummary(items: Array<{ name: string; status: string; conclusion?: string | null; details_url?: string }>): CommitCheckSummary {
-  const states = items.map(item => conclusionState(item.conclusion, item.status));
-  return { state: states.includes('failing') ? 'failing' : states.includes('pending') ? 'pending' : states.length && states.every(value => value === 'passing' || value === 'skipped') ? 'passing' : 'unknown', total: items.length, passed: states.filter(value => value === 'passing').length, failed: states.filter(value => value === 'failing').length, pending: states.filter(value => value === 'pending').length, names: items.map(item => item.name), latestRunId: items.map(item => item.details_url?.match(/actions\/runs\/(\d+)/)?.[1]).find(Boolean) };
-}
-
 export async function fetchCommitDetails(repository: string, sha: string): Promise<CommitGraphDetails> {
   const encoded = repository.split('/').map(encodeURIComponent).join('/');
   const commit = await rest<RestCommit>(`/repos/${encoded}/commits/${encodeURIComponent(sha)}`);
   const partialErrors: string[] = [];
-  const [pulls, checks] = await Promise.all([
-    rest<Array<{ number: number; title: string; state: string; merged_at?: string; head: { ref: string }; base: { ref: string } }>>(`/repos/${encoded}/commits/${encodeURIComponent(sha)}/pulls`).catch(() => { partialErrors.push('Pull request association unavailable.'); return []; }),
-    rest<{ check_runs?: Array<{ name: string; status: string; conclusion?: string | null; details_url?: string }> }>(`/repos/${encoded}/commits/${encodeURIComponent(sha)}/check-runs?per_page=100`).catch(() => { partialErrors.push('CI metadata unavailable.'); return { check_runs: [] }; }),
-  ]);
-  const summary = checksSummary(checks.check_runs ?? []);
-  const node: CommitGraphNode = { sha: commit.sha, shortSha: commit.sha.slice(0, 7), message: commit.commit.message.split('\n')[0], author: { name: commit.commit.author?.name ?? commit.author?.login ?? 'Unknown author', login: commit.author?.login, avatarUrl: commit.author?.avatar_url, email: commit.commit.author?.email, date: commit.commit.author?.date ?? '' }, committer: { name: commit.commit.committer?.name ?? commit.committer?.login ?? 'Unknown committer', login: commit.committer?.login, avatarUrl: commit.committer?.avatar_url, email: commit.commit.committer?.email, date: commit.commit.committer?.date ?? '' }, parentShas: commit.parents?.map(parent => parent.sha) ?? [], branchRefs: [], tagRefs: [], ciState: summary.state };
+  const pulls = await rest<Array<{ number: number; title: string; state: string; merged_at?: string; head: { ref: string }; base: { ref: string } }>>(`/repos/${encoded}/commits/${encodeURIComponent(sha)}/pulls`).catch(() => { partialErrors.push('Pull request association unavailable.'); return []; });
+  const summary = { state: 'unknown' as const, total: 0, passed: 0, failed: 0, pending: 0, names: [] };
+  const node: CommitGraphNode = { sha: commit.sha, shortSha: commit.sha.slice(0, 7), message: commit.commit.message.split('\n')[0], author: { name: commit.commit.author?.name ?? commit.author?.login ?? 'Unknown author', login: commit.author?.login, avatarUrl: commit.author?.avatar_url, email: commit.commit.author?.email, date: commit.commit.author?.date ?? '' }, committer: { name: commit.commit.committer?.name ?? commit.committer?.login ?? 'Unknown committer', login: commit.committer?.login, avatarUrl: commit.committer?.avatar_url, email: commit.commit.committer?.email, date: commit.commit.committer?.date ?? '' }, parentShas: commit.parents?.map(parent => parent.sha) ?? [], branchRefs: [], tagRefs: [], ciState: 'unknown' };
   const pr = pulls[0];
   return { node, fullMessage: commit.commit.message, stats: commit.stats ?? { additions: 0, deletions: 0, total: 0 }, files: commit.files?.map(file) ?? [], verification: commit.commit.verification, pullRequest: pr ? { number: pr.number, title: pr.title, state: pr.state, mergedAt: pr.merged_at, headRef: pr.head.ref, baseRef: pr.base.ref } : undefined, checks: summary, partialErrors };
 }

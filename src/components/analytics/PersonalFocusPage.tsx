@@ -15,6 +15,7 @@ import { Select } from '../ui/Select';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { distinctReason, partitionCanonicalResponsibilities } from '../../analytics/personal-focus';
 import { useTabsStore } from '../../stores/tabs-store';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 
 type Involvement = 'direct' | 'authored' | 'assigned' | 'review_requested' | 'mentioned' | 'participating';
 type ActorFilter = 'humans' | 'include_bots' | 'bots';
@@ -43,6 +44,7 @@ export function PersonalFocusPage() {
   const dataset = analytics.data;
   const currentUser = mode === 'demo' ? 'snowdevil-demo' : session.status === 'connected' ? session.account.login : '';
   const [repositoryId, setRepositoryId] = useState('all');
+  useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
   const [involvement, setInvolvement] = useState<Involvement>('direct');
   const [actor, setActor] = useState<ActorFilter>('humans');
   const [windowChoice, setWindowChoice] = useState('30');

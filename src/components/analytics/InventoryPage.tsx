@@ -7,6 +7,7 @@ import { DELIVERY_RISK_HIDDEN_REASON_LABELS, deliveryRiskHiddenBreakdown, delive
 import type { DeliveryRiskCategory, DeliveryRiskSavedView, DeliveryRiskSort, DeliveryRiskViewState, InventoryItem } from '../../analytics/types';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
 import { useAnalyticsSync } from '../../hooks/useAnalyticsSync';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useFlowStore } from '../../stores/flow-store';
 import { useTabsStore } from '../../stores/tabs-store';
@@ -65,6 +66,7 @@ export function InventoryPage() {
   const [limit, setLimit] = useState(100);
   const [refreshing, setRefreshing] = useState(false);
   const [announcement, setAnnouncement] = useState('');
+  useCIRepositoryWatch(view.repositoryId === 'all' ? undefined : view.repositoryId, isActive);
   const deferredSearch = useDeferredValue(view.search);
   const setView = (update: Partial<DeliveryRiskViewState>) => { setViewState(current => ({ ...current, ...update })); setLimit(100); };
   const selectedSavedView = deliveryRiskViewById(savedViewId, settings.deliveryRiskSavedViews);

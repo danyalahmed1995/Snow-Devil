@@ -4,6 +4,7 @@ import { formatDurationHours, percentile } from '../../analytics/math';
 import { integrationStreak, overallCiStatus, repositoryHealth } from '../../analytics/selectors';
 import type { AnalyticsSettings, RepositoryHealth } from '../../analytics/types';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useFlowStore } from '../../stores/flow-store';
 import { AnalyticsPage, AnalyticsState, EmptyState, MetricCard, MetricGrid, RefreshButton, SectionCard, StatusPill, useAnalyticsTabRefresh } from './AnalyticsShared';
@@ -30,6 +31,7 @@ export function CIHealthPage() {
   const setTabState = useFlowStore(state => state.setTabState);
   const selectedId = useFlowStore(state => state.getTabState(activeTabId).selectedAnalyticsEntity?.id);
   const [repositoryId, setRepositoryId] = useState('all');
+  useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
   const [rangeChoice, setRangeChoice] = useState('30');
   const [customStart, setCustomStart] = useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10));
   const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));

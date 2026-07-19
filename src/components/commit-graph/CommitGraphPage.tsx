@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowDown, Boxes, CheckCircle2, ChevronDown, CircleDot, Clock3, ExternalLink, FileCode2, Filter, GitBranch, GitCommit, GitCompareArrows, GitPullRequest, Network, RefreshCw, Search, ShieldAlert, UserRound, XCircle } from 'lucide-react';
 import { useModeStore } from '../../stores/mode-store';
@@ -15,6 +15,9 @@ import { demoCommitDetails, demoCommitHistory, fetchCommitDetails, fetchCommitHi
 import type { CommitCiState, CommitGraphDetails, CommitGraphFile, CommitGraphNode } from '../../commit-graph/types';
 import { demoBranches } from '../../repository/demo-repository';
 import { useForegroundAutoRefresh } from '../../commit-graph/useForegroundAutoRefresh';
+import { indexCommitCiSummaries } from '../../commit-graph/ci-status';
+import { useAnalyticsData } from '../../hooks/useAnalyticsData';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 import './CommitGraphPage.css';
 import './CommitGraphAutoRefresh.css';
 
@@ -86,14 +89,20 @@ export function CommitGraphPage() {
   const branch = view.branch ?? '';
   const scope = `${repositoryName.toLowerCase()}@${branch}`;
   const history = useInfiniteQuery({ queryKey: ['commit-graph', 'history', repositoryName.toLowerCase(), branch, view.filters.filePath], enabled: loaded && Boolean(repositoryName && branch), initialPageParam: undefined as string | undefined, queryFn: ({ pageParam }) => mode === 'demo' ? demoCommitHistory(branch, view.filters.filePath) : fetchCommitHistory(repositoryName, branch, pageParam, view.filters.filePath), getNextPageParam: page => page.hasMore ? page.cursor : undefined, staleTime: 5 * 60 * 1000, maxPages: 8 });
-  useForegroundAutoRefresh(loaded && Boolean(repositoryName && branch), () => history.refetch({ cancelRefetch: false }));
+  const analytics = useAnalyticsData({ enabled: loaded });
+  useCIRepositoryWatch(repositoryName, loaded && mode === 'live');
+  const refreshGraph = useCallback(async () => {
+    await Promise.all([history.refetch({ cancelRefetch: false }), analytics.refetch()]);
+  }, [analytics, history]);
+  useForegroundAutoRefresh(loaded && Boolean(repositoryName && branch), refreshGraph);
   const tags = useQuery({ queryKey: ['commit-graph', 'tags', repositoryName.toLowerCase()], enabled: loaded && mode === 'live' && Boolean(repositoryName), queryFn: () => fetchTagRefs(repositoryName), staleTime: 10 * 60 * 1000 });
   const rawNodes = useMemo(() => history.data?.pages.flatMap(page => page.nodes) ?? [], [history.data]);
-  const nodes = useMemo(() => rawNodes.map(node => ({ ...node, branchRefs: [...new Set([...node.branchRefs, ...branches.filter(item => item.commit.sha === node.sha).map(item => item.name)])], tagRefs: [...new Set([...node.tagRefs, ...(tags.data ?? []).filter(tag => tag.sha === node.sha).map(tag => tag.name)])] })), [branches, rawNodes, tags.data]);
+  const ciSummaries = useMemo(() => indexCommitCiSummaries(analytics.data?.rawWorkflowRuns ?? [], repositoryName), [analytics.data?.rawWorkflowRuns, repositoryName]);
+  const nodes = useMemo(() => rawNodes.map(node => { const summary = mode === 'live' ? ciSummaries.get(node.sha.toLowerCase()) : undefined; return { ...node, ciState: summary?.state ?? node.ciState, branchRefs: [...new Set([...node.branchRefs, ...branches.filter(item => item.commit.sha === node.sha).map(item => item.name)])], tagRefs: [...new Set([...node.tagRefs, ...(tags.data ?? []).filter(tag => tag.sha === node.sha).map(tag => tag.name)])] }; }), [branches, ciSummaries, mode, rawNodes, tags.data]);
   const filtered = useMemo(() => filterCommitNodes(nodes, view.filters).filter(node => !view.filters.pullRequestsOnly || node.pullRequest), [nodes, view.filters]);
   const topology = useMemo(() => calculateCommitTopology(filtered), [filtered]);
   const selected = filtered.find(node => node.sha === view.selectedSha) ?? filtered[0];
-  const details = useQuery({ queryKey: ['commit-graph', 'details', repositoryName.toLowerCase(), selected?.sha], enabled: Boolean(loaded && repositoryName && selected?.sha), queryFn: () => mode === 'demo' ? demoCommitDetails(selected!.sha) : fetchCommitDetails(repositoryName, selected!.sha), staleTime: 10 * 60 * 1000 });
+  const details = useQuery({ queryKey: ['commit-graph', 'details', repositoryName.toLowerCase(), selected?.sha], enabled: Boolean(loaded && repositoryName && selected?.sha), queryFn: () => mode === 'demo' ? demoCommitDetails(selected!.sha) : fetchCommitDetails(repositoryName, selected!.sha), select: value => { const summary = mode === 'live' && selected ? ciSummaries.get(selected.sha.toLowerCase()) : undefined; return summary ? { ...value, node: { ...value.node, ciState: summary.state }, checks: summary } : value; }, staleTime: 10 * 60 * 1000 });
   const start = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const end = Math.min(filtered.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + OVERSCAN);
 
@@ -105,7 +114,7 @@ export function CommitGraphPage() {
 
   const chooseRepository = (value: { id: string; nameWithOwner: string }) => { if (scope) saveScope(scope, { selectedSha: view.selectedSha, scrollTop }); const configured = mode === 'demo' ? 'main' : repositories.data?.find(item => item.id === value.id || item.nameWithOwner === value.nameWithOwner)?.defaultBranch ?? undefined; setLoaded(false); setSelectedFile(undefined); patch({ repository: value, branch: configured, selectedSha: undefined, compareBaseSha: undefined, scrollTop: 0 }); setScrollTop(0); };
   const chooseBranch = (value: string) => { if (scope) saveScope(scope, { selectedSha: view.selectedSha, scrollTop }); setLoaded(false); setSelectedFile(undefined); patch({ branch: value, selectedSha: undefined, compareBaseSha: undefined, scrollTop: 0 }); setScrollTop(0); };
-  const load = () => { if (repo && branch) { setLoaded(true); void history.refetch(); } };
+  const load = () => { if (repo && branch) { setLoaded(true); void refreshGraph(); } };
   const onScroll = (event: React.UIEvent<HTMLDivElement>) => { const top = event.currentTarget.scrollTop; setScrollTop(top); setViewportHeight(event.currentTarget.clientHeight); patch({ scrollTop: top }); saveScope(scope, { selectedSha: view.selectedSha, scrollTop: top }); if (top + event.currentTarget.clientHeight >= event.currentTarget.scrollHeight - ROW_HEIGHT * 5 && history.hasNextPage && !history.isFetchingNextPage) void history.fetchNextPage(); };
   const select = (node: CommitGraphNode) => { setSelectedFile(undefined); patch({ selectedSha: node.sha }); saveScope(scope, { selectedSha: node.sha, scrollTop }); if (view.compareBaseSha && view.compareBaseSha !== node.sha) useTabsStore.getState().openNativeTab(`native:compare:${repositoryName}:${view.compareBaseSha}:${node.sha}`, 'commitCompare', `Compare ${view.compareBaseSha.slice(0, 7)}…${node.shortSha}`, false, true, { type: 'commitCompare', repository: repositoryName, baseSha: view.compareBaseSha, targetSha: node.sha }); };
   const openCommit = (node: CommitGraphNode) => useTabsStore.getState().openNativeTab(`native:commit:${repositoryName}:${node.sha}`, 'commitDiff', `Commit ${node.shortSha}`, false, true, { type: 'commit', repository: repositoryName, sha: node.sha, branch, source: 'commitGraph' });

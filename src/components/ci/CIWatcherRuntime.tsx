@@ -1,10 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo } from 'react';
-import { ciPollingInterval, ciRetryDelay, isWorkflowRunsPage, normalizeWorkflowRuns, type CIWorkflowRun } from '../../ci/ci-watcher';
+import { ciPollingInterval, ciRetryDelay, isWorkflowRunsPage, normalizeWorkflowRuns, workflowSnapshotChanged, type CIWorkflowRun } from '../../ci/ci-watcher';
+import { persistWorkflowRunSnapshots } from '../../analytics/sync';
 import { useAccountRepositories } from '../../hooks/useAccountContext';
 import { useAuthStore } from '../../stores/auth-store';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
 import { useModeStore } from '../../stores/mode-store';
+import { useTabsStore } from '../../stores/tabs-store';
+import { useCommitGraphStore } from '../../stores/commit-graph-store';
 
 interface AnalyticsApiResponse { status: number; body: unknown; rate_remaining?: number; rate_reset?: number }
 
@@ -22,9 +25,12 @@ export function CIWatcherRuntime() {
   const mode = useModeStore(state => state.mode);
   const repositories = useAccountRepositories();
   const subscriptions = useCIWatcherStore(state => state.subscriptions);
+  const tabs = useTabsStore(state => state.tabs);
+  const commitGraphRepository = useCommitGraphStore(state => state.view.repository?.nameWithOwner);
   const account = mode === 'demo' ? 'demo' : session.status === 'connected' ? session.account.login : undefined;
   const recentRepositories = useMemo(() => repositories.data?.filter(repository => !repository.isArchived).slice(0, 8).map(repository => repository.nameWithOwner.toLowerCase()) ?? [], [repositories.data]);
-  const repositoryKey = [...new Set([...recentRepositories, ...Object.keys(subscriptions)])].slice(0, 12).sort().join('|');
+  const tabRepositories = useMemo(() => tabs.flatMap(tab => tab.family === 'native' && tab.context && 'repository' in tab.context && typeof tab.context.repository === 'string' ? [tab.context.repository.toLowerCase()] : []), [tabs]);
+  const repositoryKey = [...new Set([...Object.keys(subscriptions), ...tabRepositories, ...(commitGraphRepository ? [commitGraphRepository.toLowerCase()] : []), ...recentRepositories])].slice(0, 12).sort().join('|');
 
   useEffect(() => {
     const store = useCIWatcherStore.getState();
@@ -46,6 +52,7 @@ export function CIWatcherRuntime() {
     const schedule = (delay: number) => { if (!disposed) { if (timer !== undefined) window.clearTimeout(timer); timer = window.setTimeout(() => void poll(), delay); } };
     const poll = async () => {
       if (disposed || inFlight) return;
+      if (document.visibilityState !== 'visible') return;
       if (navigator.onLine === false) {
         repositoryIds.forEach(repository => store.setRepositoryStatus(repository, 'offline', 'Waiting for connectivity'));
         schedule(180_000);
@@ -53,6 +60,7 @@ export function CIWatcherRuntime() {
       }
       inFlight = true;
       const allRuns: CIWorkflowRun[] = [];
+      const changedSnapshots: Array<{ repository: string; body: unknown }> = [];
       try {
         let retryRequired = false;
         for (let index = 0; index < repositoryIds.length && !disposed; index += 4) {
@@ -74,12 +82,22 @@ export function CIWatcherRuntime() {
                 retryRequired = true;
                 continue;
               }
+              const previous = useCIWatcherStore.getState().runsByRepository[repository] ?? [];
+              if (workflowSnapshotChanged(previous, runs)) changedSnapshots.push({ repository, body: response.body });
               allRuns.push(...runs);
               store.setRuns(repository, runs);
             } else if (response.status === 403) store.setRepositoryStatus(repository, 'permission_denied', 'Actions data is unavailable with the current authorization');
             else if (response.status === 404) store.setRepositoryStatus(repository, 'unavailable', 'Actions are disabled or unavailable');
             else if (response.status === 429 || response.rate_remaining === 0) { retryRequired = true; store.setRepositoryStatus(repository, 'rate_limited', 'GitHub Actions polling is rate limited'); }
             else { retryRequired = true; store.setRepositoryStatus(repository, 'error', 'Workflow runs could not be refreshed'); }
+          }
+        }
+        if (changedSnapshots.length > 0) {
+          try {
+            await persistWorkflowRunSnapshots(account, changedSnapshots);
+          } catch {
+            retryRequired = true;
+            changedSnapshots.forEach(snapshot => store.setRepositoryStatus(snapshot.repository, 'error', 'CI snapshot is visible, but the shared analytics cache could not be refreshed'));
           }
         }
         if (retryRequired) {
@@ -98,9 +116,10 @@ export function CIWatcherRuntime() {
     const refresh = () => { if (timer !== undefined) window.clearTimeout(timer); void poll(); };
     window.addEventListener('focus', refresh);
     window.addEventListener('online', refresh);
+    document.addEventListener('visibilitychange', refresh);
     window.addEventListener('snow-devil:ci-refresh', refresh);
     schedule(0);
-    return () => { disposed = true; if (timer !== undefined) window.clearTimeout(timer); window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh); window.removeEventListener('snow-devil:ci-refresh', refresh); };
+    return () => { disposed = true; if (timer !== undefined) window.clearTimeout(timer); window.removeEventListener('focus', refresh); window.removeEventListener('online', refresh); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('snow-devil:ci-refresh', refresh); };
   }, [account, mode, repositoryKey, session.status]);
   return null;
 }

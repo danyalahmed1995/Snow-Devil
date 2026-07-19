@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_ANALYTICS_SETTINGS } from '../stores/analytics-settings-store';
-import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, shouldPublishAnalyticsBatch, startAnalyticsSync, syncPriorityCIRepositories, type AnalyticsSyncState } from './sync';
+import { analyticsSettingsFingerprint, cancelAnalyticsSync, coverageFor, persistWorkflowRunSnapshots, shouldPublishAnalyticsBatch, startAnalyticsSync, syncPriorityCIRepositories, type AnalyticsSyncState } from './sync';
 
 const invoke = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/api/core', () => ({ invoke }));
@@ -35,6 +35,14 @@ describe('connected analytics synchronization', () => {
     expect(endpoints).toHaveLength(3);
     expect(endpoints.every(endpoint => endpoint.includes('/actions/runs?per_page=100&page=1'))).toBe(true);
     expect(endpoints.every(endpoint => !endpoint.includes('/issues') && !endpoint.includes('/pulls'))).toBe(true);
+  });
+
+  it('publishes global watcher snapshots through the canonical analytics records', async () => {
+    invoke.mockResolvedValue(undefined);
+    const count = await persistWorkflowRunSnapshots('octo', [{ repository: 'octo/app', body: { workflow_runs: [{ id: 42, status: 'completed', conclusion: 'success', updated_at: '2026-07-19T10:00:00Z', repository: { id: 7 } }] } }]);
+    expect(count).toBe(1);
+    const write = invoke.mock.calls.find(([command]) => command === 'save_analytics_records');
+    expect(write?.[1].records).toEqual([expect.objectContaining({ account_login: 'octo', repository_id: 'octo/app', source_type: 'workflow_run', source_id: '7:42' })]);
   });
 
   it('runs staged first sync, paginates, chunks records, and completes idempotently', async () => {

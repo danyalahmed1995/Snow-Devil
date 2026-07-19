@@ -109,6 +109,16 @@ async function publishAnalyticsRecords(account: string) {
   }
 }
 
+/** Persists snapshots fetched by the global CI watcher into the canonical analytics cache. */
+export async function persistWorkflowRunSnapshots(account: string, snapshots: Array<{ repository: string; body: unknown }>): Promise<number> {
+  const records = snapshots.flatMap(snapshot => array(snapshot.body).map(item => record(account, snapshot.repository, 'workflow_run', item)));
+  if (records.length === 0) return 0;
+  await saveRecords(records);
+  for (const snapshot of snapshots) localStorage.setItem(`ci-freshness-${snapshot.repository}`, new Date().toISOString());
+  await publishAnalyticsRecords(account);
+  return records.length;
+}
+
 async function paged(account: string, repo: string, type: string, endpoint: (page: number) => string, boundary: string, maxPages = 10, boundedByHistory = true): Promise<{ count: number; unsupported: boolean; rate?: object }> {
   let page = 1; let pagesFetched = 0; let count = 0; let unsupported = false; let rate: object | undefined;
   const visited = new Set<number>();

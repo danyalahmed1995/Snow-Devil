@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ciPollingInterval, ciRetryDelay, ciRunTransitions, isWorkflowRunsPage, normalizeWorkflowRuns } from './ci-watcher';
+import { ciPollingInterval, ciRetryDelay, ciRunTransitions, isWorkflowRunsPage, normalizeWorkflowRuns, workflowSnapshotChanged } from './ci-watcher';
 
 const body = (repository: string, status = 'completed', conclusion: string | null = 'success') => ({ workflow_runs: [{ id: 2, name: `${repository} CI`, run_number: 7, status, conclusion, created_at: '2026-06-01T00:00:00Z', updated_at: '2026-06-01T00:01:00Z', html_url: `https://github.com/${repository}/actions/runs/2`, run_attempt: 1 }] });
 
@@ -22,6 +22,8 @@ describe('CI Watcher normalization', () => {
     expect(ciPollingInterval(normalizeWorkflowRuns('octo/app', body('octo/app')))).toBe(180_000);
     expect(ciRunTransitions(queued, running)).toHaveLength(1);
     expect(ciRunTransitions(running, running)).toHaveLength(0);
+    expect(workflowSnapshotChanged(queued, running)).toBe(true);
+    expect(workflowSnapshotChanged(running, running)).toBe(false);
   });
   it('backs off repeated retryable failures with a bounded delay', () => {
     expect(ciRetryDelay(0)).toBe(60_000);

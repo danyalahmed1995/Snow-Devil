@@ -3,6 +3,7 @@ import { cumulativeFlow, includedRepositories, leadTimeSamples, throughputBucket
 import { detectOutliers, formatDurationHours, percentile } from '../../analytics/math';
 import type { AnalyticsInspectable, LeadTimeMetric } from '../../analytics/types';
 import { useAnalyticsData } from '../../hooks/useAnalyticsData';
+import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { useFlowStore } from '../../stores/flow-store';
@@ -119,6 +120,7 @@ export function FlowAnalyticsPage() {
   const setTabState = useFlowStore(state => state.setTabState);
   const [tab, setTab] = useState<AnalyticsTab>('cumulative');
   const [repositoryId, setRepositoryId] = useState('all');
+  useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
   const [scopeMode, setScopeMode] = useState<RepositoryScope>('maintained');
   const [rangeChoice, setRangeChoice] = useState(String(settings.defaultRangeDays));
   const [customStart, setCustomStart] = useState(() => new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10));
