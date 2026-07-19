@@ -43,6 +43,19 @@ export function defaultHistoryView(mode: 'account' | 'repository'): HistoryViewS
   };
 }
 
+const HISTORY_ACTOR_FILTERS = new Set(['humans', 'everyone', 'bots']);
+
+export function normalizeHistoryFilters(filters: HistoryFiltersState, mode: 'account' | 'repository'): HistoryFiltersState {
+  if (HISTORY_ACTOR_FILTERS.has(filters.actor)) return filters;
+  const defaults = defaultHistoryView(mode).filters;
+  return {
+    ...filters,
+    repository: mode === 'account' ? 'all' : filters.repository,
+    actor: defaults.actor,
+    includeBots: defaults.includeBots,
+  };
+}
+
 interface HistoryViewStore {
   states: Record<string, HistoryViewState>;
   patch: (tabId: string, mode: 'account' | 'repository', value: Partial<HistoryViewState>) => void;

@@ -29,6 +29,16 @@ export function historyFilterConflicts(entity: SimulatorEntityState, filters: Hi
   return [...new Set(conflicts)];
 }
 
+export function eventMatchesHistoryFilters(event: SimulatorEvent, filters: HistoryFiltersState, mode: 'account' | 'repository'): boolean {
+  if (mode === 'account' && filters.repository !== 'all' && event.repositoryId.toLowerCase() !== filters.repository.toLowerCase()) return false;
+  if (filters.entityType !== 'all' && event.subjectType !== filters.entityType) return false;
+  if (filters.confidence !== 'all' && event.sourceCompleteness !== filters.confidence) return false;
+  const bot = ['dependabot', 'renovate', 'other_bot'].includes(classifyActor(event.actor?.login));
+  if (!filters.includeBots && bot || filters.actor === 'humans' && bot || filters.actor === 'bots' && !bot) return false;
+  if (mode === 'account' && filters.involvement !== 'all' && !event.inclusionReason?.includes(filters.involvement)) return false;
+  return true;
+}
+
 export function entityMatchesHistorySearch(entity: SimulatorEntityState, query: string): boolean {
   return `${entity.title} ${entity.repositoryId} ${entity.number ?? ''}`.toLowerCase().includes(query.trim().toLowerCase());
 }

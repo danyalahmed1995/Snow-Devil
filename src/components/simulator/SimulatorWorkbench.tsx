@@ -15,17 +15,17 @@ import { Select } from '../ui/Select';
 import { classifyActor } from '../../lib/delivery-semantics';
 import { safeSimulatorExplanation, safeSimulatorTitle } from '../../simulator/simulator-errors';
 import { useTabRefresh } from '../../hooks/useTabRefresh';
-import { buildHistoricalSnapshot, nextMeaningfulDate, previousMeaningfulDate } from '../../simulator/history-snapshot';
+import { buildHistoricalSnapshot, cumulativeProgress, nextMeaningfulDate, previousMeaningfulDate } from '../../simulator/history-snapshot';
 import type { SimulatorEntityState } from '../../simulator/simulator-types';
 import './SimulatorWorkbench.css';
 import './HistoryWorkbench.css';
 import { useCurrentTabId } from '../workspace/TabInstanceContext';
 import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
-import { defaultHistoryView, useHistoryViewStore } from '../../stores/history-view-store';
+import { defaultHistoryView, normalizeHistoryFilters, useHistoryViewStore } from '../../stores/history-view-store';
 import { addCalendarDays, calendarDateInTimeZone, coerceCalendarDate, cutoffForCalendarDate, endOfCalendarDate, formatHistoryCutoff, startOfCalendarDate, todayCalendarDate } from '../../lib/history-date';
 import { summarizeHistoryStatus } from '../../simulator/history-status';
 import { loadingMotionClass } from '../../lib/data-state';
-import { entityMatchesHistorySearch, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
+import { entityMatchesHistorySearch, eventMatchesHistoryFilters, historyFilterConflicts, resolveHistoryNavigationTarget } from '../../simulator/history-navigation';
 import { formatEntityTitle } from '../../simulator/simulator-presentation';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
 import type { CIWorkflowRun } from '../../ci/ci-watcher';
@@ -98,7 +98,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const showCoverage = view.showSourceDetails;
   const showAnimation = view.showAnimation;
   const customRange = view.customRange;
-  const filters = view.filters;
+  const filters = normalizeHistoryFilters(view.filters, mode);
   const sourceDisclosureRef = useRef<HTMLButtonElement>(null);
   const sourcePanelRef = useRef<HTMLDivElement>(null);
   const historyCanvasRef = useRef<HTMLDivElement>(null);
@@ -136,7 +136,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const latestById = useMemo(() => new Map(latestSnapshot.entities.map(entity => [entity.id, entity])), [latestSnapshot.entities]);
 
   const filteredEntities = useMemo(() => snapshot.entities.filter(entity => {
-    if (mode === 'account' && filters.repository !== 'all' && entity.repositoryId !== filters.repository) return false;
+    if (mode === 'account' && filters.repository !== 'all' && entity.repositoryId.toLowerCase() !== filters.repository.toLowerCase()) return false;
     if (filters.entityType !== 'all' && entity.subjectType !== filters.entityType) return false;
     if (filters.confidence !== 'all' && entity.sourceCompleteness !== filters.confidence) return false;
     const actorType = classifyActor(entity.author?.login);
@@ -147,7 +147,8 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   }), [filters, mode, snapshot.entities]);
   const activeEntities = filteredEntities.filter(entity => entity.subjectType !== 'workflow_run' && !isCompleted(entity));
   const completedEntities = filteredEntities.filter(entity => entity.subjectType !== 'workflow_run' && isCompleted(entity));
-  const evidenceRepositories = useMemo(() => new Set(snapshot.events.map(event => event.repositoryId.toLowerCase())), [snapshot.events]);
+  const filteredHistoryEvents = useMemo(() => snapshot.events.filter(event => eventMatchesHistoryFilters(event, filters, mode)), [filters, mode, snapshot.events]);
+  const evidenceRepositories = useMemo(() => new Set(filteredHistoryEvents.map(event => event.repositoryId.toLowerCase())), [filteredHistoryEvents]);
   const ciEntities = useMemo(() => {
     const historical = filteredEntities.filter(entity => entity.subjectType === 'workflow_run');
     const live = Object.values(ciRunsByRepository).flat().filter(run => run.updatedAt <= snapshot.selectedDate
@@ -158,7 +159,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
   const visibleIds = useMemo(() => new Set(filteredEntities.map(entity => entity.id)), [filteredEntities]);
   const selectableEntities = useMemo(() => [...snapshot.entities, ...ciEntities], [ciEntities, snapshot.entities]);
   const selectableIds = useMemo(() => new Set([...visibleIds, ...ciEntities.map(entity => entity.id)]), [ciEntities, visibleIds]);
-  const visibleEvents = snapshot.events;
+  const visibleEvents = filteredHistoryEvents;
   const repositoryOptions = useMemo(() => [...new Set(events.map(event => event.repositoryId))].sort(), [events]);
   const historyStatus = summarizeHistoryStatus(loadState, details);
   const incompleteSourceCount = historyStatus.partial + historyStatus.failed + historyStatus.unsupported + historyStatus.skipped;
@@ -430,7 +431,7 @@ export function SimulatorWorkbench({ mode }: { mode: HistoryMode }) {
     if (loadState === 'loading_initial' || loadState === 'idle') return <HistoryLoadingState reducedMotion={reducedMotion}/>;
     if (events.length === 0) return <div className="simulator-load-state"><div><h3>No recorded history</h3><p>No qualifying GitHub evidence was found in the selected range.</p></div></div>;
 
-    const progress = snapshot.progress;
+    const progress = cumulativeProgress(filteredHistoryEvents);
     const selectedDate = calendarDateInTimeZone(snapshot.selectedDate, timeZone);
     const selectedRepoCount = mode === 'repository' ? 1 : progress.repositoriesContributedTo;
     return <div ref={historyCanvasRef} className="history-canvas">

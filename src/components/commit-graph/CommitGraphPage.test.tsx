@@ -66,5 +66,8 @@ describe('Commit Graph workspace', () => {
     const accountHistory = useHistoryViewStore.getState().states['native:account-simulator'];
     expect(accountHistory?.selectedCalendarDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(accountHistory?.filters.entityType).toBe('all');
+    expect(accountHistory?.filters.repository).toBe('all');
+    expect(accountHistory?.filters.actor).toBe('humans');
+    expect(accountHistory?.filters.includeBots).toBe(false);
   });
 });
