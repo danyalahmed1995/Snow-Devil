@@ -65,7 +65,7 @@ GitHub access is read-only. When GitHub does not provide enough data, Snow Devil
     <td width="50%"><strong>Repository explorer</strong><br><img src="assets/snow-devil-demo/Repo%20View%207.gif" alt="Snow Devil repository explorer"></td>
     <td width="50%"><strong>Commit graph and diff</strong><br><img src="assets/snow-devil-demo/commit%20graph%20and%20diff%208.gif" alt="Snow Devil commit graph and diff"></td>
   </tr>
-</table>diff"></td>
+</table></td>
   </tr>
 </table>
 

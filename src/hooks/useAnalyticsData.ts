@@ -195,27 +195,51 @@ export function useAnalyticsData(options: { enabled?: boolean } = {}) {
       const eventMap = new Map<string, SimulatorEvent>();
       const allEvents = [...rows.map(normalizeEvent).filter((event): event is SimulatorEvent => event !== null), ...syncedEvents];
 
+      const runIdMap = new Map<string, SimulatorEvent>();
+
       for (const event of allEvents) {
         let key = event.id;
-        if (event.subjectType === 'workflow_run' && !key.startsWith('workflow_run:')) {
-            const runId = (event.metadata as any)?.runId;
+        let globalRunId: string | undefined;
+
+        if (event.subjectType === 'workflow_run') {
+            const runId = (event.metadata as any)?.runId ?? event.subjectId;
             if (runId) {
+                globalRunId = String(runId);
                 const numericId = (event.metadata as any)?.repositoryNumericId;
                 key = `workflow_run:${getCanonicalWorkflowRunId(numericId, event.repositoryName, runId)}`;
                 event.id = key;
             }
         }
         
-        if (eventMap.has(key)) {
-            const existing = eventMap.get(key)!;
+        let existing = eventMap.get(key);
+        if (!existing && globalRunId) {
+             existing = runIdMap.get(globalRunId);
+             if (existing) {
+                 // If we found it by globalRunId but under a different key (e.g. missing numeric ID in legacy event),
+                 // we should remove the old key to prevent duplication, and promote it to the new canonical key if it has one.
+                 eventMap.delete(existing.id);
+                 if ((event.metadata as any)?.repositoryNumericId && !(existing.metadata as any)?.repositoryNumericId) {
+                     // The new event has a numeric ID, so we'll use its key
+                 } else {
+                     key = existing.id; // Fallback to the existing key
+                 }
+             }
+        }
+
+        if (existing) {
             // Retain most recent updated_at/occurredAt and merge metadata
             if (new Date(event.occurredAt).getTime() >= new Date(existing.occurredAt).getTime()) {
-                eventMap.set(key, { ...existing, ...event, metadata: { ...existing.metadata, ...event.metadata } });
+                const merged = { ...existing, ...event, metadata: { ...existing.metadata, ...event.metadata } };
+                eventMap.set(key, merged);
+                if (globalRunId) runIdMap.set(globalRunId, merged);
             } else {
-                eventMap.set(key, { ...event, ...existing, metadata: { ...event.metadata, ...existing.metadata } });
+                const merged = { ...event, ...existing, metadata: { ...event.metadata, ...existing.metadata } };
+                eventMap.set(key, merged);
+                if (globalRunId) runIdMap.set(globalRunId, merged);
             }
         } else {
             eventMap.set(key, event);
+            if (globalRunId) runIdMap.set(globalRunId, event);
         }
       }
       const repositoryMap = new Map([...repositories, ...syncedRepositories].map(repository => [repository.id, repository]));

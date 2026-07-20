@@ -15,7 +15,8 @@
         "label": "main",
         "title": "Snow Devil",
         "width": 1280,
-        "height": 800
+        "height": 800,
+        "backgroundColor": [4, 9, 18, 255]
       }
     ],
     "security": {
