@@ -11,6 +11,8 @@ import { CIRunRow, formatDurationCompact } from './CIRunRow';
 import { useTabsStore } from '../../stores/tabs-store';
 import { useCIRepositoryWatch } from '../../hooks/useCIRepositoryWatch';
 import { useCIWatcherStore } from '../../stores/ci-watcher-store';
+import { useAnalyticsSettingsStore } from '../../stores/analytics-settings-store';
+import { includedRepositories } from '../../analytics/selectors';
 
 export function recentDistinctCIRepositories(runs: Array<{ repositoryId: string }>, limit = 3): string[] {
   const repositories = new Map<string, string>();
@@ -45,12 +47,21 @@ export function CIActivityPage() {
   const watcherRepositoryState = useCIWatcherStore(state => state.repositoryState);
   useCIRepositoryWatch(repositoryId === 'all' ? undefined : repositoryId, isActive);
 
+  const settings = useAnalyticsSettingsStore(state => state.settings);
   const dataset = analytics.data;
 
-  // Filter out workflow runs and sort them correctly
+  const includedRepos = useMemo(() => {
+    if (!dataset) return new Set<string>();
+    return new Set(includedRepositories(dataset, settings).map(r => r.id));
+  }, [dataset, settings]);
+
+  // Filter out workflow runs, ensure they are in included repositories, and sort them correctly
   const allRuns = useMemo(() => {
     if (!dataset) return [];
-    return dataset.rawWorkflowRuns.slice().sort((a, b) => {
+    return dataset.rawWorkflowRuns
+      .filter(r => includedRepos.has(r.repositoryId))
+      .slice()
+      .sort((a, b) => {
       const timeA = new Date(a.occurredAt).getTime();
       const timeB = new Date(b.occurredAt).getTime();
       if (timeA !== timeB) return timeB - timeA;
@@ -63,8 +74,9 @@ export function CIActivityPage() {
   // Extract unique filter options based on repository (if selected)
   const reposForFilter = useMemo(() => {
     if (!dataset) return [];
-    return repositoriesWithWorkflowRuns(dataset.repositories, allRuns).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
-  }, [dataset, allRuns]);
+    const validRepos = dataset.repositories.filter(r => includedRepos.has(r.id));
+    return repositoriesWithWorkflowRuns(validRepos, allRuns).sort((a, b) => a.nameWithOwner.localeCompare(b.nameWithOwner));
+  }, [dataset, allRuns, includedRepos]);
 
   const getFilterRepo = useCallback(() => repositoryId === 'all' ? null : reposForFilter.find(r => r.id === repositoryId), [repositoryId, reposForFilter]);
 

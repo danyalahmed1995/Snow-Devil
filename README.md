@@ -14,6 +14,32 @@ Snow Devil is a Windows desktop app for keeping track of work in GitHub. It brin
 
 GitHub data is not always complete. Snow Devil marks results as partial, inferred, stale, unsupported, or unavailable when that is the honest answer.
 
+## Examples
+
+### Onboarding
+![Onboarding](public/snow-devil-demo/Onboarding%201.gif)
+
+### Home Screen
+![Home Screen](public/snow-devil-demo/Home%202.gif)
+
+### Current Flow Board
+![Current Flow Board](public/snow-devil-demo/Flow%203.gif)
+
+### CI Activity Page
+![CI Activity Page](public/snow-devil-demo/Ci%20activity%204.gif)
+
+### Pull Request Diff Viewer
+![Pull Request Diff Viewer](public/snow-devil-demo/PR%20diff%205.gif)
+
+### Architecture Context Overview
+![Architecture Context Overview](public/snow-devil-demo/Architecture%20context%206.gif)
+
+### Repository Explorer View
+![Repository Explorer View](public/snow-devil-demo/Repo%20View%207.gif)
+
+### Commit Graph and Diff Explorer
+![Commit Graph and Diff Explorer](public/snow-devil-demo/commit%20graph%20and%20diff%208.gif)
+
 ## Product status
 
 - Version: `0.1.0`
