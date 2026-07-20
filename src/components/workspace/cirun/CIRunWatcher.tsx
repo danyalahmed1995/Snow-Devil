@@ -394,7 +394,7 @@ export function CIRunWatcher({ repositoryId, runId, initialAttempt, initialJobId
           <h3>Jobs</h3>
           <ul className="ci-job-list">
             {jobs.map(job => (
-              <li key={job.id} className={`ci-job-item ${String(job.id) === effectiveSelectedJobId ? 'selected' : ''}`} onClick={() => selectJob(String(job.id))}>
+              <li key={job.id} className={`ci-run-sidebar-job-item ${String(job.id) === effectiveSelectedJobId ? 'selected' : ''}`} onClick={() => selectJob(String(job.id))}>
                 {getStatusIcon(job.status, job.conclusion)}
                 <span>{job.name}</span>
                 {job.status === 'completed' && job.completed_at && job.started_at && <small>{formatDurationCompact(new Date(job.completed_at).getTime() - new Date(job.started_at).getTime())}</small>}

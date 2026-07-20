@@ -109,6 +109,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const pollRes = await invoke<string | null>('poll_github_device_flow', { clientId, deviceCode });
       
       if (pollRes) {
+        // Now fetch account details
+        await get().checkAuthStatus();
         set({ 
           isConnecting: false,
           deviceCode: null,
@@ -116,8 +118,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           verificationUri: null,
           pollError: null
         });
-        // Now fetch account details
-        await get().checkAuthStatus();
       } else {
         set({ pollError: "Authorization still pending. Make sure you clicked 'Authorize' on GitHub." });
       }
@@ -154,6 +154,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const pollRes = await invoke<string | null>('poll_github_device_flow', { clientId, deviceCode });
           if (pollRes) {
             isPolling = false;
+            await get().checkAuthStatus();
             set({ 
               isConnecting: false,
               deviceCode: null,
@@ -161,7 +162,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               verificationUri: null,
               pollError: null
             });
-            await get().checkAuthStatus();
             return;
           }
         } catch (e: any) {

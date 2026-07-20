@@ -131,7 +131,7 @@
   flex: 1;
 }
 
-.ci-job-item {
+.ci-run-sidebar-job-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -141,23 +141,23 @@
   font-size: 13px;
 }
 
-.ci-job-item:hover {
+.ci-run-sidebar-job-item:hover {
   background: var(--surface-hover);
 }
 
-.ci-job-item.selected {
+.ci-run-sidebar-job-item.selected {
   background: var(--surface-selected);
   border-left: 3px solid var(--accent);
 }
 
-.ci-job-item span {
+.ci-run-sidebar-job-item span {
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.ci-job-item small {
+.ci-run-sidebar-job-item small {
   color: var(--text-muted);
   font-size: 11px;
 }
