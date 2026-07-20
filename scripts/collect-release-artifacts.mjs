@@ -57,7 +57,7 @@ if (label.startsWith('macos-')) {
   const evidence = `${fileResult.stdout}\n${lipoResult.stdout}`;
   const wanted = label === 'macos-apple-silicon' ? 'arm64' : 'x86_64';
   const unwanted = label === 'macos-apple-silicon' ? 'x86_64' : 'arm64';
-  if (!evidence.includes(wanted) || evidence.includes(unwanted) || /fat file|universal/i.test(evidence)) {
+  if (!evidence.includes(wanted) || evidence.includes(unwanted) || /(?<!non-)fat file|universal/i.test(evidence)) {
     throw new Error(`Expected a non-universal ${wanted} executable, received:\n${evidence}`);
   }
   architecture = wanted;
