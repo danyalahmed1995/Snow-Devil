@@ -1,7 +1,7 @@
 # Snow Devil
 
 <p align="center">
-  <img src="public/readme-icon.svg" width="120" height="120" alt="Snow Devil icon">
+  <img src="assets/readme-icon.svg" width="120" height="120" alt="Snow Devil icon">
 </p>
 
 <p align="center">
@@ -23,7 +23,7 @@
   <img alt="Windows" src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white">
 </p>
 
-![Snow Devil home](public/snow-devil-demo/Home%202.gif)
+![Snow Devil home](assets/snow-devil-demo/Home%202.gif)
 
 Snow Devil brings GitHub account and repository data into one local desktop app. It is built for checking what needs attention, following work through review and CI, browsing repository history, and opening the evidence behind a signal without moving through several GitHub pages.
 
@@ -50,20 +50,22 @@ GitHub access is read-only. When GitHub does not provide enough data, Snow Devil
 
 <table>
   <tr>
-    <td width="50%"><strong>Onboarding</strong><br><img src="public/snow-devil-demo/Onboarding%201.gif" alt="Snow Devil onboarding"></td>
-    <td width="50%"><strong>Home</strong><br><img src="public/snow-devil-demo/Home%202.gif" alt="Snow Devil home screen"></td>
+    <td width="50%"><strong>Onboarding</strong><br><img src="assets/snow-devil-demo/Onboarding%201.gif" alt="Snow Devil onboarding"></td>
+    <td width="50%"><strong>Home</strong><br><img src="assets/snow-devil-demo/Home%202.gif" alt="Snow Devil home screen"></td>
   </tr>
   <tr>
-    <td width="50%"><strong>Flow</strong><br><img src="public/snow-devil-demo/Flow%203.gif" alt="Snow Devil flow board"></td>
-    <td width="50%"><strong>CI Activity</strong><br><img src="public/snow-devil-demo/Ci%20activity%204.gif" alt="Snow Devil CI activity"></td>
+    <td width="50%"><strong>Flow</strong><br><img src="assets/snow-devil-demo/Flow%203.gif" alt="Snow Devil flow board"></td>
+    <td width="50%"><strong>CI Activity</strong><br><img src="assets/snow-devil-demo/Ci%20activity%204.gif" alt="Snow Devil CI activity"></td>
   </tr>
   <tr>
-    <td width="50%"><strong>Pull request diff</strong><br><img src="public/snow-devil-demo/PR%20diff%205.gif" alt="Snow Devil pull request diff"></td>
-    <td width="50%"><strong>Architecture context</strong><br><img src="public/snow-devil-demo/Architecture%20context%206.gif" alt="Snow Devil architecture context"></td>
+    <td width="50%"><strong>Pull request diff</strong><br><img src="assets/snow-devil-demo/PR%20diff%205.gif" alt="Snow Devil pull request diff"></td>
+    <td width="50%"><strong>Architecture context</strong><br><img src="assets/snow-devil-demo/Architecture%20context%206.gif" alt="Snow Devil architecture context"></td>
   </tr>
   <tr>
-    <td width="50%"><strong>Repository explorer</strong><br><img src="public/snow-devil-demo/Repo%20View%207.gif" alt="Snow Devil repository explorer"></td>
-    <td width="50%"><strong>Commit graph and diff</strong><br><img src="public/snow-devil-demo/commit%20graph%20and%20diff%208.gif" alt="Snow Devil commit graph and diff"></td>
+    <td width="50%"><strong>Repository explorer</strong><br><img src="assets/snow-devil-demo/Repo%20View%207.gif" alt="Snow Devil repository explorer"></td>
+    <td width="50%"><strong>Commit graph and diff</strong><br><img src="assets/snow-devil-demo/commit%20graph%20and%20diff%208.gif" alt="Snow Devil commit graph and diff"></td>
+  </tr>
+</table>diff"></td>
   </tr>
 </table>
 
