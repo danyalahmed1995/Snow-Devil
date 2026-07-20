@@ -1,4 +1,4 @@
-# Snow Devil
+<h1 align="center">Snow Devil</h1>
 
 <p align="center">
   <img src="assets/readme-icon.svg" width="120" height="120" alt="Snow Devil icon">
