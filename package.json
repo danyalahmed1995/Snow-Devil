@@ -47,7 +47,7 @@
     "jsdom": "^29.1.1",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.61.1",
-    "vite": "^7.0.4",
+    "vite": "^8.1.5",
     "vitest": "^4.1.9"
   },
   "pnpm": {
