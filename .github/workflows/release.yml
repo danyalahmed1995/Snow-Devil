@@ -71,6 +71,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features
       - run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
   build-release:
@@ -128,7 +130,7 @@ jobs:
         with:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
       - name: Verify, rename, and checksum release assets
-        run: node scripts/collect-release-artifacts.mjs "${{ matrix.label }}" "${{ matrix.target }}" "${{ needs.release-preflight.outputs.version }}"
+        run: node scripts/collect-release-artifacts.mjs "${{ matrix.label }}" "${{ matrix.target }}" "${{ needs.release-preflight.outputs.tag }}"
       - name: Upload verified platform assets
         uses: actions/upload-artifact@v7
         with:
@@ -150,8 +152,12 @@ jobs:
           pattern: release-*
           path: release-assets
           merge-multiple: true
-      - name: Verify downloaded checksums and asset count
+      - name: Verify, consolidate, and create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
         run: |
+          # 1. Verify individual checksum files to ensure file transfer integrity
           mapfile -d '' CHECKSUMS < <(find release-assets -type f -name '*.sha256' -print0)
           if [ "${#CHECKSUMS[@]}" -ne 6 ]; then
             echo "Expected 6 checksum files, found ${#CHECKSUMS[@]}."
@@ -160,19 +166,75 @@ jobs:
           for checksum in "${CHECKSUMS[@]}"; do
             (cd "$(dirname "$checksum")" && sha256sum -c "$(basename "$checksum")")
           done
-          find release-assets -type f -printf '%P %s bytes\n' | sort
-      - name: Create one draft GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
-        run: |
+
+          # 2. Verify all six expected installers exist and are non-empty
+          INSTALLERS=(
+            "Snow-Devil-${RELEASE_TAG}-Windows-x64-Setup.exe"
+            "Snow-Devil-${RELEASE_TAG}-Windows-x64.msi"
+            "Snow-Devil-${RELEASE_TAG}-Linux-x86_64.AppImage"
+            "Snow-Devil-${RELEASE_TAG}-Linux-x86_64.deb"
+            "Snow-Devil-${RELEASE_TAG}-macOS-Apple-Silicon.dmg"
+            "Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg"
+          )
+          for installer in "${INSTALLERS[@]}"; do
+            file_path="release-assets/${installer}"
+            if [ ! -f "$file_path" ]; then
+              echo "Required installer not found: $file_path"
+              exit 1
+            fi
+            if [ ! -s "$file_path" ]; then
+              echo "Required installer is empty: $file_path"
+              exit 1
+            fi
+          done
+
+          # 3. Create the single consolidated checksum file containing all 6 installers
+          SHA_FILE="Snow-Devil-${RELEASE_TAG}-SHA256SUMS.txt"
+          rm -f "release-assets/$SHA_FILE"
+          for installer in "${INSTALLERS[@]}"; do
+            (cd release-assets && sha256sum "$installer" >> "$SHA_FILE")
+          done
+
+          # 4. Verify the consolidated checksum file
+          (cd release-assets && sha256sum -c "$SHA_FILE")
+
+          # 5. Build explicit allowlist of assets to upload (exactly 7 files: 6 installers + 1 checksum file)
+          ASSETS=(
+            "release-assets/Snow-Devil-${RELEASE_TAG}-Windows-x64-Setup.exe"
+            "release-assets/Snow-Devil-${RELEASE_TAG}-Windows-x64.msi"
+            "release-assets/Snow-Devil-${RELEASE_TAG}-Linux-x86_64.AppImage"
+            "release-assets/Snow-Devil-${RELEASE_TAG}-Linux-x86_64.deb"
+            "release-assets/Snow-Devil-${RELEASE_TAG}-macOS-Apple-Silicon.dmg"
+            "release-assets/Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg"
+            "release-assets/${SHA_FILE}"
+          )
+
+          # 6. Refuse to overwrite an existing release for the same tag
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "A release already exists for $RELEASE_TAG; refusing to overwrite it."
             exit 1
           fi
-          mapfile -d '' ASSETS < <(find release-assets -type f -print0)
+
+          # 7. Format a draft release notes file outlining platform notes and signature status
+          cat <<EOF > release-notes.md
+### Releases
+
+Unsigned Snow Devil desktop builds for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. macOS users may need to approve the app in Privacy & Security.
+
+Verify downloads with the checksum file: \`Snow-Devil-${RELEASE_TAG}-SHA256SUMS.txt\`.
+
+#### Platform Installers:
+- **Windows x64 EXE setup**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64-Setup.exe\` (normal interactive installation)
+- **Windows x64 MSI**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64.msi\` (managed or manual installation)
+- **Linux AppImage**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.AppImage\` (portable option)
+- **Linux Debian package**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.deb\` (for Debian-based distributions)
+- **macOS Apple Silicon**: \`Snow-Devil-${RELEASE_TAG}-macOS-Apple-Silicon.dmg\` (for M-series Macs)
+- **macOS Intel**: \`Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg\` (for Intel Macs)
+EOF
+
+          # 8. Create the draft release with the explicit asset allowlist and the release-notes file
           gh release create "$RELEASE_TAG" "${ASSETS[@]}" \
             --draft \
             --verify-tag \
             --title "Snow Devil $RELEASE_TAG" \
-            --notes "Unsigned Snow Devil desktop builds for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. macOS users may need to approve the app in Privacy & Security."
+            --notes-file release-notes.md
