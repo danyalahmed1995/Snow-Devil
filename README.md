@@ -141,6 +141,16 @@ CI runs frontend checks, Rust checks, Playwright tests, and a Windows Tauri buil
 - Release builds are currently unsigned.
 - Team workspaces, cloud sync, role-based access, and multi-account support are not implemented.
 
+## Releases
+
+Releases are triggered by pushing a version tag such as `v0.2.0` to the repository. The available installers are:
+
+- **Windows x64**: The `.exe` setup is the normal interactive installer, and the `.msi` package is available for managed or manual installation.
+- **Linux x64**: The `.AppImage` package is the portable option, and the `.deb` package is for Debian-based distributions.
+- **macOS**: Separate Apple Silicon `.dmg` (for M-series Macs) and Intel `.dmg` (for Intel Macs) downloads are provided.
+
+All release builds are currently unsigned. Please verify your downloads using the SHA-256 checksums file attached to each release.
+
 ## License
 
 Snow Devil is released under the [GNU General Public License v3.0](LICENSE).

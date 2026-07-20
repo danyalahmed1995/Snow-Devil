@@ -4,28 +4,14 @@ import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs
 import { basename, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const [label, target, version] = process.argv.slice(2);
-if (!label || !target || !version) {
-  throw new Error('Usage: node scripts/collect-release-artifacts.mjs <label> <target> <version>');
+import { getDefinitions } from './release-filenames.mjs';
+
+const [label, target, releaseTag] = process.argv.slice(2);
+if (!label || !target || !releaseTag) {
+  throw new Error('Usage: node scripts/collect-release-artifacts.mjs <label> <target> <releaseTag>');
 }
 
-const definitions = {
-  'windows-x64': [
-    { folder: 'msi', extension: '.msi', output: `Snow-Devil_${version}_windows-x64.msi` },
-    { folder: 'nsis', extension: '.exe', output: `Snow-Devil_${version}_windows-x64_setup.exe` },
-  ],
-  'linux-x64': [
-    { folder: 'appimage', extension: '.AppImage', output: `Snow-Devil_${version}_linux-x86_64.AppImage` },
-    { folder: 'deb', extension: '.deb', output: `Snow-Devil_${version}_linux-x86_64.deb` },
-  ],
-  'macos-apple-silicon': [
-    { folder: 'dmg', extension: '.dmg', output: `Snow-Devil_${version}_macos-aarch64.dmg` },
-  ],
-  'macos-intel': [
-    { folder: 'dmg', extension: '.dmg', output: `Snow-Devil_${version}_macos-x86_64.dmg` },
-  ],
-};
-
+const definitions = getDefinitions(releaseTag);
 const expected = definitions[label];
 if (!expected) throw new Error(`Unsupported release label: ${label}`);
 
