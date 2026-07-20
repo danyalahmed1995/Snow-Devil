@@ -31,20 +31,20 @@ GitHub access is read-only. When GitHub does not provide enough data, Snow Devil
 
 ## Main features
 
-- **Home** — current work, completed work, attention items, recent repositories, recent merges, and quick links.
-- **Flow** — issues, coding work, pull requests, review, checks, ready, merged, released, and deployed stages with filters and saved views.
-- **CI Activity, Delivery Risks, and Flow Analytics** — failed checks, aging branches, blocked work, review waits, throughput, lead time, and delivery status.
-- **Account History and Repository History** — choose a date and inspect what was active, completed, or known at that point.
-- **Repository Explorer** — browse branches and files, preview text, Markdown, and common image formats, and search inside files.
-- **Pull request diff viewer** — changed-file navigation, unified and split views, additions and deletions, filters, and GitHub fallback.
-- **Commit graph** — branch topology, commit details, changed files, patch previews, CI state, commit comparison, and links into Flow, History, CI, Architecture, and the repository explorer.
-- **Architecture context** — inspect repository components, dependencies, ownership, impact, and supporting evidence.
-- **Sketch Board** — paste screenshots from the clipboard, move and resize them, draw, add text, erase items, undo and redo, and keep the board locally.
-- **Personal Focus and notifications** — review requests, failed checks, work in progress, aging work, and a native unread inbox.
-- **Command palette** — open app pages, repositories, files, issues, pull requests, and cached items from one search box.
-- **Region capture** — hold the right mouse button, drag over part of the app, and copy that area to the clipboard for the Sketch Board or another tool.
-- **Native tabs and GitHub tabs** — keep multiple work items open, restore tabs after restart, and reuse an existing tab instead of opening duplicates.
-- **Demo Mode** — run the main app against deterministic local fixtures without connecting a GitHub account.
+- **Home** current work, completed work, attention items, recent repositories, recent merges, and quick links.
+- **Flow** issues, coding work, pull requests, review, checks, ready, merged, released, and deployed stages with filters and saved views.
+- **CI Activity, Delivery Risks, and Flow Analytics** failed checks, aging branches, blocked work, review waits, throughput, lead time, and delivery status.
+- **Account History and Repository History** choose a date and inspect what was active, completed, or known at that point.
+- **Repository Explorer** browse branches and files, preview text, Markdown, and common image formats, and search inside files.
+- **Pull request diff viewer** changed-file navigation, unified and split views, additions and deletions, filters, and GitHub fallback.
+- **Commit graph** branch topology, commit details, changed files, patch previews, CI state, commit comparison, and links into Flow, History, CI, Architecture, and the repository explorer.
+- **Architecture context** inspect repository components, dependencies, ownership, impact, and supporting evidence.
+- **Sketch Board** paste screenshots from the clipboard, move and resize them, draw, add text, erase items, undo and redo, and keep the board locally.
+- **Personal Focus and notifications** review requests, failed checks, work in progress, aging work, and a native unread inbox.
+- **Command palette** open app pages, repositories, files, issues, pull requests, and cached items from one search box.
+- **Region capture** hold the right mouse button, drag over part of the app, and copy that area to the clipboard for the Sketch Board or another tool.
+- **Native tabs and GitHub tabs** keep multiple work items open, restore tabs after restart, and reuse an existing tab instead of opening duplicates.
+- **Demo Mode** run the main app against deterministic local fixtures without connecting a GitHub account.
 
 ## App tour
 
@@ -136,7 +136,6 @@ CI runs frontend checks, Rust checks, Playwright tests, and a Windows Tauri buil
 
 ## Current limits
 
-- Windows is the primary supported desktop platform.
 - Available history depends on GitHub permissions, pagination, retention, and API coverage.
 - The native diff viewer does not replace GitHub's full review UI.
 - Repository tree filtering is not full GitHub code search.
