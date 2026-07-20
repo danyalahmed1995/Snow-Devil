@@ -38,7 +38,16 @@ await mkdir(outputRoot, { recursive: true });
 
 let architecture = target;
 if (label.startsWith('macos-')) {
-  const executable = files.find(path => path.includes(`${sep}macos${sep}`) && path.includes(`${sep}Contents${sep}MacOS${sep}`));
+  let executable = files.find(path => path.includes(`${sep}macos${sep}`) && path.includes(`${sep}Contents${sep}MacOS${sep}`));
+  if (!executable) {
+    const rawPath = join(workspace, 'src-tauri', 'target', target, 'release', 'github-graph-browser');
+    try {
+      await stat(rawPath);
+      executable = rawPath;
+    } catch {
+      executable = undefined;
+    }
+  }
   if (!executable) throw new Error('Could not find the macOS app executable for architecture validation.');
   const fileResult = spawnSync('file', ['-b', executable], { encoding: 'utf8' });
   const lipoResult = spawnSync('lipo', ['-info', executable], { encoding: 'utf8' });
