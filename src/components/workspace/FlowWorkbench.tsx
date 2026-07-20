@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { Globe } from 'lucide-react';
 import { FlowPipeline, SourceControls } from './FlowPipeline';
 import { useInfiniteSource } from '../../hooks/useInfiniteSource';
 import { useReplayBuffer } from '../../hooks/useReplayBuffer';
@@ -474,9 +475,22 @@ export function FlowWorkbench() {
           </div>
         ) : isLoading ? (
           <WorkspaceLoadingState title={`Loading ${scope} flow…`} detail="Fetching items and pipeline status from cache." />
+        ) : session.status === 'disconnected' && appMode !== 'demo' ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', gap: '16px' }}>
+            <div style={{ 
+              width: '64px', height: '64px', borderRadius: '50%', background: 'var(--surface-hover)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)' 
+            }}>
+              <Globe size={32} />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', color: 'var(--text-primary)' }}>GitHub Disconnected</h2>
+              <p style={{ margin: 0, fontSize: '14px', maxWidth: '320px', lineHeight: '1.5' }}>Please connect your GitHub account using the panel in the bottom left corner to view your flow.</p>
+            </div>
+          </div>
         ) : error && items.length === 0 ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--danger)' }}>
-            Error loading flow: {(error as Error).message}
+            Error loading flow: {(error as Error).message || String(error)}
           </div>
         ) : (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

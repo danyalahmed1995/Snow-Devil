@@ -1,4 +1,4 @@
-import { Eraser, MousePointer2, Pencil, Redo2, RotateCcw, Trash2, Type, Undo2, X } from 'lucide-react';
+import { Eraser, MousePointer2, Pencil, Plus, Redo2, RotateCcw, Trash2, Type, Undo2, X } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layout-store';
 import { useSketchStore, type SketchTool } from '../../stores/sketch-store';
 import './SketchInspector.css';
@@ -39,7 +39,7 @@ export function SketchInspector() {
         <div className="sketch-inspector__section-title"><strong>Color</strong><span>{color.toUpperCase()}</span></div>
         <div className="sketch-inspector__colors" role="radiogroup" aria-label="Drawing color">
           {COLORS.map((value) => <button key={value} role="radio" aria-label={value} aria-checked={color === value} className={color === value ? 'is-active' : ''} style={{ background: value }} onClick={() => setColor(value)}/>)}
-          <label className="sketch-inspector__custom-color" title="Custom color"><input type="color" value={color} onChange={(event) => setColor(event.target.value)}/><span>+</span></label>
+          <label className="sketch-inspector__custom-color" title="Custom color"><input type="color" value={color} onChange={(event) => setColor(event.target.value)}/><span><Plus size={12} strokeWidth={3} /></span></label>
         </div>
       </section>
       <section className="sketch-inspector__section">

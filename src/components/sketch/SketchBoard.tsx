@@ -209,10 +209,10 @@ export function SketchBoard() {
       <div><h1>Sketch Board</h1><p>Paste screenshots, mark them up, and arrange quick visual notes.</p></div>
       <div className={`sketch-board__paste-status${pasteNotice ? ' has-message' : ''}`}><ClipboardPaste size={15}/><span>{pasteNotice || 'Press Ctrl+V to paste a screenshot'}</span></div>
     </header>
+    {!hydrated && <div className="sketch-board__empty" aria-live="polite"><strong>Restoring board…</strong></div>}
+    {hydrated && !elements.length && <div className="sketch-board__empty" aria-hidden="true"><span><ImageIcon size={27}/></span><strong>Paste your first screenshot</strong><small>Copy an image to your clipboard, then press Ctrl+V</small></div>}
     <div className="sketch-board__viewport" ref={viewportRef}>
       <div className="sketch-board__stage sketch-board__paper-grid" ref={stageRef} onPointerDown={stagePointerDown} onPointerMove={stagePointerMove} onPointerUp={finishStroke} onPointerCancel={finishStroke}>
-        {!hydrated && <div className="sketch-board__empty" aria-live="polite"><strong>Restoring board…</strong></div>}
-        {hydrated && !elements.length && <div className="sketch-board__empty" aria-hidden="true"><span><ImageIcon size={27}/></span><strong>Paste your first screenshot</strong><small>Copy an image to your clipboard, then press Ctrl+V</small></div>}
         <InkLayer tool={tool} onRemove={remove} onSelect={select} draftRef={draftLineRef}/>
         {visualElements.map((element) => element.type === 'image'
           ? <SketchImageItem key={element.id} element={element} selected={selectedId === element.id} tool={tool} onPointerDown={startDrag} onResize={startResize}/>
