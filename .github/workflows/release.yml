@@ -216,21 +216,21 @@ jobs:
           fi
 
           # 7. Format a draft release notes file outlining platform notes and signature status
-          cat <<EOF > release-notes.md
-### Releases
+          cat <<EOF | sed 's/^          //' > release-notes.md
+          ### Releases
 
-Unsigned Snow Devil desktop builds for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. macOS users may need to approve the app in Privacy & Security.
+          Unsigned Snow Devil desktop builds for Windows x64, Linux x64, macOS Apple Silicon, and macOS Intel. macOS users may need to approve the app in Privacy & Security.
 
-Verify downloads with the checksum file: \`Snow-Devil-${RELEASE_TAG}-SHA256SUMS.txt\`.
+          Verify downloads with the checksum file: \`Snow-Devil-${RELEASE_TAG}-SHA256SUMS.txt\`.
 
-#### Platform Installers:
-- **Windows x64 EXE setup**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64-Setup.exe\` (normal interactive installation)
-- **Windows x64 MSI**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64.msi\` (managed or manual installation)
-- **Linux AppImage**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.AppImage\` (portable option)
-- **Linux Debian package**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.deb\` (for Debian-based distributions)
-- **macOS Apple Silicon**: \`Snow-Devil-${RELEASE_TAG}-macOS-Apple-Silicon.dmg\` (for M-series Macs)
-- **macOS Intel**: \`Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg\` (for Intel Macs)
-EOF
+          #### Platform Installers:
+          - **Windows x64 EXE setup**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64-Setup.exe\` (normal interactive installation)
+          - **Windows x64 MSI**: \`Snow-Devil-${RELEASE_TAG}-Windows-x64.msi\` (managed or manual installation)
+          - **Linux AppImage**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.AppImage\` (portable option)
+          - **Linux Debian package**: \`Snow-Devil-${RELEASE_TAG}-Linux-x86_64.deb\` (for Debian-based distributions)
+          - **macOS Apple Silicon**: \`Snow-Devil-${RELEASE_TAG}-macOS-Apple-Silicon.dmg\` (for M-series Macs)
+          - **macOS Intel**: \`Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg\` (for Intel Macs)
+          EOF
 
           # 8. Create the draft release with the explicit asset allowlist and the release-notes file
           gh release create "$RELEASE_TAG" "${ASSETS[@]}" \
