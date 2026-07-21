@@ -29,6 +29,7 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
+      release_exists: ${{ steps.release.outputs.release_exists }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,35 +50,48 @@ jobs:
           node scripts/check-release-version.mjs "$REQUESTED_TAG"
           git rev-parse --verify "refs/tags/$REQUESTED_TAG^{commit}"
           if gh release view "$REQUESTED_TAG" >/dev/null 2>&1; then
-            echo "A release already exists for $REQUESTED_TAG; refusing to overwrite it."
-            exit 1
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+            echo "A release already exists for $REQUESTED_TAG; later release jobs will no-op."
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
           echo "version=${REQUESTED_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Install Tauri Linux dependencies
+        if: steps.release.outputs.release_exists != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential curl file libayatana-appindicator3-dev libssl-dev \
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf wget
-      - run: pnpm install --frozen-lockfile
+      - if: steps.release.outputs.release_exists != 'true'
+        run: pnpm install --frozen-lockfile
       - uses: dtolnay/rust-toolchain@1.96.0
+        if: steps.release.outputs.release_exists != 'true'
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+        if: steps.release.outputs.release_exists != 'true'
         with:
           workspaces: src-tauri -> target
           shared-key: release-preflight-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-      - run: pnpm lint
-      - run: pnpm test
-      - run: pnpm build
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
+      - if: steps.release.outputs.release_exists != 'true'
+        run: pnpm lint
+      - if: steps.release.outputs.release_exists != 'true'
+        run: pnpm test
+      - if: steps.release.outputs.release_exists != 'true'
+        run: pnpm build
+      - if: steps.release.outputs.release_exists != 'true'
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+      - if: steps.release.outputs.release_exists != 'true'
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features
+      - if: steps.release.outputs.release_exists != 'true'
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-features
 
   build-release:
     name: Build ${{ matrix.label }}
     needs: release-preflight
+    if: needs.release-preflight.outputs.release_exists != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -142,6 +156,7 @@ jobs:
   publish-release:
     name: Create Draft Release
     needs: [release-preflight, build-release]
+    if: ${{ always() && needs.release-preflight.result == 'success' && (needs.build-release.result == 'success' || needs.release-preflight.outputs.release_exists == 'true') }}
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
@@ -149,11 +164,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
+        if: needs.release-preflight.outputs.release_exists != 'true'
         with:
           pattern: release-*
           path: release-assets
           merge-multiple: true
       - name: Verify, consolidate, and create draft release
+        if: needs.release-preflight.outputs.release_exists != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.release-preflight.outputs.tag }}
@@ -210,13 +227,7 @@ jobs:
             "release-assets/${SHA_FILE}"
           )
 
-          # 6. Refuse to overwrite an existing release for the same tag
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "A release already exists for $RELEASE_TAG; refusing to overwrite it."
-            exit 1
-          fi
-
-          # 7. Format a draft release notes file outlining platform notes and signature status
+          # 6. Format a draft release notes file outlining platform notes and signature status
           cat <<EOF | sed 's/^          //' > release-notes.md
           ### Releases
 
@@ -233,9 +244,12 @@ jobs:
           - **macOS Intel**: \`Snow-Devil-${RELEASE_TAG}-macOS-Intel.dmg\` (for Intel Macs)
           EOF
 
-          # 8. Create the draft release with the explicit asset allowlist and the release-notes file
+          # 7. Create the draft release with the explicit asset allowlist and the release-notes file
           gh release create "$RELEASE_TAG" "${ASSETS[@]}" \
             --draft \
             --verify-tag \
             --title "Snow Devil $RELEASE_TAG" \
             --notes-file release-notes.md
+      - name: Confirm existing release
+        if: needs.release-preflight.outputs.release_exists == 'true'
+        run: echo "Release ${{ needs.release-preflight.outputs.tag }} already exists; nothing to publish."
