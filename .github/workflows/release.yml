@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -66,7 +66,7 @@ jobs:
             librsvg2-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf wget
       - if: steps.release.outputs.release_exists != 'true'
         run: pnpm install --frozen-lockfile
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@1.100.0
         if: steps.release.outputs.release_exists != 'true'
         with:
           components: rustfmt, clippy
@@ -119,13 +119,13 @@ jobs:
         with:
           ref: ${{ needs.release-preflight.outputs.tag }}
       - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - uses: dtolnay/rust-toolchain@1.96.0
+      - uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
